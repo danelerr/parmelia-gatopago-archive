@@ -14,8 +14,8 @@
     "typecheck:worker-runtime": "tsc --noEmit --project test-worker/tsconfig.json"
   },
   "dependencies": {
-    "@simplewebauthn/server": "13.3.2",
-    "hono": "^4.13.3",
+    "@simplewebauthn/server": "13.3.3",
+    "hono": "^4.13.5",
     "jose": "^6.2.10",
     "viem": "^2.55.19"
   },
@@ -23,7 +23,7 @@
     "@cloudflare/vitest-pool-workers": "0.22.0",
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.13.3",
-    "eslint": "^10.9.0",
+    "eslint": "^10.9.1",
     "globals": "^17.11.0",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.67.0",
