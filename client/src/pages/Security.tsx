@@ -33,11 +33,7 @@ import MeliSprite from "../components/brand/MeliSprite";
 import PasskeyList, { type ManagedPasskey } from "../components/PasskeyList";
 import { useDialog } from "../hooks/useDialog";
 import { safeReturnTo } from "../lib/safeReturnTo";
-import {
-	signalCompletePasskeyInventory,
-	signalCurrentPasskeyUser,
-	signalRemovedPasskey,
-} from "../lib/passkeySignals";
+import { signalRemovedPasskey } from "../lib/passkeySignals";
 import { useChainPortfolio, type ChainPortfolio } from "../hooks/useChainPortfolio";
 
 export interface PasskeyStatusResponse {
@@ -119,24 +115,6 @@ export default function Security({ user, previewStatus, previewPortfolio }: { us
 			return false;
 		}
 	}, [fetchStatus, previewStatus, previewing]);
-
-	useEffect(() => {
-		if (!status?.rpId || !user.uid) return;
-		void signalCurrentPasskeyUser({
-			rpId: status.rpId,
-			uid: user.uid,
-			name: user.email || user.uid,
-			displayName: user.displayName || user.email || t("webauthn.accountLabel"),
-		});
-		void signalCompletePasskeyInventory({
-			rpId: status.rpId,
-			uid: user.uid,
-			credentialIds: status.passkeys
-				.filter((passkey) => passkey.rpId === status.rpId)
-				.map((passkey) => passkey.credentialId),
-			inventoryComplete: status.chainStatus === "available" && status.credentialInventoryComplete,
-		});
-	}, [status, t, user.displayName, user.email, user.uid]);
 
 	useEffect(() => {
 		if (previewing) return;

@@ -9,6 +9,8 @@
     "../src/**/*.ts",
     "../vitest.worker.config.ts",
     "../worker-configuration.d.ts",
+    "../v3/bindings.d.ts",
+    "../vitest.v3-worker.config.ts",
     "../../shared/**/*.ts"
   ]
 }

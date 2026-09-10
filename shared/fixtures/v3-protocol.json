@@ -1,0 +1,337 @@
+{
+  "schemaVersion": 4,
+  "bootstrapPolicy": {
+    "mode": "bootstrap",
+    "signers": [
+      {
+        "kind": 1,
+        "verifier": "0xabababababababababababababababababababab",
+        "verifierCodeHash": "0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+        "key": "0x0101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+        "roles": 1,
+        "assisted": false
+      }
+    ],
+    "spendThreshold": 1,
+    "adminThreshold": 0,
+    "recoveryThreshold": 0,
+    "recoveryDelaySeconds": 259200,
+    "upgradeDelaySeconds": 259200
+  },
+  "activePolicy": {
+    "mode": "active",
+    "signers": [
+      {
+        "kind": 0,
+        "verifier": "0x0000000000000000000000000000000000000000",
+        "verifierCodeHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "key": "0x2222222222222222222222222222222222222222",
+        "roles": 7,
+        "assisted": false
+      },
+      {
+        "kind": 1,
+        "verifier": "0xabababababababababababababababababababab",
+        "verifierCodeHash": "0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+        "key": "0x0101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+        "roles": 7,
+        "assisted": false
+      }
+    ],
+    "spendThreshold": 1,
+    "adminThreshold": 2,
+    "recoveryThreshold": 2,
+    "recoveryDelaySeconds": 259200,
+    "upgradeDelaySeconds": 259200
+  },
+  "activePolicyHash": "0xe9201a89142e16647476d09833322b3fb02171421c9c74482698f3faf63418eb",
+  "identity": {
+    "generation": 3,
+    "initialSecurityCommitment": "0xd38de251dea2039928182e210af0a69648dc7e43968438f7a849fed5e6b547d7",
+    "userSaltCommitment": "0x2222222222222222222222222222222222222222222222222222222222222222",
+    "factory": "0x3333333333333333333333333333333333333333",
+    "proxyInitCodeHash": "0x4444444444444444444444444444444444444444444444444444444444444444",
+    "expectedTypeHash": "0x2b23434ee0abc6c38017385189c39ed7d7b0cfd15eb171f99f6a420b32e5b653",
+    "accountId": "0xadcf122e31f4e2fe8372b15576f43fd57411130605905058099fb4a40399afde",
+    "accountAddress": "0x0Eaf9A91B59EA316485E931E2Fde28403d8a1ac8"
+  },
+  "chains": [
+    "43113",
+    "84532",
+    "421614"
+  ],
+  "chainScopeHash": "0x447c99cb00989790aab455cdda69697d3bada69b867a6a53fde65bbe0b95300f",
+  "calls": [
+    {
+      "target": "0x5555555555555555555555555555555555555555",
+      "value": "0",
+      "data": "0xa9059cbb"
+    },
+    {
+      "target": "0x6666666666666666666666666666666666666666",
+      "value": "12",
+      "data": "0x"
+    }
+  ],
+  "callsHash": "0xcc48e8b3f89537409d96ed9633dba4d8eb5cd9493d1b2f2ed298d3c0b91eb350",
+  "securityManifest": {
+    "accountId": "0xadcf122e31f4e2fe8372b15576f43fd57411130605905058099fb4a40399afde",
+    "generation": 3,
+    "securityVersion": "2",
+    "previousManifestHash": "0x7777777777777777777777777777777777777777777777777777777777777777",
+    "policyHash": "0xe9201a89142e16647476d09833322b3fb02171421c9c74482698f3faf63418eb",
+    "chainScopeHash": "0x447c99cb00989790aab455cdda69697d3bada69b867a6a53fde65bbe0b95300f"
+  },
+  "securityManifestHash": "0xc53a034448eb55fff19a472234c0a29c10148ae292b738dffb42e3244e69a705",
+  "authorizations": {
+    "InitializationApproval": {
+      "domain": {
+        "name": "GatoPago Account",
+        "version": "3",
+        "chainId": 84532,
+        "verifyingContract": "0x0Eaf9A91B59EA316485E931E2Fde28403d8a1ac8"
+      },
+      "message": {
+        "accountId": "0xadcf122e31f4e2fe8372b15576f43fd57411130605905058099fb4a40399afde",
+        "generation": 3,
+        "initialSecurityCommitment": "0xd38de251dea2039928182e210af0a69648dc7e43968438f7a849fed5e6b547d7",
+        "userSaltCommitment": "0x2222222222222222222222222222222222222222222222222222222222222222",
+        "factory": "0x3333333333333333333333333333333333333333",
+        "entryPoint": "0x9999999999999999999999999999999999999999",
+        "chainScopeHash": "0x447c99cb00989790aab455cdda69697d3bada69b867a6a53fde65bbe0b95300f",
+        "nonce": "0",
+        "validAfter": 1800000000,
+        "validUntil": 1800000300
+      },
+      "expectedTypeHash": "0x0e53848011841d06a3177326a7965a462df7109709238db2d16aecb8b71d214e",
+      "expectedStructHash": "0x3741c7f0991866f2f6798d301fc1a58707de12a8d5dd4f2c7fb152e81009112a",
+      "expectedDigest": "0x4191800bec43f17590a9b292e64e0d3864af568427ce148d7b932a66f6925922"
+    },
+    "BootstrapActivation": {
+      "domain": {
+        "name": "GatoPago Account",
+        "version": "3",
+        "chainId": 84532,
+        "verifyingContract": "0x0Eaf9A91B59EA316485E931E2Fde28403d8a1ac8"
+      },
+      "message": {
+        "accountId": "0xadcf122e31f4e2fe8372b15576f43fd57411130605905058099fb4a40399afde",
+        "generation": 3,
+        "securityVersion": "1",
+        "nonce": "7",
+        "validAfter": 1800000000,
+        "validUntil": 1800000300,
+        "proposalValidUntil": 1800400000,
+        "previousManifestHash": "0x7777777777777777777777777777777777777777777777777777777777777777",
+        "nextPolicyHash": "0xe9201a89142e16647476d09833322b3fb02171421c9c74482698f3faf63418eb",
+        "chainScopeHash": "0x447c99cb00989790aab455cdda69697d3bada69b867a6a53fde65bbe0b95300f"
+      },
+      "expectedTypeHash": "0x0c125e484863e784505f498583624b60d4dceae74146e6930d1b70fa5de4338f",
+      "expectedStructHash": "0x987aec488bbb68c0e33db23cad5ffa079fd5c1e9dca57509c9d4122139cb635f",
+      "expectedDigest": "0x012b8d51168935f9d10d0f0ac1ebdbb57e75a34b342082da253d6ff22f4ae628"
+    },
+    "EnrollmentProof": {
+      "domain": {
+        "name": "GatoPago Account",
+        "version": "3",
+        "chainId": 84532,
+        "verifyingContract": "0x0Eaf9A91B59EA316485E931E2Fde28403d8a1ac8"
+      },
+      "message": {
+        "accountId": "0xadcf122e31f4e2fe8372b15576f43fd57411130605905058099fb4a40399afde",
+        "generation": 3,
+        "securityVersion": "1",
+        "nonce": "7",
+        "validAfter": 1800000000,
+        "validUntil": 1800000300,
+        "signerId": "0x38f9417c10e9f88e78cfc5b10be48fde73c4f3664d53e4bafe1241cf7a3bcc61",
+        "nextPolicyHash": "0xe9201a89142e16647476d09833322b3fb02171421c9c74482698f3faf63418eb",
+        "contextHash": "0xfaabece4287364aa9ab5a56bffc144f107fdd5f7da91b39eee3c2d649d4d1108"
+      },
+      "expectedTypeHash": "0xd51d80f6a2d9ced4926ec67c69923e58a4bb7a1467e2222c10c9726ef5b63c0f",
+      "expectedStructHash": "0x61c484acafd7091b94d82ad8f4ba2508dff89c4ea6744b3ed22ae1ebe21dcc81",
+      "expectedDigest": "0xb46b11aab3baeb5c67360536ce04813b0c43628e47f3ba715ec3ff2a62a319a3"
+    },
+    "VetoProposal": {
+      "domain": {
+        "name": "GatoPago Account",
+        "version": "3",
+        "chainId": 84532,
+        "verifyingContract": "0x0Eaf9A91B59EA316485E931E2Fde28403d8a1ac8"
+      },
+      "message": {
+        "accountId": "0xadcf122e31f4e2fe8372b15576f43fd57411130605905058099fb4a40399afde",
+        "generation": 3,
+        "securityVersion": "1",
+        "nonce": "7",
+        "validAfter": 1800000000,
+        "validUntil": 1800000300,
+        "proposalHash": "0xfaabece4287364aa9ab5a56bffc144f107fdd5f7da91b39eee3c2d649d4d1108",
+        "signerId": "0x38f9417c10e9f88e78cfc5b10be48fde73c4f3664d53e4bafe1241cf7a3bcc61"
+      },
+      "expectedTypeHash": "0x32e893a799ddcbd2f7df9dfa45787bf914372f7a59c5dcc821c1fe46915bcd72",
+      "expectedStructHash": "0xdc18d703a2c6ce7a12539b9d3f66c21375da4a6581f0fca13b605f2939a93a99",
+      "expectedDigest": "0x1f4bf1d86e1ceb2124f74cf1b3818aaa71741acf3ccabfd35cad8e496ed81914"
+    },
+    "FreezeUpgrades": {
+      "domain": {
+        "name": "GatoPago Account",
+        "version": "3",
+        "chainId": 84532,
+        "verifyingContract": "0x0Eaf9A91B59EA316485E931E2Fde28403d8a1ac8"
+      },
+      "message": {
+        "accountId": "0xadcf122e31f4e2fe8372b15576f43fd57411130605905058099fb4a40399afde",
+        "generation": 3,
+        "securityVersion": "1",
+        "nonce": "7",
+        "validAfter": 1800000000,
+        "validUntil": 1800000300,
+        "previousManifestHash": "0x7777777777777777777777777777777777777777777777777777777777777777",
+        "chainScopeHash": "0x447c99cb00989790aab455cdda69697d3bada69b867a6a53fde65bbe0b95300f"
+      },
+      "expectedTypeHash": "0xc886c1c6ec19f89bb9a5656dd3673bd31399150fa3da72f7c82a59b28db04b48",
+      "expectedStructHash": "0x8db572bd24e935cce9e6e9819f85a02626db23e1c8dacda5a7c4dced0fffccf0",
+      "expectedDigest": "0xc7d9ba1d80ae55b4bb843b002d462aada89fc95a4348dcba3e9a19ef07fffda4"
+    },
+    "CommitProposal": {
+      "domain": {
+        "name": "GatoPago Account",
+        "version": "3",
+        "chainId": 84532,
+        "verifyingContract": "0x0Eaf9A91B59EA316485E931E2Fde28403d8a1ac8"
+      },
+      "message": {
+        "accountId": "0xadcf122e31f4e2fe8372b15576f43fd57411130605905058099fb4a40399afde",
+        "generation": 3,
+        "securityVersion": "1",
+        "nonce": "7",
+        "validAfter": 1800000000,
+        "validUntil": 1800000300,
+        "previousManifestHash": "0x7777777777777777777777777777777777777777777777777777777777777777",
+        "proposalHash": "0xfaabece4287364aa9ab5a56bffc144f107fdd5f7da91b39eee3c2d649d4d1108",
+        "acknowledgementsHash": "0xfafafafafafafafafafafafafafafafafafafafafafafafafafafafafafafafa",
+        "chainScopeHash": "0x447c99cb00989790aab455cdda69697d3bada69b867a6a53fde65bbe0b95300f"
+      },
+      "expectedTypeHash": "0x52c986bc6705f95812db1cf13911f55845414f96d369845d293938c2347819d5",
+      "expectedStructHash": "0x0310123483146250387b70f49aeb4842c8b681cee5d92368b7c23bfbcdfb4b35",
+      "expectedDigest": "0x7628c25812ee403b00bba23dd10ccb7d9936f02ad0c57f35e2a7adb2445868a2"
+    },
+    "ExecutionPlan": {
+      "domain": {
+        "name": "GatoPago Account",
+        "version": "3",
+        "chainId": 84532,
+        "verifyingContract": "0x0Eaf9A91B59EA316485E931E2Fde28403d8a1ac8"
+      },
+      "message": {
+        "accountId": "0xadcf122e31f4e2fe8372b15576f43fd57411130605905058099fb4a40399afde",
+        "generation": 3,
+        "securityVersion": "1",
+        "nonce": "7",
+        "validAfter": 1800000000,
+        "validUntil": 1800000300,
+        "executionMode": 0,
+        "entryPoint": "0x9999999999999999999999999999999999999999",
+        "userOpHash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "callsHash": "0xcc48e8b3f89537409d96ed9633dba4d8eb5cd9493d1b2f2ed298d3c0b91eb350",
+        "assetLimitsHash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "feePolicyHash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "paymaster": "0xdddddddddddddddddddddddddddddddddddddddd",
+        "previewHash": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      },
+      "expectedTypeHash": "0xb0658de8865e196b755a085a4a68bae03a865e8e2778a9cfce83be077490ca5c",
+      "expectedStructHash": "0x4203aac413a9ffb9895965703131cb0b7aba10f5f1e1d5d97ff41176b3d17b50",
+      "expectedDigest": "0xc0c8233b3168a3ffcb1455e7c8be4c50703eb233796ecfc810e6ca439af248a2"
+    },
+    "SecurityChange": {
+      "domain": {
+        "name": "GatoPago Account",
+        "version": "3",
+        "chainId": 84532,
+        "verifyingContract": "0x0Eaf9A91B59EA316485E931E2Fde28403d8a1ac8"
+      },
+      "message": {
+        "accountId": "0xadcf122e31f4e2fe8372b15576f43fd57411130605905058099fb4a40399afde",
+        "generation": 3,
+        "securityVersion": "1",
+        "nonce": "7",
+        "validAfter": 1800000000,
+        "validUntil": 1800000300,
+        "proposalValidUntil": 1800400000,
+        "previousManifestHash": "0x7777777777777777777777777777777777777777777777777777777777777777",
+        "nextPolicyHash": "0xe9201a89142e16647476d09833322b3fb02171421c9c74482698f3faf63418eb",
+        "chainScopeHash": "0x447c99cb00989790aab455cdda69697d3bada69b867a6a53fde65bbe0b95300f"
+      },
+      "expectedTypeHash": "0x67d7599ec5c44da96700e3b3c24f7b635aa84133c7e8a615d4ea825b5efe6ae7",
+      "expectedStructHash": "0xd0006eea309d1ecc768ea7801c49e5f007c618e483fb71761beac1a206d6b934",
+      "expectedDigest": "0xfaabece4287364aa9ab5a56bffc144f107fdd5f7da91b39eee3c2d649d4d1108"
+    },
+    "RecoveryProposal": {
+      "domain": {
+        "name": "GatoPago Account",
+        "version": "3",
+        "chainId": 84532,
+        "verifyingContract": "0x0Eaf9A91B59EA316485E931E2Fde28403d8a1ac8"
+      },
+      "message": {
+        "accountId": "0xadcf122e31f4e2fe8372b15576f43fd57411130605905058099fb4a40399afde",
+        "generation": 3,
+        "securityVersion": "1",
+        "nonce": "7",
+        "validAfter": 1800000000,
+        "validUntil": 1800000300,
+        "proposalValidUntil": 1800400000,
+        "previousManifestHash": "0x7777777777777777777777777777777777777777777777777777777777777777",
+        "nextPolicyHash": "0xe9201a89142e16647476d09833322b3fb02171421c9c74482698f3faf63418eb",
+        "chainScopeHash": "0x447c99cb00989790aab455cdda69697d3bada69b867a6a53fde65bbe0b95300f"
+      },
+      "expectedTypeHash": "0x561c3ccb1218289d81f97ba5f3a87df4e17f715daeeba4cf7eb8f1ab9122d3a6",
+      "expectedStructHash": "0xf316e14865d7018f9f204c31b24e1f9a86db7de9a02d5f13f76db01eb854585d",
+      "expectedDigest": "0x5d62f27e571cfaaab2904270ef1024bcec999a2b33d7b8a3eb15d2627c96b4c5"
+    },
+    "UpgradeManifest": {
+      "domain": {
+        "name": "GatoPago Account",
+        "version": "3",
+        "chainId": 84532,
+        "verifyingContract": "0x0Eaf9A91B59EA316485E931E2Fde28403d8a1ac8"
+      },
+      "message": {
+        "accountId": "0xadcf122e31f4e2fe8372b15576f43fd57411130605905058099fb4a40399afde",
+        "generation": 3,
+        "securityVersion": "1",
+        "nonce": "7",
+        "validAfter": 1800000000,
+        "validUntil": 1800000300,
+        "previousManifestHash": "0x7777777777777777777777777777777777777777777777777777777777777777",
+        "implementation": "0xabababababababababababababababababababab",
+        "runtimeCodeHash": "0xacacacacacacacacacacacacacacacacacacacacacacacacacacacacacacacac",
+        "storageLayoutHash": "0xadadadadadadadadadadadadadadadadadadadadadadadadadadadadadadadad",
+        "chainScopeHash": "0x447c99cb00989790aab455cdda69697d3bada69b867a6a53fde65bbe0b95300f",
+        "migrationCallHash": "0xaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeaeae"
+      },
+      "expectedTypeHash": "0xca0859a531094ccf02541b6228eaef97880fec60b460f7f4a8c58101809c8ae2",
+      "expectedStructHash": "0x30206d9940743457ed78b82a399e8c5abf91346744271cdd30336273e6689ac5",
+      "expectedDigest": "0xd91c275a410aac4c273619692dfe8867003f220650e1c2b7680a9b98f17c82b2"
+    }
+  },
+  "contractSignature": {
+    "message": {
+      "accountId": "0xadcf122e31f4e2fe8372b15576f43fd57411130605905058099fb4a40399afde",
+      "generation": 3,
+      "securityVersion": "1",
+      "applicationHash": "0xdadadadadadadadadadadadadadadadadadadadadadadadadadadadadadadada"
+    },
+    "expectedTypeHash": "0x3df8beb060ead85f252832a6b857a1213cd11f8c702cbaca79ea866d1e7b6340",
+    "expectedStructHash": "0x9d3bfc405f9c33bb14afa6ab61e5543cd1e4dc4ee6b827866d88e15639c3089c",
+    "expectedDigest": "0xcca233af9ac4c7a5010a065170108237563f7f659777aa31904b4d2ececdb6cb",
+    "votes": [
+      {
+        "signerIndex": 0,
+        "signature": "0x1234"
+      }
+    ],
+    "envelope": "0xadcf122e31f4e2fe8372b15576f43fd57411130605905058099fb4a40399afde00000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000001dadadadadadadadadadadadadadadadadadadadadadadadadadadadadadadada00000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000021234000000000000000000000000000000000000000000000000000000000000"
+  }
+}

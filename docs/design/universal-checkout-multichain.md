@@ -1,5 +1,13 @@
 # Plan de implementación — Checkout universal y aceptación USDC en tres redes
 
+> [!IMPORTANT]
+> Este documento continúa siendo válido para el dominio Payments y su primer
+> alcance comercial USDC. Sus referencias a cuentas personales Fase 4A,
+> `home/satellite` o activación Fuji fueron reemplazadas el 1 de septiembre de
+> 2026 por
+> [`ARQUITECTURA-OBJETIVO-V3.md`](../architecture/ARQUITECTURA-OBJETIVO-V3.md).
+> Payments debe integrar la V3 sólo mediante `SettlementDestination`.
+
 **Fecha:** 25 de agosto de 2026<br>
 **Estado:** Fase 1 cerrada; Fase 2.1 y hardening de Fase 3 promovidos en testnet; Fase 4 transaccional pendiente<br>
 **Primera salida objetivo:** Arbitrum como red hogar; cobros desde Arbitrum, Base y Avalanche<br>

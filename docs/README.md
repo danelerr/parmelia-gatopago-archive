@@ -10,19 +10,30 @@ La estrategia, narrativa y marca viven en la [documentación central de `parmeli
 
 Cuando dos documentos se contradigan, se aplica este orden:
 
-1. Código, migraciones, configuración ejecutable y estado de red verificado.
-2. [`ARCHITECTURE.md`](../ARCHITECTURE.md) y [`SECURITY.md`](../SECURITY.md).
-3. [`openapi.yaml`](./openapi.yaml), [referencia de API](./api.md) y [contrato de errores](./reference/error-codes.md).
-4. Diseños técnicos de `design/`.
-5. Runbook de [despliegue](../DEPLOY.md), integraciones y `runbooks/`.
-6. [`roadmap.md`](./roadmap.md).
-7. Auditorías fechadas e histórico; son evidencia de un corte, no verdad permanente.
+1. Para el **estado actual**, código, migraciones, configuración ejecutable y
+   estado de red verificado.
+2. Para el **diseño, decisiones y gates V3**,
+   [`V3-FUSION.md`](./architecture/V3-FUSION.md). Que sea canónico no significa
+   que esté implementado. Los documentos modulares que fusiona permanecen como
+   trazabilidad especializada.
+3. [`ARCHITECTURE.md`](../ARCHITECTURE.md) y [`SECURITY.md`](../SECURITY.md).
+4. [`openapi.yaml`](./openapi.yaml), [referencia de API](./api.md) y [contrato de errores](./reference/error-codes.md).
+5. Diseños técnicos de `design/`.
+6. Runbook de [despliegue](../DEPLOY.md), integraciones y `runbooks/`.
+7. [`roadmap.md`](./roadmap.md).
+8. Auditorías fechadas e histórico; son evidencia de un corte, no verdad permanente.
 
 ## Mapa
 
 ### Núcleo
 
 - [Arquitectura](../ARCHITECTURE.md)
+- [V3 FUSION revisión 2: Next.js, Consumer, Wallet Core, Flow, Platform y entregas E0–E8](./architecture/V3-FUSION.md)
+- [Arquitectura objetivo V3: corrección total onchain, EVM, recovery y salida](./architecture/ARQUITECTURA-OBJETIVO-V3.md)
+- [Decisiones base V3: EVM core, autoridad, upgrades, proveedores y salida](./architecture/DECISIONES-BASE-V3.md)
+- [Revisión de seguridad pre-V3: threat model, hallazgos y gates](./architecture/REVISION-SEGURIDAD-PRE-V3.md)
+- [Extensión futura: soberanía, Stellar, API, B2B y B2B2C](./architecture/STELLAR-SOBERANIA-API-V3.md)
+- [Radar ERC/EIP: base, adapters, pilotos y descartes](./architecture/RADAR-EIP-ERC-V3.md)
 - [Arquitectura visual y diagramas PlantUML](./architecture/README.md)
 - [Correcciones y fundamentos de la separación Payments](./architecture/CORRECCIONES.md)
 - [Seguridad](../SECURITY.md)

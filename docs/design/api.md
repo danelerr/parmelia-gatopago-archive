@@ -1,5 +1,12 @@
 # GatoPago API — Diseño de la infraestructura de cobros
 
+> [!IMPORTANT]
+> Este documento y `openapi.yaml` describen el prototipo EVM actual. Antes de
+> publicar la API, `chain_id`, addresses `0x`, tokens ERC-20 y autorizaciones
+> Solidity deben reemplazarse por el contrato multirail definido en
+> [`STELLAR-SOBERANIA-API-V3.md`](../architecture/STELLAR-SOBERANIA-API-V3.md).
+> No se mantendrá compatibilidad artificial porque aún estamos en testnet.
+
 > Diseño (no implementación) de la API de GatoPago como **infraestructura de
 > cobros stablecoin con liquidación local**: "Stripe/MercadoPago para dólares
 > digitales on-chain". El objeto central es el **Payment Intent**.

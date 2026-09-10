@@ -1,6 +1,18 @@
 # GatoPago - Arquitectura del Proyecto
 
-> Actualizado: agosto 2026. Índice y precedencia: [`docs/README.md`](./docs/README.md).
+> [!IMPORTANT]
+> La arquitectura objetivo fue refinada el 8 de septiembre de 2026. Next.js
+> unifica landing, Consumer/PWA y checkout bajo gatopago.com; los dos Workers
+> evolucionan a Wallet Core y Flow Core. La fuente canónica para Account V3,
+> seguridad, portabilidad, ambientes, Platform Accounts y API multirail es
+> [`docs/architecture/V3-FUSION.md`](./docs/architecture/V3-FUSION.md).
+> Los documentos especializados permanecen como trazabilidad de origen y están
+> enumerados dentro de V3 FUSION revisión 2. Sus entregas E0–E8 priorizan
+> terminar Consumer antes de publicar Business/Platform; Stellar es posterior.
+> Las referencias de este documento a Account V2 y Fase 4A describen el sistema
+> existente o histórico, no el siguiente diseño a desplegar.
+
+> Actualizado: septiembre 2026. Índice y precedencia: [`docs/README.md`](./docs/README.md).
 > Complementos: [mapa visual y diagramas PlantUML](./docs/architecture/README.md),
 > [diseño cross-chain](./docs/design/cross-chain.md),
 > [`docs/api.md`](./docs/api.md) (API pública `/v1`),
@@ -9,7 +21,11 @@
 
 ## Resumen
 
-**GatoPago** es una web app de pagos cripto sobre **Account Abstraction (ERC-4337, EntryPoint v0.9)**. La red activa es **Arbitrum** (Sepolia para testnet, One para producción), elegida por su soporte de **RIP-7212** (verificación P256/passkey barata, ~3,450 gas) y su gas bajo. El código es **portable**: cambiar de cadena es agregar una entrada de configuración y desplegar los contratos.
+El sistema actual es una web app de pagos cripto sobre **Account Abstraction
+(ERC-4337, EntryPoint v0.9)** y usa Arbitrum como configuración histórica. Eso
+no define V3. La arquitectura objetivo usa EVM como núcleo, una misma dirección
+por EVM habilitada y Base como candidata inicial a red sugerida, siempre sujeta
+al mismo capability gate que Arbitrum, Avalanche y Monad.
 
 El producto combina:
 
@@ -193,6 +209,12 @@ gatopago/
 
 ## Portabilidad y cuentas multichain
 
+> **Estado de esta sección:** describe el runtime/candidato V2–Fase 4A y se
+> conserva para poder auditar el código actual. No es una guía para agregar la
+> siguiente chain. La arquitectura de implementación siguiente es Account V3,
+> definida en
+> [`V3-FUSION.md`](./docs/architecture/V3-FUSION.md).
+
 Toda la configuración dependiente de la red vive en **`shared/networks.ts`**.
 `CHAIN_KEY` conserva la red hogar, mientras `APP_ENABLED_CHAIN_KEYS` describe
 las redes visibles y `APP_WALLET_RAIL_CHAIN_KEYS` habilita ejecución monetaria
@@ -239,8 +261,9 @@ Fase 4A incorpora una cuenta Fuji satélite, pero su rail remoto sigue cerrado
 hasta existir manifests, bytecode y E2E verificables. Las mainnets continúan
 desactivadas.
 
-La especificación vigente está en
-[`docs/design/app-multichain-phase-4a.md`](./docs/design/app-multichain-phase-4a.md).
+La especificación V2 histórica está en
+[`docs/design/app-multichain-phase-4a.md`](./docs/design/app-multichain-phase-4a.md);
+no debe promoverse.
 
 ---
 

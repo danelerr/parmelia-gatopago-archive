@@ -27,7 +27,11 @@
       ]
     },
     "server": {
+      "ignoreBinaries": [
+        "anvil"
+      ],
       "entry": [
+        "src/v3/index.ts",
         "src/routes/crosschain.routes.ts",
         "src/routes/links.routes.ts",
         "src/routes/merchant.routes.ts",

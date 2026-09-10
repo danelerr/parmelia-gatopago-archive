@@ -1,5 +1,12 @@
 # Acceso de emergencia y soberanía de las cuentas GatoPago
 
+> [!IMPORTANT]
+> Este documento describe la ruta de emergencia de Account V2. Se conserva como
+> análisis histórico y requisito de producto, pero la arquitectura objetivo y
+> el formato de salida V3 están en
+> [`ARQUITECTURA-OBJETIVO-V3.md`](../architecture/ARQUITECTURA-OBJETIVO-V3.md).
+> No debe asumirse que las limitaciones de V2 son el diseño final.
+
 **Fecha:** 24 de agosto de 2026<br>
 **Estado de la decisión:** aceptada; implementación del cliente de rescate pendiente<br>
 **Alcance:** cuentas `AccountWebAuthnV2`, passkeys WebAuthn y EntryPoint ERC-4337 v0.9<br>

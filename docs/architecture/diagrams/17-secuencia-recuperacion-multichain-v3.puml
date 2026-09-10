@@ -1,0 +1,54 @@
+@startuml
+!include _theme.puml
+title GatoPago V3 — Seguridad multichain sin atomicidad ficticia
+
+actor "Persona / guardians" as person
+participant "App o emergency client" as client COLOR_WEB
+participant "Relayers independientes\nGatoPago opcional" as relay COLOR_LIVE
+database "Manifest store\npayload público" as db COLOR_DATA
+participant "Account V3\nBase" as base COLOR_EXTERNAL
+participant "Account V3\nArbitrum" as arb COLOR_EXTERNAL
+participant "Account V3\nAvalanche" as avax COLOR_EXTERNAL
+
+person -> client : propone Security Manifest N+1
+client -> client : prevHash + chain scope +\nspend/admin/recovery + timelock
+person -> client : threshold firma manifest
+client -> db : publica payload inmutable
+
+alt Cambio planificado
+  par prepare en cada instancia
+    relay -> base : prepare(N+1)
+    relay -> arb : prepare(N+1)
+    relay -> avax : prepare(N+1)
+  end
+  alt todas confirman + finality
+    par commit independiente
+      relay -> base : commit(N+1)
+      relay -> arb : commit(N+1)
+      relay -> avax : commit(N+1)
+    end
+  else alguna chain no responde
+    relay --> client : pending / needs_security_sync
+    client -> client : bloquear flows App/Payments\nno afirmar atomicidad onchain
+  end
+else Emergencia por signer comprometido
+  par broadcast freeze/recovery
+    client -> base : freeze/scheduleRecovery
+    client -> arb : freeze/scheduleRecovery
+    client -> avax : freeze/scheduleRecovery
+  end
+  client -> client : mostrar resultado por chain
+end
+
+note over base,avax
+  Cada chain mantiene su manifest anterior hasta aceptar el nuevo.
+  Una chain caída conserva riesgo residual: ninguna UI puede
+  revocar onchain de forma atómica entre redes independientes.
+end note
+
+note over person,relay
+  Firebase/correo nunca bastan.
+  El payload puede relayarse sin secreto GatoPago.
+end note
+
+@enduml

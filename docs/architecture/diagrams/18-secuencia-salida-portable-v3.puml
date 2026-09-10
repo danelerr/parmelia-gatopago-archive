@@ -1,0 +1,46 @@
+@startuml
+!include _theme.puml
+title GatoPago V3 — Sacar la cuenta de GatoPago
+
+actor "Persona" as person
+participant "App Web" as app COLOR_WEB
+participant "App Worker" as worker COLOR_LIVE
+participant "Cuenta V3" as account COLOR_EXTERNAL
+participant "Wallet / multisig externa" as external COLOR_EXTERNAL
+participant "Emergency client / CLI" as emergency COLOR_READY
+participant "RPC / bundler público" as public_rpc COLOR_EXTERNAL
+
+person -> app : iniciar salida
+app -> worker : solicitar Portable Account Package
+worker --> app : manifests, addresses, codehashes,\nchains y llaves públicas
+app --> person : descarga JSON verificable
+
+person -> external : crea/controla signer independiente
+person -> app : agregar ECDSA/ERC-1271/passkey externa
+app -> account : operación autorizada por threshold actual
+account --> app : validator instalado
+person -> external : firma operación self-funded de prueba
+external -> public_rpc : UserOperation/tx sin GatoPago
+public_rpc -> account : validate + execute
+account --> person : prueba de control independiente
+
+person -> emergency : importa paquete público
+emergency -> public_rpc : consulta todas las chains
+public_rpc --> emergency : codehash + seguridad + activos
+person -> emergency : retirar asistencia / cambiar impl / sweep
+emergency -> account : operaciones firmadas sin App/paymaster
+account --> emergency : confirmadas
+
+opt Cerrar perfil offchain
+  person -> app : revocar sesiones y borrar perfil
+  app -> worker : sólo después de verificar cada chain
+end
+
+note over person,emergency
+  Una passkey no exporta su clave privada.
+  Se exporta la cuenta pública y se transfiere
+  control a un validator independiente.
+end note
+
+@enduml
+

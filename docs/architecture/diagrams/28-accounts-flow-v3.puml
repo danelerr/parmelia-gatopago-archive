@@ -1,0 +1,44 @@
+@startuml
+!include _theme.puml
+title V3 revisión 2 — propiedad de recursos y modelo Accounts
+left to right direction
+package "Wallet Core — escritura Wallet D1" {
+  rectangle "UserIdentity\nFirebase subject" as user
+  rectangle "Party\nindividual / organización" as party
+  rectangle "Wallet\ncontrol + política" as wallet
+  rectangle "AccountIdentity\nidentidad criptográfica EVM" as identity
+  rectangle "WalletAccount / instance\nred + address + estado" as instance
+  user --> party : vínculo autorizado
+  party --> wallet : ownership
+  wallet --> identity
+  wallet --> instance
+  identity --> instance : misma address EVM\nestado local por red
+}
+package "Flow Core — escritura Flow D1" {
+  rectangle "Organization / Membership\nroles de producto" as org
+  rectangle "Project / Customer\ntenant + mode + external ID" as customer
+  rectangle "SettlementAccount\ndestino probado + revisión" as settlement
+  rectangle "PaymentLink\nplantilla" as link
+  rectangle "PaymentIntent\nobligación + snapshot" as intent
+  rectangle "PaymentAttempt\nejecución" as attempt
+  rectangle "Evidence / Journal / Outbox\nsettlement y compensaciones" as evidence
+  org --> customer
+  org --> settlement
+  link --> intent : 1 a N si reusable
+  settlement --> intent : snapshot inmutable
+  intent --> attempt : 1 a N
+  attempt --> evidence
+}
+settlement ..> instance : referencia/proyección o destino externo\nsin FK entre D1
+org ..> party : vínculo por ID y prueba\nsin ownership duplicado
+note bottom of wallet
+  Party no es Firebase UID.
+  MPC no es un modelo de custodia.
+  Membership no autoriza gasto onchain.
+end note
+note bottom of evidence
+  Activo autocustodiado: verdad onchain.
+  Hold offchain: advisory, no bloqueo del activo.
+  FinancialAccount custodial: producto futuro.
+end note
+@enduml

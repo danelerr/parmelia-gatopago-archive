@@ -11,6 +11,7 @@ export class ResponseBodyTooLargeError extends Error {
 export async function readJsonBounded<T>(
 	response: Response,
 	maxBytes = DEFAULT_MAX_JSON_BYTES,
+	signal?: AbortSignal,
 ): Promise<T> {
 	if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0) {
 		throw new RangeError("maxBytes must be a positive safe integer");
@@ -26,9 +27,15 @@ export async function readJsonBounded<T>(
 	const decoder = new TextDecoder();
 	let bytesRead = 0;
 	let text = "";
+	let cancellation: Promise<void> | undefined;
+	const abort = () => { cancellation = reader.cancel("read aborted").catch(() => undefined); };
+	signal?.addEventListener("abort", abort, { once: true });
 	try {
+		if (signal?.aborted) abort();
+		signal?.throwIfAborted();
 		while (true) {
 			const { done, value } = await reader.read();
+			signal?.throwIfAborted();
 			if (done) break;
 			bytesRead += value.byteLength;
 			if (bytesRead > maxBytes) {
@@ -39,6 +46,8 @@ export async function readJsonBounded<T>(
 		}
 		text += decoder.decode();
 	} finally {
+		signal?.removeEventListener("abort", abort);
+		await cancellation;
 		reader.releaseLock();
 	}
 	return JSON.parse(text) as T;

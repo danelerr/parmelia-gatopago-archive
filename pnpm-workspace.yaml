@@ -4,6 +4,8 @@ packages:
   - payments-worker
   - shared
   - dashboard
+  - packages/*
+  - apps/*
 minimumReleaseAge: 10080
 blockExoticSubdeps: true
 trustPolicy: no-downgrade
@@ -13,6 +15,9 @@ overrides:
   # typescript-eslint 8.67.0 supports TypeScript <6.1; keep optional peer
   # resolution aligned with the workspace compiler until that range advances.
   typescript: 6.0.3
+  # Next/styled-jsx promotes this existing Babel dependency to production.
+  # GHSA-c83g-rgw3-j3cx and GHSA-73wf-gq98-2v4g are fixed from 4.28.7.
+  'browserslist@<4.28.7': '4.28.8'
   '@grpc/grpc-js@<1.9.16': '>=1.9.16'
   'protobufjs@<7.6.3': '>=7.6.3'
   'ws@<8.21.0': '>=8.21.0'

@@ -1,14 +1,38 @@
 # Arquitectura visual de GatoPago
 
-**Fecha de corte:** 31 de agosto de 2026
-**Estado:** Fase 3 App promovida; Fase 4A multichain implementada localmente,
-todavía no migrada ni desplegada
+**Revisión de diseño:** 8 de septiembre de 2026 (V3 FUSION revisión 2)
+**Estado:** arquitectura V3 especificada; Fase 4A `home/satellite` reemplazada y
+prohibida como base de implementación
 **Propósito:** explicar el sistema con un único vocabulario y separar con claridad
 lo que está desplegado, lo que está listo en código y lo que sólo es futuro.
 
 Este directorio es el punto de entrada visual. No reemplaza al código,
 `ARCHITECTURE.md`, `SECURITY.md` ni `DEPLOY.md`, y no autoriza por sí mismo un
 despliegue.
+
+## Documento canónico V3
+
+[`V3-FUSION.md`](./V3-FUSION.md) es el documento principal y consolidado. Reúne
+la arquitectura objetivo, decisiones base, threat model, gates de seguridad,
+recuperación y salida soberana, radar ERC/EIP, Next.js, dominios/ambientes,
+Platform Accounts, Flow y API B2C/B2B/B2B2C. Stellar sigue como implementación
+futura. El orden vigente es E0–E8, con Consumer como primera entrega.
+
+Los documentos especializados permanecen como snapshots de origen; sus planes
+anteriores no prevalecen sobre V3 FUSION revisión 2:
+
+- [`ARQUITECTURA-OBJETIVO-V3.md`](./ARQUITECTURA-OBJETIVO-V3.md): diseño total;
+- [`DECISIONES-BASE-V3.md`](./DECISIONES-BASE-V3.md): decisiones no ambiguas;
+- [`REVISION-SEGURIDAD-PRE-V3.md`](./REVISION-SEGURIDAD-PRE-V3.md): bloqueos y gates;
+- [`RADAR-EIP-ERC-V3.md`](./RADAR-EIP-ERC-V3.md): estándares;
+- [`STELLAR-SOBERANIA-API-V3.md`](./STELLAR-SOBERANIA-API-V3.md): extensión futura.
+
+En caso de ambigüedad se aplica el orden de autoridad declarado en
+`V3-FUSION.md`. Stellar no bloquea V3 ni se convierte en la cuenta principal.
+
+Los diagramas 12–14 describen el candidato histórico Fase 4A y se conservan
+sólo como evidencia de la decisión reemplazada. **No deben implementarse ni
+desplegarse.** Los diagramas canónicos V3 empiezan en el 15.
 
 ## La arquitectura en una frase
 
@@ -22,7 +46,12 @@ El Dashboard es otro cliente web y Checkout es una ruta de App Web. No tienen
 Worker propio. El control de corte dentro de App Backend es compatibilidad
 temporal, no un tercer BFF.
 
-## Vocabulario canónico
+## Vocabulario del runtime anterior y transición
+
+Objetivo V3: `apps/web/` Next.js sustituye `client/` y la landing Astro;
+`server/` evoluciona lógicamente a Wallet Core y `payments-worker/` a Flow Core.
+Los nombres físicos de recursos se conservan hasta un corte justificado.
+La tabla siguiente identifica el runtime anterior, no una implementación V3.
 
 | Nombre que usamos | Nombre técnico | Responsabilidad |
 |---|---|---|
@@ -39,9 +68,12 @@ temporal, no un tercer BFF.
 Un *binding* es el nombre que ve el código. El nombre D1 o Queue es el recurso
 que ve el operador en Cloudflare.
 
-## Estado comprobado
+## Estado histórico documentado
 
-| Elemento | Estado remoto actual |
+Evidencia de agosto/2 de septiembre conservada para trazabilidad. No se auditó
+el estado remoto al refinar el diseño el 8 de septiembre de 2026.
+
+| Elemento | Estado registrado en el corte anterior |
 |---|---|
 | App Backend `server` | Desplegado. |
 | App DB `parmeliadb` | Existe; todavía contiene también las tablas históricas de pagos. |
@@ -55,7 +87,7 @@ que ve el operador en Cloudflare.
 | Dashboard Vercel | `https://dashboard.parmelia.me` es accesible anónimamente y muestra el login de GatoPago; Vercel SSO está desactivado. |
 | Routers de pago | Desplegados y verificados en testnets soportadas. No se activó mainnet. |
 | Autenticación App | Google + Firebase Email Link están promovidos; `0035`–`0037` y Passkey Security v2 están activos. No usa Resend, SMTP ni OTP numérico. Las ceremonias WebAuthn reales de aceptación siguen requiriendo gesto del usuario. |
-| Fase 4A App multichain | Candidato local: Arbitrum hogar + Avalanche Fuji satélite, AVAX/USDC, seguridad versionada y migración `0038`. Fuji no tiene contratos desplegados/verificados ni rail remoto habilitado. |
+| Fase 4A App multichain | Rechazada como arquitectura objetivo. Sus cambios locales no deben promoverse; V3 reemplaza `home/satellite` por una identidad y dirección determinística únicas. |
 
 ## Orden de lectura
 
@@ -94,15 +126,61 @@ que ve el operador en Cloudflare.
     — Google, Turnstile, solicitud/consumo de Email Link y recovery de un solo
     uso sin proveedor de correo adicional.
     ![Secuencia de magic link de la App](./rendered/11-secuencia-magic-link-app.svg)
-12. [C4 nivel 3: App multichain](./diagrams/12-c4-componentes-app-multichain.puml)
-    — portfolio explícito, scope por request, seguridad e indexación por red.
+12. **Histórico reemplazado:** [C4 nivel 3: App multichain](./diagrams/12-c4-componentes-app-multichain.puml)
+    — candidato Fase 4A `home/satellite`; no implementar.
     ![C4 App multichain](./rendered/12-c4-componentes-app-multichain.svg)
-13. [Activación y seguridad multichain](./diagrams/13-secuencia-activacion-seguridad-multichain.puml)
-    — bytecode gate, despliegue de la satélite y sincronización de passkeys.
+13. **Histórico reemplazado:** [Activación y seguridad multichain](./diagrams/13-secuencia-activacion-seguridad-multichain.puml)
+    — secuencia satélite descartada; no implementar.
     ![Secuencia de seguridad multichain](./rendered/13-secuencia-activacion-seguridad-multichain.svg)
-14. [Actividad de una operación multichain](./diagrams/14-actividad-operacion-app-multichain.puml)
-    — capacidades, rail, cuenta y seguridad fallan cerrado sin fallback.
+14. **Histórico reemplazado:** [Actividad de una operación multichain](./diagrams/14-actividad-operacion-app-multichain.puml)
+    — gates útiles, pero modelo de cuenta reemplazado.
     ![Actividad multichain](./rendered/14-actividad-operacion-app-multichain.svg)
+15. [C4 arquitectura objetivo V3](./diagrams/15-c4-arquitectura-objetivo-v3.puml)
+    — dominios, clientes, adaptadores y salida independiente.
+    ![C4 arquitectura objetivo V3](./rendered/15-c4-arquitectura-objetivo-v3.svg)
+16. [Cuenta determinística V3](./diagrams/16-secuencia-cuenta-deterministica-v3.puml)
+    — misma dirección, recepción contrafactual y primer gasto.
+    ![Cuenta determinística V3](./rendered/16-secuencia-cuenta-deterministica-v3.svg)
+17. [Recuperación multichain V3](./diagrams/17-secuencia-recuperacion-multichain-v3.puml)
+    — Security Manifest, timelock y sincronización explícita.
+    ![Recuperación multichain V3](./rendered/17-secuencia-recuperacion-multichain-v3.svg)
+18. [Salida portable V3](./diagrams/18-secuencia-salida-portable-v3.puml)
+    — export package y transferencia de control sin depender de GatoPago.
+    ![Salida portable V3](./rendered/18-secuencia-salida-portable-v3.svg)
+19. [Despliegue canónico EVM V3](./diagrams/19-despliegue-canonico-evm-v3.puml)
+    — manifests, addresses/codehashes iguales y configuración generada.
+    ![Despliegue canónico EVM V3](./rendered/19-despliegue-canonico-evm-v3.svg)
+20. [Activos e intents V3](./diagrams/20-actividad-activos-intents-v3.puml)
+    — capacidad EVM amplia con tiers de confianza y settlement acotado.
+    ![Activos e intents V3](./rendered/20-actividad-activos-intents-v3.svg)
+21. [Soberanía sin GatoPago](./diagrams/21-secuencia-soberania-sin-gatopago.puml)
+    — recuperación con infraestructura GatoPago apagada.
+    ![Soberanía sin GatoPago](./rendered/21-secuencia-soberania-sin-gatopago.svg)
+22. [C4 multiecosistema EVM/Stellar](./diagrams/22-c4-multiecosistema-evm-stellar.puml)
+    — una identidad de producto y dos modelos de ejecución nativos.
+    ![C4 EVM y Stellar](./rendered/22-c4-multiecosistema-evm-stellar.svg)
+23. [PaymentIntent con Stellar](./diagrams/23-secuencia-payment-intent-stellar.puml)
+    — API neutral, simulación Stellar, reconciliación y webhook.
+    ![PaymentIntent Stellar](./rendered/23-secuencia-payment-intent-stellar.svg)
+24. [Decisión de rol de redes](./diagrams/24-decision-network-role-v3.puml)
+    — EVM core, red por política y Stellar como adapter futuro.
+    ![Decisión de rol de redes](./rendered/24-decision-network-role-v3.svg)
+25. [Radar ERC/EIP V3](./diagrams/25-radar-eip-erc-v3.puml)
+    — núcleo estable, adapters, pilotos y tecnologías fuera del core.
+    ![Radar ERC/EIP](./rendered/25-radar-eip-erc-v3.svg)
+26. [Threat model V3](./diagrams/26-threat-model-v3.puml)
+    — trust boundaries, componentes comprometibles y autoridad económica.
+    ![Threat model V3](./rendered/26-threat-model-v3.svg)
+
+27. [Web y ambientes V3 revisión 2](./diagrams/27-web-ambientes-v3.puml)
+    — Next.js, dos Workers, API y staging aislado.
+    ![Web y ambientes](./rendered/27-web-ambientes-v3.svg)
+28. [Modelo Accounts y Flow](./diagrams/28-accounts-flow-v3.puml)
+    — owners, identidades, settlement y evidencia.
+    ![Accounts y Flow](./rendered/28-accounts-flow-v3.svg)
+29. [Entregas E0–E8](./diagrams/29-entregas-v3.puml)
+    — camino crítico Consumer e independencia de Flow.
+    ![Entregas](./rendered/29-entregas-v3.svg)
 
 Las decisiones y fundamentos de esta corrección están en
 [CORRECCIONES.md](./CORRECCIONES.md). El procedimiento operativo está en el
@@ -136,8 +214,8 @@ promoción vigente del modelo de llaves usa el
 - Cada transición económica y su evento/outbox se escriben atómicamente en
   Payments DB. No se simula una transacción entre dos D1.
 - En Payments, el comercio recibe USDC de test en Arbitrum Sepolia durante el
-  primer corte y Base/Fuji son redes de origen. Esa decisión B2B no impide que
-  la App personal tenga una cuenta Fuji satélite bajo un kill switch distinto.
+  primer corte y Base/Fuji son redes de origen. Esa decisión B2B no define la
+  identidad multichain de Account V3 ni autoriza cuentas satélite.
 - `free-default` mantiene la comisión de plataforma en cero. El coste de red se
   registra aparte.
 

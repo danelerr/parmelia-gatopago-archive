@@ -1,8 +1,13 @@
 # Fase 4A — App multichain explícita
 
+> [!CAUTION]
+> **Arquitectura reemplazada el 1 de septiembre de 2026.** Este documento se
+> conserva como registro histórico del candidato `home/satellite`; no debe
+> implementarse, migrarse ni desplegarse. La especificación canónica es
+> [`ARQUITECTURA-OBJETIVO-V3.md`](../architecture/ARQUITECTURA-OBJETIVO-V3.md).
+
 **Fecha:** 31 de agosto de 2026
-**Estado:** candidato local implementado; migración, contratos Fuji y despliegue
-remoto pendientes
+**Estado:** candidato histórico rechazado; no promover
 **Alcance:** App personal (`client/` + `server/`). No modifica Payments,
 Dashboard ni el checkout B2B.
 

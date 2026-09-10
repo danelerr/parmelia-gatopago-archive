@@ -1,9 +1,11 @@
 # Roadmap técnico de GatoPago
 
-**Última revisión:** 31 de agosto de 2026
-**Estado:** Fase 3 App promovida; candidato local Fase 4A multichain implementado
-con Avalanche Fuji y AVAX, todavía sin migración, contratos ni despliegue remoto;
-API/Business continúan después
+**Última revisión:** 9 de septiembre de 2026
+**Estado:** Fase 3 App promovida; candidato Fase 4A descartado y reemplazado por
+la especificación Account V3. No promover `0038` ni el modelo `home/satellite`;
+V3 FUSION revisión 2 incorpora Next.js, ambientes y Platform. Consumer es la
+primera entrega; API/Business se publican después. Estado remoto de los cortes
+anteriores no revalidado en esta revisión documental.
 **Fuente inicial:** [auditoría técnica del 23 de agosto de 2026](./audits/2026-08-23.md)
 
 Este archivo es la única lista de trabajo técnico. El corte de Fase 2.1 está en el
@@ -12,6 +14,251 @@ la promoción correctiva actual en el
 [registro de Fase 3 del 28-08-2026](./operations/phase-3-release-readiness-2026-08-28.md).
 Un testnet desplegado y sano no demuestra readiness de mainnet ni sustituye un
 pago E2E con evidencia on-chain.
+
+## Implementación V3 — orden vigente E0–E8
+
+La especificación y los criterios detallados están en
+[V3 FUSION §14](./architecture/V3-FUSION.md#14-orden-de-implementación-recomendado--revisión-2).
+Este backlog conserva el estado de ejecución; definir una etapa no la completa.
+
+- [x] **Refinamiento de diseño revisión 2:** Next consumer, landing local,
+  dominios/RP, ambientes, Accounts, owners de API/Flow/ledger, ADR-011–018,
+  gates W/P y prioridad Consumer incorporados a V3 FUSION.
+- [ ] **E0 — Especificaciones ejecutables:** cerrar structs/manifests y Gate A;
+  schemas de ambiente, identidad, rutas y API; protocolo de operación firmado.
+  En curso: IDs/unidades, schemas estrictos, política de roles/thresholds y
+  vectores EIP-712/CREATE2 cruzados TS/Solidity implementados localmente.
+  Verificador WebAuthn V3 con RP/origin ligados a la key y P256 real: 17 tests
+  Foundry, incluida una assertion Chromium virtual contrastada con OpenSSL.
+  Quorum y enrolamiento criptográfico candidatos implementados: 39 tests nuevos
+  de policy/signatures/enrollment, además de los vectores. No instalan signers
+  ni reemplazan las transiciones de Account V3 o el threat review independiente.
+  Biblioteca stateful posterior: prepare/commit/recovery/veto/expiry/freeze sobre
+  el namespace real; 25 unitarias/fuzz, dos invariantes y un recorrido del handler.
+  No equivale a Account/4337, factory, upgrade ni cierre de Gate A.
+  [Evidencia, límites y siguiente trabajo](./operations/v3-e0-e4-implementation.md).
+- [ ] **E1 — Staging y procedencia:** inventariar la landing en
+  `C:\Users\danie\OneDrive\Desktop\parmelia-landing\parmelia-landing`,
+  preservar cambios locales aprobados y verificar recursos/orígenes/credenciales
+  por ambiente. No reutilizar producción como staging.
+  Inventario local de 218 archivos y cuatro capturas base registrado;
+  recursos remotos y matriz completa de rutas aún pendientes.
+- [ ] **E2 — Next Web:** `apps/web/`, landing ES/EN/legales/docs, login,
+  Consumer/checkout shell, rutas, PWA y actualización; evidencia web de Gate W,
+  cuyo cierre integral con Account V3 corresponde a E4.
+  Iniciada localmente: Next 16.3.4, landing ES/EN e interacciones; Google/magic
+  link y sesión probados con Auth Emulator, incluidas recarga/logout y segundo
+  navegador. La ruta de magic links V3 ya tiene candidato y pruebas D1 locales;
+  PWA local con instalación/recarga, offline neutro y actualización natural con
+  dos pestañas comprobada en Chromium; 454 unitarias Web tras el incremento 41. Compatibilidad de
+  identidad integrada: 409 antes de I/O, allowlist con expiración, descriptor
+  de fuentes compartido y guard de build Web/Worker; 518 pruebas runtime V3
+  tras el incremento 45. El consentimiento inicial tipado y persistente del
+  incremento 24 tiene 23 unitarias y 13 runtime propias. El 25 agrega inspección
+  de composición y constructor de UserOperation con dos pruebas WebAuthn;
+  verifica creación y receipt en Anvil con contratos reales (363 pruebas V3
+  totales). El 26 conserva ambas pruebas y la operación exacta con outbox
+  atómico; añade 23 runtime de recarga, concurrencia, rollback, corrupción y
+  revocación antes de commit. El 27 agrega despacho privado con lease,
+  composición/simulación y frontera `sending` persistente; 46 nuevas runtime
+  cubren concurrencia, grants, fallas SQL/RPC y respuesta incierta sin reenvío.
+  El 28 verifica eventos/receipt, coste y composición con dos RPC independientes;
+  el 29 persiste observaciones con lease, append/head atómicos y recuperación
+  sin bundler a partir de un hash verificado. 26 nuevas runtime cubren journal,
+  concurrencia, rollback, corrupción, revocación y cambios de bloque. El 30 añade
+  finalidad por política con pin, quorum en altura común, frescura/vigencia y
+  defensa contra cambio de un receipt previamente finalizado; 46 pruebas de
+  finalidad y 38 del journal. La finalidad sólo tiene evidencia sintética local:
+  faltan políticas/proveedores admitidos y comprobación real por red. Los
+  incrementos 31–32 leen política/manifest/nonces actuales con dos RPC,
+  finalidad vigente y revalidación de sesión/ownership; no prolongan evidencia
+  caducada. El 33 proyecta Wallet/identidad/instancia/bootstrap mediante batch D1,
+  conserva procedencia del receipt y detiene el sweep de creación. Otra red
+  reutiliza la misma identidad; no hay activación ni permiso monetario implícito.
+  El 34 añade GET autenticado de credenciales persistidas y su lista en Next:
+  reload, error distinto de vacío y aislamiento entre sesiones, sin ceremonias
+  automáticas ni afirmaciones de autoridad onchain. Chromium virtual y D1 local
+  comprueban el recorrido y los límites, no sustituyen dispositivos físicos.
+  Hay 460 unitarias/integración V3 y 518 runtime (evidencia del 45), incluidas 20 de proyección, 23 de jobs y
+  13 de lectura del seguimiento. El 41 muestra ese seguimiento en Next, sin
+  RPC/envíos al consultar ni confundir bootstrap histórico con cuenta activa.
+  El 42 añade compilación/verificación de activación prepare/enrollment/commit:
+  36 pruebas y una integración Anvil que instala política, envía con ECDSA y
+  prueba admin con dos claves sin el dominio. El 43 conecta preparación/autorización
+  con D1, ownership e inspección finalizada vigente (25 pruebas nuevas), sin
+  reservas globales ni renovación en GET. El 44 persiste la confirmación separada,
+  revalida propuesta y bloque revisado sin cambiar el mensaje firmado al avanzar
+  el head (25 nuevas runtime). En ese incremento faltaban HTTP, jobs y pantallas; no
+  acredita salida humana ni admisión de red. El 45 corrige localmente ese bloqueo:
+  aceptación de hasta 300 segundos y vida de propuesta firmada independiente
+  (máximo siete días; recovery suma la demora anterior). Commit mantiene otra
+  firma breve y el vencimiento absoluto. D1/ABI/vectores y modelo independiente
+  coinciden; 266 Foundry pasan y Anvil completa activación tras una hora.
+  Los siete días no son renovación automática. No demuestra finalidad real ni
+  una pantalla completa. El 46 monta las seis rutas HTTP propias de activación
+  y commit: sesión, origen, admisión, entrada estricta y padre correcto; 21 nuevas
+  pruebas HTTP y 539 runtime totales pasan. GET/replay no renuevan ni ejecutan.
+  El 47 añade el cliente Next diferido de las seis acciones, ligado a sesión y
+  a un perfil aprobado independiente. Reconstruye y valida los consentimientos;
+  514 Web, 460 unitarias V3 y 541 runtime pasan, además de la build Next y dos
+  pruebas de conformidad contra D1 real local. Siguen pendientes entrega/observación y UX
+  de factores para activación, admisión de red y recorridos humanos de E4.
+  El 48 incorpora detalle privado de credenciales y revisión Next de llaves,
+  quorum y demoras; lectura explícita, sin firmas ni POST. 564 Web, 552 runtime
+  y 460 unitarias V3 pasan. El borrador de passkeys muestra la dependencia del
+  dominio y mantiene activación deshabilitada: no reemplaza factores de salida
+  independiente ni cierra el recorrido E4. Chromium sintético confirma
+  móvil/desktop, reintento y descarte de estado al cambiar sesión.
+  El 49 añade revisión avanzada de tres guardianes ECDSA: gasto cotidiano por
+  passkey, administración con dos votos y recovery 2-de-3 con 72h. El cliente
+  exporta/importa pruebas EIP-712 ligadas a la propuesta, sin proveedores de
+  wallets ni secretos del usuario. Direcciones distintas no prueban independencia;
+  falta coordinar ceremonias, entrega/observación de activación y drill de salida.
+  El 50 conecta la política avanzada a preparación/autorización en Next: dos
+  gestos distintos de la llave inicial y tres pruebas externas de guardianes,
+  con restauración por localizador público y GET del mismo recurso. Cancelar
+  una prueba local no se confunde con un POST incierto; ese último conserva
+  bytes/ID exactos y nunca reintenta automáticamente. La guía React mantiene
+  las acciones fuera de efectos y la edición se bloquea sin un spinner perpetuo.
+  `authorized` no activa recibir/gastar. Pasan 656 pruebas Web, 460 unitarias
+  V3 y 552 runtime, tipos/lint/Knip y build Next; Chromium sintético valida la pantalla
+  ES/EN móvil/desktop. Faltan entrega/observación, commit onchain, guardianes
+  reales y drill de salida; E0–E4 continúan abiertos.
+  El 51 añade outbox atómico a las autorizaciones prepare/commit y reconstrucción
+  privada sin sesiones fabricadas, con leases/CAS y recuperación de envíos
+  inciertos. Pasan 582 pruebas runtime (30 nuevas). Falta el sender patrocinado,
+  consumidor y observador de activación; guardar un hash no activa la cuenta.
+  No cambian contratos, frontend, secretos ni despliegues.
+  El 52 incorpora reserva durable de nonce/envelope del sponsor, validación de
+  firma/bytes exactos y persistencia atómica de raw transaction/hash antes de
+  un único broadcast. Simula con dos RPC; no reenvía tras incertidumbre ni
+  activa la cuenta por un acuse. Quedan firmante/presupuesto admitidos,
+  consumidor y observador de activación, más resolución operativa de reservas.
+  El 53 conecta inspección fresca, estimación/reserva, firmante sign-only y raw
+  sender mediante un coordinador privado de prepare/commit. El checkpoint de
+  commit no cambia; revocación y caducidad se revisan antes del envío. Corrige
+  acumulación de timers RPC al completar llamadas. Quedan consumidor durable,
+  observador/proyección de activación y configuración/pruebas reales; no habilita
+  perfiles ni cierra E0–E4.
+  El 54 incorpora observador/journal de activación. El 55 conecta consumidor
+  durable y scheduler mediante la cola existente, sin otro Worker; conserva
+  aislamiento de mensajes, leases y observación sin reenvío. Falta proyección
+  de política efectiva e integración Consumer; la admisión real sigue cerrada.
+  El 56 añade la comprobación de política instalada y su proyección histórica
+  inmutable antes de cerrar el job de commit. El 57 conecta la confirmación final
+  explícita en Next y el 58 añade GET de estado propios, lectura por gesto y
+  presentación de observación reciente/historia. Una proyección histórica no
+  se convierte en permiso de gasto. Faltan navegador/dispositivos, admisión real
+  y el ciclo monetario E4; no volver a implementar esos transportes.
+  No se cobra gas al usuario ni se habilitan redes/recursos remotos.
+  El 35 monta preparación/autorización inicial HTTP y el cliente diferido ligado
+  a sesión. El 36 conecta selección/revisión/confirmación en Next, plazos,
+  cancelación y replay de la misma prueba sin volver a firmar; Chromium virtual
+  verifica el recorrido y aislamiento con persistencia sintética. El 37 añade
+  historial/restauración GET de consentimiento tras recargar: no guarda firmas
+  en navegador ni reenvía automáticamente una autorización. Detecta operación
+  de creación existente, sin afirmar que está confirmada. El 38 conecta
+  UserOperation por HTTP y cliente de sesión: cap explícito, estimador sólo de
+  servidor, preview recompuesto, segunda firma distinta y outbox atómico.
+  GET y retry exacto no recotizan ni renuevan. El 39 conecta la pantalla de
+  segunda confirmación y consulta explícita: firma sólo por gesto, límite decimal
+  exacto, lectura tras incertidumbre, recarga sin duplicar y estados de entrega
+  distintos de activación. Los detalles ya confirmados se pliegan. El 40 conecta
+  cola/cron privados a entrega, observación y proyección bootstrap con jobs D1,
+  leases, presupuestos y revisión de fallos persistentes. No depende del Home.
+  Faltan revisión/redrive operativo, recursos
+  aislados y observador/estimador admitidos, financiación/patrocinio; los catálogos
+  reales de creación Web/Worker continúan cerrados.
+  `pending`/`accepted`/`observed` no significan cuenta lista para recibir/gastar.
+  No hay perfil de red admitido ni activación por bandera.
+  El incremento 21 conecta la lista de wallets al token Firebase y al perfil
+  propio de Wallet Core, sin polling ni autorización de llaves/fondos. Chromium
+  sintético verifica paginación, reintento y cambio de usuario durante carga;
+  no equivale a login ni pagos remotos.
+  CSP por documento y 404 inerte verificadas en Chromium local; scripts sin
+  nonce/nonce incorrecto bloqueados en el parser HTML. El HTML pasa a SSR/no-store
+  (coste de hosting/latencia pendiente de medición); assets conservan caché propia.
+  Falta auth remota
+  (recursos aislados, controles Firebase y prueba integrada), PWA en dispositivos
+  físicos, CSP de helpers Firebase/Turnstile reales, compatibilidad monetaria,
+  legales/docs y Consumer monetario real.
+  No equivale a Gate W.
+- [ ] **E3 — Wallet Core:** Party/Wallet mínimos, Account V3 canónico,
+  ejecución, passkeys, recovery, self-funded y salida independiente; Gate B.
+  Entrada V3 aislada y cuotas/envío de magic links implementados localmente;
+  verificador WebAuthn stateless implementado, sin despliegue ni autoridad monetaria.
+  Codec DER/low-S implementado y contrastado byte a byte con Solidity;
+  adaptador de ceremonia con activación explícita, UV, cancelación y timeout.
+  Incremento 22: preparación/registro con posesión ligada al usuario y persistida
+  atómicamente en D1; adaptadores create/get y errores diferenciados en Next.
+  Sin autoridad onchain; falta autorización inicial con manifest admitido.
+  Ese incremento añadió 29 pruebas workerd y 22 del navegador simulado.
+  Incremento 23: `/settings/security` conecta registro/prueba al usuario Firebase,
+  con cancelación al cambiar sesión, gestos separados y reintento de confirmación
+  idempotente; no genera llaves al entrar. 37 pruebas Web adicionales y recorrido
+  Chromium virtual contra el verificador real (identidad/persistencia sintéticas).
+  Identidad/firma locales comparten `localhost`; smoke de firma Chromium virtual.
+  Políticas y firmas ECDSA/WebAuthn/ERC-1271 comprobadas localmente; posesión de
+  miembros nuevos y roles modificados ligada a la propuesta y dominio.
+  Seguridad stateful candidata ya instala políticas y consume nonces, con
+  recovery timelock y freeze irreversible; no mueve activos ni ejecuta upgrades.
+  Creación autenticada candidata con factory/proxy reales: one-time init, posesión
+  inicial y seguridad tras rotación/recovery probadas localmente. El harness integrado
+  usa seguridad e instalación enlazadas fijas (17.060 B en la composición sólo de seguridad),
+  sin módulos elegibles por el caller. Factory y cuenta comprueban su código;
+  quedan 7.516 B hasta EIP-170 en ese harness, no prueba de que quepa el Account final. El frame de creación
+  ya tiene integración local con EntryPoint v0.9 y una ventana de creación
+  persistente hasta la primera validación. La traza no observa timestamp/acceso
+  a código de EntryPoint en esos frames, incluida la biblioteca. La prueba de dos
+  ECDSA pasa con 500.000 gas y también con 496.000; aún no demuestra el presupuesto
+  WebAuthn/políticas mayores, admisión ERC-7562 ni cierre de E3. El incremento 16 añade
+  CALLs atómicos 4337, versión revalidada al ejecutar y relay firmado directo con nonce
+  independiente. La nueva composición mide 23.118 B y su biblioteca 22.251 B: cabe en
+  EIP-170 pero no satisface aún el margen del Account final. Pasan transferencias,
+  rollback, callbacks, cambios de autoridad en bundle y tres invariantes stateful.
+  El incremento 17 añade ERC-1271 de cuenta, receptores ERC-721/1155 e
+  introspección 165/5267. Esa composición medía 22.138 B y la biblioteca
+  24.046 B; conserva primer envío contrafactual con 496k de verificación.
+  El incremento 18 compone Account/UUPS con biblioteca fija de upgrades, quorum
+  ADMIN, mínimo 72h, confirmación tipada, veto/freeze, rollback y migración de un
+  uso. El perfil medido de 200 optimizer runs conserva 496k para primer envío y
+  permite exigir <=20k por componente. Cambia bytecode/CREATE2: requiere manifests
+  nuevos, no reutilizar los históricos. El incremento 19 añade validación de ambas
+  bibliotecas en factory e inspección post-upgrade sin reinicializar ni imponer
+  el target original; las pruebas EntryPoint usan ejecución/autorización completas.
+  Hay 259 pruebas V3 de contratos tras el incremento 31; el agregado TS/schemas también pasa.
+  El incremento 20 añade perfil de inspección con pin externo, validación CREATE2,
+  lector EIP-1898 y adaptador Wallet Core acotado por petición. Reconocer una revisión
+  no acredita readiness ni procedencia; no se publicó endpoint ni pin de producción.
+  El incremento 21 añade las seis tablas Consumer y repositorio de ownership,
+  verificación Firebase RS256, sesión local idempotente y endpoints privados de
+  lectura. Resolver de inspección integrado a ownership, sin perfiles admitidos.
+  El corte de sesión D1 no acredita sincronización de revocación Firebase Admin.
+  Pendiente: provisioning autorizado de wallet/passkeys/Account desde ese modelo,
+  generación/admisión independiente de artefactos/manifests e integración
+  con el paquete portable, gas WebAuthn, layout compuesto,
+  manifests, pantallas de seguridad/recovery/salida
+  y conexión de las ceremonias al Account definitivo.
+- [ ] **E4 — Consumer completo:** recibir/enviar/useMax/recibo/balance,
+  seguridad y salida, aceptación humana, corte RP/domain/PWA y retiro de
+  Astro/Vite activos. Primera entrega de producto V3.
+- [ ] **E5 — Flow:** tenancy mínima, SettlementAccount, links reusables,
+  intents/attempts, pago externo, journal/outbox/webhook; Gate C.
+- [ ] **E6 — Business/Platform:** proyectos/customers, permisos/grants,
+  wallets como recursos, API/SDK/docs/sandbox y dashboard; Gate P.
+- [ ] **E7 — Extensiones:** capacidades/ledger según necesidad y Stellar
+  posterior; cada una tiene gate propio, sin bloquear Consumer.
+- [ ] **E8 — Mainnet:** auditoría y drills del alcance elegido, signers/roles
+  segregados, evidencia remota y autorización explícita; Gate D.
+
+Dependencias: E0 → E1 → E2/E3 → E4. E2 y E3 pueden avanzar en paralelo
+con interfaces fijadas y capacidad disponible. Flow es técnicamente independiente
+de Account V3; la prioridad de publicación E5 después de E4 responde al foco
+del usuario. Mainnet Consumer no requiere terminar Business o Stellar.
+
+Las listas P0–P3 siguientes conservan antecedentes y pendientes del runtime
+anterior. Su secuencia no sustituye E0–E8; antes de una acción remota se verifica
+qué sigue vigente en el ambiente destino.
 
 ## P0 — Requiere acción operativa antes del despliegue
 
@@ -202,20 +449,41 @@ pago E2E con evidencia on-chain.
 - [x] **Eliminar código muerto y deuda de efectos React.** Knip y el gate de ciclos pasan; `react-hooks/set-state-in-effect` es error, no warning. Se retiraron dependencias, assets PWA y exports sin consumidores solo después de comprobar su uso.
 - [ ] **Aceptación autenticada y Fase 4 (producción).** El magic link real ya fue recibido/consumido y comparte UID con Google; `0036` y la UX centralizada están promovidas. Falta que el usuario complete una ceremonia WebAuthn real bajo autorización específica. Recovery/replay deliberado, perfil, red, envío, swap, cross-chain y webhooks reales pertenecen a Fase 4 cuando requieran cuentas, APIs, chains u operaciones monetarias.
 	- [x] **Remediación técnica Passkey v2.1 promovida:** se eliminó la falsa ausencia basada en `localStorage`, se agregó comprobación WebAuthn firmada y anti-replay (`0037`), compatibilidad segura para retiro durante el rollout, limpieza de llaves reemplazadas por recovery y reparación del hint tras retiro. El 30-08-2026 se respaldó App D1, se aplicó únicamente `0037` y se publicaron App Worker `ee69b705-0e82-413a-8444-c54ceddd5e65` y App Web `dpl_5PNXgaf3zYqnNyxUdkuxvF7gKpzs` desde `76b50a2`; el preflight remoto quedó listo y sin pendientes. La aceptación comprobar/agregar/quitar/recuperar en iPhone continúa abierta porque requiere el gesto del usuario.
-	- [x] **Fase 4A implementada como candidato local:** identidad única con cuentas
-	  explícitas por chain, `0038`, Arbitrum hogar, Fuji satélite, AVAX/USDC,
-	  balances e historial por red, activación con bytecode gate, receipts
-	  chain-scoped y sincronización versionada de passkeys. Home no suma saldos
-	  ficticios y las rutas explícitas nunca caen a Arbitrum. El kill switch
-	  remoto conserva sólo Arbitrum; las direcciones Fuji son predichas, no
-	  desplegadas. Especificación y gates en
-	  [Fase 4A App](./design/app-multichain-phase-4a.md).
-	- [ ] **Promoción y aceptación real Fase 4A:** desplegar/verificar/fondear la
-	  infraestructura Fuji, aplicar `0038` después de backup, desplegar sólo las
-	  superficies autorizadas y probar en dispositivo activar → recibir → enviar
-	  AVAX/USDC → cambiar passkey → sincronizar → volver a firmar. Mantener Fuji
-	  fuera de `APP_WALLET_RAIL_CHAIN_KEYS` hasta cerrar toda la secuencia.
-- [ ] **Migración de RP ID antes de cambiar el dominio App.** Google Auth no sincroniza passkeys: Google Password Manager/iCloud lo hacen según el dispositivo. El candidato ya evita derivar RP ID del host y conserva explícitamente `app.parmelia.me`, pero eso no migra credenciales. Antes de usar `app.gatopago.com` se necesita coexistencia, registro y firma con llaves nuevas, cobertura medible y rollback. DNS por sí solo no migra WebAuthn.
+	- [x] **Fase 4A documentada y luego rechazada:** el candidato local
+	  `home/satellite` demostró capacidades multichain, pero no se promoverá. No se
+	  arrastran cuentas ni contratos de generaciones diferentes. Registro
+	  histórico en [Fase 4A App](./design/app-multichain-phase-4a.md).
+	- [ ] **Arquitectura objetivo Account V3:** una identidad y dirección
+	  determinística únicas en todas las EVM habilitadas, stack canónico,
+	  Security Manifests, assets CAIP-19, paymaster/fees desacoplados y salida
+	  independiente. EVM es el core, Base la candidata a `defaultNetworkId` y
+	  ninguna chain es raíz de ownership. Implementar por etapas sólo después de
+	  superar los gates de
+	  [`V3-FUSION.md`](./architecture/V3-FUSION.md).
+	- [ ] **Pre-audit y decisiones base V3:** cerrar Gate A antes del contrato
+	  definitivo: spend/admin/recovery, digest de consentimiento, UUPS con
+	  threshold+timelock+freeze, deploy determinístico, análisis Solidity sin
+	  rutas omitidas y threat model independiente. Ver
+	  [Partes II–III de V3 FUSION](./architecture/V3-FUSION.md).
+	- [ ] **Vertical Stellar/SCF sin contaminar EVM:** contract account `C...`
+	  con passkey + recovery Ed25519/guardians, SAC XLM/USDC, fee sponsorship,
+	  TTL/restore, API namespaced y PaymentIntent Stellar. Alcance, coste e
+	  impacto B2B/B2B2C en
+	  [`STELLAR-SOBERANIA-API-V3.md`](./architecture/STELLAR-SOBERANIA-API-V3.md).
+	  Es una extensión futura, posterior a V3; no será la cuenta principal ni
+	  condiciona el EVM core.
+	- [ ] **Baseline y radar ERC/EIP V3:** implementar 14 perfiles base —UUPS ya
+	  decidido y EIP-7951 como capability por chain— y 10 compatibilidades
+	  definidas en
+	  [`RADAR-EIP-ERC-V3.md`](./architecture/RADAR-EIP-ERC-V3.md). ERC-7579,
+	  7484, 7739, 7730, 7710, 7715, 7930 y 7683 permanecen opt-in/Testnet hasta
+	  cerrar ADR, conformance, fuzz/invariants y revisión de seguridad. El primer
+	  release se limita a 20 perfiles: 14 base y 6 adapters esenciales.
+- [ ] **Corte de RP ID V3:** `gatopago.com` para Consumer y
+  `staging.gatopago.com` para staging con origins exactos. El reset testnet crea
+  cuentas y passkeys nuevas. Sólo preservar cuentas antiguas exige coexistencia
+  y migración de signers probada. DNS no migra credenciales ni instalaciones PWA.
+  Configuración, login Firebase, redirects y rollback se validan en Gate W.
 
 ## P3 — Rendimiento, dependencias y mainnet
 

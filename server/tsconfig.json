@@ -19,6 +19,8 @@
     "../shared",
     "vitest.config.ts",
     "vitest.worker.config.ts",
-    "worker-configuration.d.ts"
+    "worker-configuration.d.ts",
+    "v3/bindings.d.ts",
+    "vitest.v3-worker.config.ts"
   ]
 }

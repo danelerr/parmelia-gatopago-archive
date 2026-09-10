@@ -29,6 +29,8 @@ playwright-report/
 output/
 coverage/
 *.log
+.next/
+*.tsbuildinfo
 
 # Temporary assets & exports
 logos-mover/

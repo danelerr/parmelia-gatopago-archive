@@ -407,7 +407,7 @@ test("security accepts only same-origin return destinations", async ({ page }, t
 	}
 });
 
-test("security signals only a complete credential inventory to the passkey manager", async ({ page }, testInfo) => {
+test("opening security never mutates passkey-manager state", async ({ page }, testInfo) => {
 	test.skip(testInfo.project.name.startsWith("dashboard"), "Meli UI lives in the client app");
 	await page.addInitScript(() => {
 		const calls: Array<{ method: string; options: unknown }> = [];
@@ -422,31 +422,16 @@ test("security signals only a complete credential inventory to the passkey manag
 			value: async (options: unknown) => { calls.push({ method: "all", options }); },
 		});
 	});
-	await openPreview(page, testInfo, "security");
-	await expect.poll(async () => page.evaluate(() =>
-		(window as unknown as { __passkeySignalCalls: Array<{ method: string }> })
-			.__passkeySignalCalls.map((call) => call.method),
-	)).toEqual(expect.arrayContaining(["current", "all"]));
-	const inventory = await page.evaluate(() =>
-		(window as unknown as {
-			__passkeySignalCalls: Array<{ method: string; options: { allAcceptedCredentialIds?: string[] } }>;
-		}).__passkeySignalCalls.find((call) => call.method === "all")?.options,
-	);
-	expect(inventory?.allAcceptedCredentialIds).toEqual([
-		"preview-primary-key",
-		"preview-backup-key",
-	]);
 
-	await openPreview(page, testInfo, "security-chain-error");
-	await expect.poll(async () => page.evaluate(() =>
-		(window as unknown as { __passkeySignalCalls: Array<{ method: string }> })
-			.__passkeySignalCalls.map((call) => call.method),
-	)).toContain("current");
-	const degradedMethods = await page.evaluate(() =>
-		(window as unknown as { __passkeySignalCalls: Array<{ method: string }> })
-			.__passkeySignalCalls.map((call) => call.method),
-	);
-	expect(degradedMethods).not.toContain("all");
+	for (const view of ["security", "security-chain-error"]) {
+		await openPreview(page, testInfo, view);
+		await page.waitForTimeout(100);
+		const methods = await page.evaluate(() =>
+			(window as unknown as { __passkeySignalCalls: Array<{ method: string }> })
+				.__passkeySignalCalls.map((call) => call.method),
+		);
+		expect(methods).toEqual([]);
+	}
 });
 
 test("security requests the intended WebAuthn authenticator for each creation option", async ({ page }, testInfo) => {

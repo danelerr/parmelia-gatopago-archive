@@ -1,0 +1,78 @@
+@startuml
+!include _theme.puml
+title GatoPago V3 — Trust boundaries y amenazas
+
+left to right direction
+skinparam linetype ortho
+
+actor "Usuario" as user
+actor "Atacante\nphishing / XSS" as attacker #FEE2E2
+
+package "Dispositivo — autoridad del usuario" COLOR_WEB {
+  component "Passkey WebAuthn\nspend cotidiano" as passkey COLOR_READY
+  component "Signer independiente\nECDSA / ERC-1271 / guardians" as independent COLOR_READY
+  component "App / Emergency client\ncliente no confiable hasta verificar" as client COLOR_WEB
+}
+
+cloud "Firebase\nidentidad, no fondos" as firebase COLOR_EXTERNAL
+
+package "GatoPago offchain — asumido comprometible" COLOR_LIVE {
+  component "App Worker" as app
+  database "App D1 / Queue" as appdata COLOR_DATA
+  component "Payments Worker" as payments
+  database "Payments D1 / Outbox / Queue" as paydata COLOR_DATA
+  component "Signer service\nKMS/MPC + policy" as signer COLOR_READY
+}
+
+package "Proveedores reemplazables — no confiables por defecto" COLOR_EXTERNAL {
+  component "RPC quorum / indexer" as rpc
+  component "Bundler / paymaster" as bundler
+  component "Swap / bridge / CCTP" as route
+}
+
+node "EVM — autoridad económica" as evm COLOR_EXTERNAL {
+  component "Factory + verifier\naddress/codehash canónicos" as factory
+  component "Account V3\nspend/admin/recovery" as account COLOR_READY
+  component "Routers versionados\nsettlement atómico" as routers COLOR_READY
+}
+
+user --> client
+user --> passkey
+user --> independent
+client --> firebase
+client --> app
+client --> payments
+passkey --> client : firma plan final
+independent --> account : recovery / salida
+
+app --> appdata
+payments --> paydata
+app --> rpc
+payments --> rpc
+app --> bundler
+payments --> route
+payments --> signer : autorización operativa acotada
+
+rpc --> account
+bundler --> account
+route --> routers
+factory --> account
+
+attacker ..> client : sustituir destino / robar sesión
+attacker ..> app : comprometer backend
+attacker ..> signer : extraer autoridad operativa
+attacker ..> rpc : datos falsos / censura
+attacker ..> route : token o adapter hostil
+
+note bottom of account
+  Ninguna sesión, Worker, key operativa o proveedor
+  basta para gastar, recuperar o actualizar.
+  El usuario firma campos definitivos.
+end note
+
+note bottom of independent
+  Sin signer independiente probado no se afirma
+  que la cuenta sobrevive al dominio/GatoPago.
+end note
+
+@enduml

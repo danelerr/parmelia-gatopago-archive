@@ -58,7 +58,7 @@ jobs:
           openzeppelin-contracts=OpenZeppelin/openzeppelin-contracts@rev=cab19933c33c2ad1d4c7a84864a3601dddfd16f3
 
       - name: Run deterministic release verification
-        run: pnpm verify:ci
+        run: pnpm check:v3 && pnpm check:v3:web && pnpm check:v3:wallet-api && pnpm verify:ci
 
   e2e:
     name: Browser and accessibility tests

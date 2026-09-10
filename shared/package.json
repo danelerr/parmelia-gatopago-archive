@@ -1,20 +1,48 @@
 {
-  "name": "@gatopago/shared",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "main": "index.ts",
-  "types": "index.ts",
-  "exports": {
-    ".": "./index.ts",
-    "./user-operations": "./userOperations.ts",
-    "./payment-contracts": "./paymentContracts.ts",
-    "./payment-authorizations": "./paymentAuthorizations.ts"
-  },
+	"name": "@gatopago/shared",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"main": "index.ts",
+	"types": "index.ts",
+	"exports": {
+		".": "./index.ts",
+		"./user-operations": "./userOperations.ts",
+		"./payment-contracts": "./paymentContracts.ts",
+		"./payment-authorizations": "./paymentAuthorizations.ts",
+		"./v3/primitives": "./v3/primitives.ts",
+		"./v3/authorizations": "./v3/authorizations.ts",
+		"./v3/transfer": "./v3/transfer.ts",
+		"./v3/transfer-review-record": "./v3/transferReviewRecord.ts",
+		"./v3/transfer-authorization": "./v3/transferAuthorization.ts",
+		"./v3/transfer-wire": "./v3/transferWire.ts",
+		"./v3/amount": "./v3/amount.ts",
+		"./v3/finality": "./v3/finality.ts",
+		"./v3/client-release": "./v3/clientRelease.ts",
+		"./v3/webauthn": "./v3/webauthn.ts",
+		"./v3/credential-inventory": "./v3/credentialInventory.ts",
+		"./v3/credential-detail": "./v3/credentialDetail.ts",
+		"./v3/security-policy": "./v3/securityPolicy.ts",
+		"./v3/independent-recovery": "./v3/independentRecovery.ts",
+		"./v3/deployment": "./v3/deployment.ts",
+		"./v3/account-inspection": "./v3/accountInspection.ts",
+		"./v3/initialization": "./v3/initialization.ts",
+		"./v3/initialization-wire": "./v3/initializationWire.ts",
+		"./v3/creation-inspection": "./v3/creationInspection.ts",
+		"./v3/creation-operation": "./v3/creationOperation.ts",
+		"./v3/creation-operation-wire": "./v3/creationOperationWire.ts",
+		"./v3/bootstrap-activation": "./v3/bootstrapActivation.ts",
+		"./v3/activation-wire": "./v3/activationWire.ts",
+		"./v3/activation-status": "./v3/activationStatus.ts",
+		"./v3/external-enrollment": "./v3/externalEnrollment.ts",
+		"./v3/wire-validators": { "types": "./v3/wire-validators.d.mts", "import": "./v3/wire-validators.mjs", "default": "./v3/wire-validators.mjs" }
+	},
 	"dependencies": {
+		"@noble/curves": "1.9.7",
 		"viem": "^2.55.19"
 	},
 	"devDependencies": {
+		"ajv": "8.18.0",
 		"typescript": "~6.0.3"
 	}
 }

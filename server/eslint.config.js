@@ -4,7 +4,7 @@ import tseslint from "typescript-eslint";
 import { defineConfig, globalIgnores } from "eslint/config";
 
 export default defineConfig([
-	globalIgnores(["node_modules", "worker-configuration.d.ts", ".wrangler"]),
+	globalIgnores(["node_modules", "worker-configuration.d.ts", "v3/bindings.d.ts", ".wrangler"]),
 	{
 		files: ["src/**/*.ts", "test/**/*.ts", "test-worker/**/*.ts", "*.config.ts"],
 		extends: [js.configs.recommended, tseslint.configs.recommended],

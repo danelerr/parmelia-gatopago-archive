@@ -1,0 +1,47 @@
+@startuml
+!include _theme.puml
+title GatoPago V3 — Recuperación cuando GatoPago desaparece
+
+actor "Persona" as person
+participant "Portable Account Package" as account_package COLOR_DATA
+participant "Emergency client / CLI\nopen source local" as emergency COLOR_READY
+participant "Signer independiente\nECDSA / Ed25519 / multisig" as signer COLOR_EXTERNAL
+participant "RPC / bundler público" as rpc COLOR_EXTERNAL
+participant "Cuenta EVM V3" as evm COLOR_EXTERNAL
+participant "Cuenta Stellar C..." as stellar COLOR_EXTERNAL
+
+note over person,stellar
+  App API, Payments, Firebase, dominios,
+  paymaster y bundler GatoPago están apagados.
+end note
+
+person -> emergency : importa package y manifests públicos
+emergency -> account_package : verifica firmas, generation y codehashes
+account_package --> emergency : redes + seguridad + deployments
+emergency -> rpc : lee estado onchain de cada cuenta
+rpc --> emergency : nonces/sequence, signers, assets, TTL
+
+person -> signer : autoriza recuperación u operación
+signer --> emergency : firma independiente del dominio GatoPago
+
+alt EVM
+  emergency -> emergency : construye UserOperation/tx self-funded
+  emergency -> rpc : simula y envía
+  rpc -> evm : validate + execute
+  evm --> emergency : receipt confirmado
+else Stellar
+  emergency -> emergency : restaura TTL si hace falta\ny simula XDR/auth entries
+  emergency -> rpc : envía transacción self-funded
+  rpc -> stellar : __check_auth + ejecución
+  stellar --> emergency : ledger/meta confirmado
+end
+
+person -> emergency : conservar cuenta o barrer activos
+emergency --> person : evidencia exportable
+
+note over signer
+  Un JSON o una segunda passkey bajo el mismo
+  RP ID no sustituyen este control independiente.
+end note
+
+@enduml

@@ -1,0 +1,79 @@
+@startuml
+!include _theme.puml
+title GatoPago V3 — Despliegue canónico en redes EVM
+
+left to right direction
+skinparam linetype ortho
+
+artifact "Release Manifest V3\ncompiler + lock + source commit\naddresses + codehashes + link references" as manifest COLOR_DATA
+component "Release pipeline\npredict -> deploy -> verify -> test" as pipeline COLOR_LIVE
+
+node "Base Sepolia" as base COLOR_EXTERNAL {
+  component "Bootstrap Deployer\n0xD... / hash D" as base_deployer
+  component "Verifier V3\n0xV... / hash V" as base_verifier
+  component "Fixed Security Library\n0xL... / hash L" as base_security
+  component "Implementation V3\n0xI... / hash I" as base_impl
+  component "Factory V3\n0xF... / hash F" as base_factory
+  component "Account(accountId)\n0xABC..." as base_account
+}
+
+node "Arbitrum Sepolia" as arb COLOR_EXTERNAL {
+  component "Bootstrap Deployer\n0xD... / hash D" as arb_deployer
+  component "Verifier V3\n0xV... / hash V" as arb_verifier
+  component "Fixed Security Library\n0xL... / hash L" as arb_security
+  component "Implementation V3\n0xI... / hash I" as arb_impl
+  component "Factory V3\n0xF... / hash F" as arb_factory
+  component "Account(accountId)\n0xABC..." as arb_account
+}
+
+node "Avalanche Fuji" as fuji COLOR_EXTERNAL {
+  component "Bootstrap Deployer\n0xD... / hash D" as fuji_deployer
+  component "Verifier V3\n0xV... / hash V" as fuji_verifier
+  component "Fixed Security Library\n0xL... / hash L" as fuji_security
+  component "Implementation V3\n0xI... / hash I" as fuji_impl
+  component "Factory V3\n0xF... / hash F" as fuji_factory
+  component "Account(accountId)\n0xABC..." as fuji_account
+}
+
+database "Deployment Registry" as registry COLOR_DATA
+artifact "Generated chain config\nshared/networks.ts" as config COLOR_READY
+
+manifest --> pipeline
+pipeline --> base_deployer
+pipeline --> arb_deployer
+pipeline --> fuji_deployer
+base_deployer --> base_verifier
+base_deployer --> base_security
+base_deployer --> base_impl
+base_deployer --> base_factory
+arb_deployer --> arb_verifier
+arb_deployer --> arb_security
+arb_deployer --> arb_impl
+arb_deployer --> arb_factory
+fuji_deployer --> fuji_verifier
+fuji_deployer --> fuji_security
+fuji_deployer --> fuji_impl
+fuji_deployer --> fuji_factory
+base_impl --> base_security : fixed link / codehash
+arb_impl --> arb_security : fixed link / codehash
+fuji_impl --> fuji_security : fixed link / codehash
+base_factory --> base_account : CREATE2(accountId)
+arb_factory --> arb_account : CREATE2(accountId)
+fuji_factory --> fuji_account : CREATE2(accountId)
+pipeline --> registry : evidencia por chain
+registry --> config : genera; no edición manual
+
+note bottom of pipeline
+  Gate obligatorio:
+  mismas addresses y runtime codehashes;
+  bibliotecas enlazadas incluidas;
+  mismo accountId -> misma account address;
+  first spend + recovery + exit pasan.
+end note
+
+note bottom of config
+  Si una chain no reproduce el stack,
+  no entra al wallet rail.
+end note
+
+@enduml
