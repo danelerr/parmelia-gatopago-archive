@@ -57,7 +57,7 @@ describe('finalized creation → atomic bootstrap projection', () => {
 		const f = await scenario(); f.configuration.networks[0].providers[1].operatorId = 'provider_a';
 		await expect(f.run()).rejects.toThrow('Projection observers overlap'); expect(f.fetch).not.toHaveBeenCalled();
 	});
-	it.each(['spendNonce', 'adminNonce', 'recoveryNonce'] as const)('rejects bootstrap that already changed %s', async (nonce) => {
+	it.each(['spendNonce', 'adminNonce'] as const)('rejects bootstrap that already changed %s', async (nonce) => {
 		const f = await scenario(); f.state[nonce] = 1n;
 		await expect(f.run()).rejects.toThrow('CREATION_SECURITY_CHANGED'); expect((await count()).wallets).toBe(0);
 	});

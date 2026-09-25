@@ -35,7 +35,7 @@ contract AccountV3UpgradeInvariantTest is V3ExecutionFixture {
         selectors[0] = this.queue.selector;
         selectors[1] = this.advance.selector;
         selectors[2] = this.commitPending.selector;
-        selectors[3] = this.vetoPending.selector;
+        selectors[3] = this.cancelPending.selector;
         selectors[4] = this.expirePending.selector;
         selectors[5] = this.freezePending.selector;
         selectors[6] = this.spend.selector;
@@ -98,6 +98,8 @@ contract AccountV3UpgradeInvariantTest is V3ExecutionFixture {
 
     function commitPending() public {
         (, uint8 kind) = account.proposal();
+        // Synthetic clock selects a test validity boundary, not randomness or production finality.
+        // forge-lint: disable-next-line(block-timestamp)
         if (kind != uint8(D.ProposalKind.Upgrade) || block.timestamp < readyAt || block.timestamp >= expiresAt) return;
         T.CommitProposal memory message = _executionCommit();
         account.commitUpgrade(
@@ -106,26 +108,28 @@ contract AccountV3UpgradeInvariantTest is V3ExecutionFixture {
         ++committed;
     }
 
-    function vetoPending() public {
+    function cancelPending() public {
         (bytes32 proposal, uint8 kind) = account.proposal();
         if (kind == uint8(D.ProposalKind.None)) return;
-        T.SignerDescriptor memory member = policy.signers[0];
-        T.VetoProposal memory message = T.VetoProposal(
+        T.CancelProposal memory message = T.CancelProposal(
             initial.accountId,
             3,
             account.securityVersion(),
             proposal,
-            T.signerId(member),
-            memberVetoNonce,
+            account.securitySnapshot()[7],
             SafeCast.toUint48(block.timestamp),
-            SafeCast.toUint48(block.timestamp + 1 days)
+            SafeCast.toUint48(block.timestamp + 5 minutes)
         );
-        account.veto(message, _memberSign(member, T.digest(block.chainid, address(account), T.hashVeto(message))));
+        account.cancel(
+            message, _votes(policy, T.digest(block.chainid, address(account), T.hashCancel(message)), P.ADMIN)
+        );
         ++memberVetoNonce;
     }
 
     function expirePending() public {
         (bytes32 proposal, uint8 kind) = account.proposal();
+        // Synthetic clock selects a test validity boundary, not randomness or production finality.
+        // forge-lint: disable-next-line(block-timestamp)
         if (kind == uint8(D.ProposalKind.None) || block.timestamp < expiresAt) return;
         account.expire(proposal);
     }
@@ -158,7 +162,7 @@ contract AccountV3UpgradeInvariantTest is V3ExecutionFixture {
         advance(72 hours);
         commitPending();
         queue();
-        vetoPending();
+        cancelPending();
         queue();
         advance(11 days);
         expirePending();

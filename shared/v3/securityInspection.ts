@@ -5,8 +5,8 @@ import { hashSecurityManifest } from './authorizations';
 import { hashSecurityPolicy, SignerKind, type SecurityPolicy } from './securityPolicy';
 
 export const accountSecurityInspectionAbi = parseAbi([
-	'struct SignerDescriptor { uint8 kind; address verifier; bytes32 verifierCodeHash; bytes key; uint8 roles; bool assisted; }',
-	'struct SecurityPolicy { uint8 mode; SignerDescriptor[] signers; uint16 spendThreshold; uint16 adminThreshold; uint16 recoveryThreshold; uint48 recoveryDelaySeconds; uint48 upgradeDelaySeconds; }',
+	'struct SignerDescriptor { uint8 kind; address verifier; bytes32 verifierCodeHash; bytes key; uint8 roles; }',
+	'struct SecurityPolicy { uint8 mode; SignerDescriptor[] signers; uint16 spendThreshold; uint16 adminThreshold; uint48 upgradeDelaySeconds; }',
 	'function securitySnapshot() view returns (uint256[16] snapshot)',
 	'function securityPolicy() view returns (SecurityPolicy policy)',
 ]);
@@ -43,12 +43,12 @@ export async function inspectAccountSecurity(client: PublicClient, input: Accoun
 		// Fixed public wire schema, not a dependency on Solidity's packed storage offsets.
 		const state = { flags: words[0], securityVersion: words[1], manifestHash: toHex(words[2], { size: 32 }),
 			chainScopeHash: toHex(words[3], { size: 32 }), creationValidAfter: words[4], creationValidUntil: words[5],
-			spendNonce: words[6], adminNonce: words[7], recoveryNonce: words[8], pendingKind: words[9], pendingHash: toHex(words[10], { size: 32 }),
+			spendNonce: words[6], adminNonce: words[7], wireRevision: words[8], pendingKind: words[9], pendingHash: toHex(words[10], { size: 32 }),
 			pendingVersion: words[11], pendingPreviousManifestHash: toHex(words[12], { size: 32 }), pendingChainScopeHash: toHex(words[13], { size: 32 }),
 			pendingReadyAt: words[14], pendingValidUntil: words[15] };
-		if ((state.flags & 1n) !== 1n || state.flags > 7n
+		if ((state.flags & 1n) !== 1n || state.flags > 7n || state.wireRevision !== 1n
 			|| state.securityVersion.toString() !== deployment.security_version || state.manifestHash === zeroHash || state.chainScopeHash === zeroHash
-			|| (state.flags & 4n) !== 0n || state.pendingKind > 4n || state.securityVersion >= 2n ** 64n || state.pendingVersion >= 2n ** 64n
+			|| (state.flags & 4n) !== 0n || state.pendingKind > 2n || state.securityVersion >= 2n ** 64n || state.pendingVersion >= 2n ** 64n
 			|| [state.creationValidAfter, state.creationValidUntil, state.pendingReadyAt, state.pendingValidUntil].some((value) => value >= 2n ** 48n)
 			|| (state.creationValidUntil === 0n ? state.creationValidAfter !== 0n : state.creationValidUntil <= state.creationValidAfter)) {
 			throw new AccountInspectionError('IDENTITY_MISMATCH');
@@ -67,16 +67,14 @@ export async function inspectAccountSecurity(client: PublicClient, input: Accoun
 		const encodedPolicy = await call('securityPolicy', 6432);
 		const raw = decodeFunctionResult({ abi: accountSecurityInspectionAbi, functionName: 'securityPolicy', data: encodedPolicy });
 		if (encodeFunctionResult({ abi: accountSecurityInspectionAbi, functionName: 'securityPolicy', result: raw }) !== encodedPolicy
-			|| (raw.mode !== 0 && raw.mode !== 1)) throw new AccountInspectionError('INVALID_RPC_DATA');
-		const policy: SecurityPolicy = { ...raw, mode: raw.mode === 0 ? 'bootstrap' : 'active',
+			|| raw.mode !== 1) throw new AccountInspectionError('INVALID_RPC_DATA');
+		const policy: SecurityPolicy = { ...raw, mode: 'active',
 			signers: raw.signers.map((signer) => {
 				if (signer.kind !== 0 && signer.kind !== 1 && signer.kind !== 2) throw new AccountInspectionError('INVALID_RPC_DATA');
 				return { ...signer, kind: signer.kind, verifier: signer.verifier.toLowerCase() as Address };
 			}) };
 		const policyHash = hashSecurityPolicy(policy);
-		if ((state.pendingKind === 1n && policy.mode !== 'bootstrap')
-			|| (state.pendingKind >= 2n && policy.mode !== 'active')
-			|| (state.pendingKind === 4n && (state.flags & 2n) !== 0n)) throw new AccountInspectionError('IDENTITY_MISMATCH');
+		if (state.pendingKind === 2n && (state.flags & 2n) !== 0n) throw new AccountInspectionError('IDENTITY_MISMATCH');
 		if (state.securityVersion === 1n && (policyHash !== snapshotInput.initialSecurityCommitment
 			|| state.manifestHash !== hashSecurityManifest({ accountId: deployment.account_id, generation: 3, securityVersion: 1n,
 				previousManifestHash: zeroHash, policyHash, chainScopeHash: state.chainScopeHash }))) {
@@ -99,12 +97,11 @@ export async function inspectAccountSecurity(client: PublicClient, input: Accoun
 			throw new AccountInspectionError('CHECKPOINT_MISMATCH');
 		}
 		// Expired proposals remain pending until explicitly cleared onchain. Never infer cancellation.
-		const phase = state.creationValidUntil !== 0n ? 'creation_pending' : state.pendingKind === 3n ? 'recovery_pending'
-			: policy.mode === 'bootstrap' ? 'bootstrap' : 'active_policy';
+		const phase = state.creationValidUntil !== 0n ? 'creation_pending' : 'active_policy';
 		return { ...deployment, security: { phase, manifest_hash: state.manifestHash, chain_scope_hash: state.chainScopeHash,
 			policy_hash: policyHash, policy, upgrades_frozen: (state.flags & 2n) !== 0n,
 			creation_valid_after: Number(state.creationValidAfter), creation_valid_until: Number(state.creationValidUntil),
-			nonces: { spend: state.spendNonce.toString(), admin: state.adminNonce.toString(), recovery: state.recoveryNonce.toString() },
+			nonces: { spend: state.spendNonce.toString(), admin: state.adminNonce.toString() },
 			pending: state.pendingKind === 0n ? null : { kind: Number(state.pendingKind), hash: state.pendingHash,
 				security_version: state.pendingVersion.toString(), previous_manifest_hash: state.pendingPreviousManifestHash,
 				chain_scope_hash: state.pendingChainScopeHash, ready_at: Number(state.pendingReadyAt), valid_until: Number(state.pendingValidUntil) } } };

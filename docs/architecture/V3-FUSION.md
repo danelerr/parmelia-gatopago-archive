@@ -15,6 +15,33 @@
 
 ## 0. Cómo leer y gobernar este documento
 
+### Decisión posterior — Consumer V3.0, 20 de septiembre de 2026
+
+Para la continuación contractual aprobada, **una passkey basta para gastar y
+administrar**. Los respaldos son opcionales y equivalentes: SPEND 1-de-N y ADMIN
+1-de-N en el perfil consumer. No se promociona automáticamente a ADMIN 2-de-N.
+Agregar una llave exige consentimiento ADMIN actual y prueba de posesión de la
+nueva; perder todas las llaves deja la cuenta inaccesible. Soporte, correo y
+GatoPago no tienen autoridad especial onchain.
+
+Esta decisión sustituye las secciones históricas que prescriben bootstrap sin
+ADMIN, guardian assisted, RECOVERY, veto individual o activación obligatoria con
+varias llaves. Permanecen propuestas administrativas, confirmación fresca,
+nonces/versiones y controles de upgrade. El protocolo conserva quorums genéricos;
+eso no cambia el perfil consumer ni agrega una interfaz multisig al producto.
+
+La cancelación requiere ADMIN actual. Con ADMIN=1, una llave comprometida también
+puede cancelar y administrar: **no se promete resistencia a esa llave**. La
+recepción inicial exige despliegue y verificación en la red; CREATE2 no implica
+que una dirección contrafactual sea segura para depositar.
+
+Implementación local, límites y evidencia actual:
+[Account V3 consumer — continuación](../operations/v3-consumer-authority-2026-09-20.md).
+Regularización del conjunto, nombres, archivo V2 y despliegue enlazado:
+[Contratos V3 — 21/09](../operations/v3-contract-regularization-2026-09-21.md).
+La documentación restante conserva trazabilidad, no autorización para restaurar
+el modelo anterior. V3 completa y el release público siguen sin estar terminados.
+
 ### 0.1 Autoridad
 
 A partir de esta consolidación, **V3 FUSION es el punto principal de lectura y

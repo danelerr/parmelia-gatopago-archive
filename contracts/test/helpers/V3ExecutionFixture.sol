@@ -18,9 +18,9 @@ import {AccountV3Enrollment as E} from "src/v3/AccountV3Enrollment.sol";
 contract V3ExecutionAccount is AccountV3 {
     constructor(address ep) AccountV3(ep) {}
 
-    function securityState() external view returns (bytes32 manifest, uint256 admin, uint256 recovery, bool frozen) {
+    function securityState() external view returns (bytes32 manifest, uint256 admin, uint256 reserved, bool frozen) {
         D.Layout storage s = D.layout();
-        return (s.manifestHash, s.adminNonce, s.recoveryNonce, s.upgradesFrozen);
+        return (s.manifestHash, s.adminNonce, 0, s.upgradesFrozen);
     }
 
     function proposal() external view returns (bytes32 hash, uint8 kind) {
@@ -173,7 +173,7 @@ abstract contract V3ExecutionFixture is V3SecurityFixture {
         view
         returns (T.SecurityChange memory change, bytes32 digest, S.Signature[] memory proofs)
     {
-        (bytes32 manifest, uint256 admin, uint256 recovery,) = account.securityState();
+        (bytes32 manifest, uint256 admin,,) = account.securityState();
         change = T.SecurityChange(
             initial.accountId,
             3,
@@ -181,14 +181,12 @@ abstract contract V3ExecutionFixture is V3SecurityFixture {
             manifest,
             T.hashPolicy(next),
             keccak256(abi.encode(_chains())),
-            kind == E.ChangeKind.Recovery ? recovery : admin,
+            admin,
             SafeCast.toUint48(block.timestamp),
             SafeCast.toUint48(block.timestamp + 5 minutes),
-            SafeCast.toUint48(
-                block.timestamp + 7 days + (kind == E.ChangeKind.Recovery ? policy.recoveryDelaySeconds : 0)
-            )
+            SafeCast.toUint48(block.timestamp + 7 days)
         );
-        bytes32 structHash = kind == E.ChangeKind.Recovery ? T.hashRecovery(change) : T.hashSecurity(change);
+        bytes32 structHash = E.hashChange(kind, change);
         digest = T.digest(block.chainid, address(account), structHash);
         // This fixture only rotates to entirely new members. Every one proves its new policy/context.
         proofs = new S.Signature[](next.signers.length);

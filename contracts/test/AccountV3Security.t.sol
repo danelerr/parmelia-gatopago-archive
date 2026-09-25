@@ -29,7 +29,7 @@ contract AccountV3SecurityTest is V3SecurityFixture {
         bytes32 proposal = _prepare(account, next, E.ChangeKind.Security);
         V3SecurityHarness.Snapshot memory prepared = account.snapshot();
         assertEq(prepared.admin, 1);
-        assertEq(prepared.recovery, 0);
+
         assertEq(prepared.version, 1);
         assertEq(prepared.manifest, before_.manifest);
         assertEq(T.hashPolicy(prepared.policy), T.hashPolicy(before_.policy));
@@ -135,26 +135,36 @@ contract AccountV3SecurityTest is V3SecurityFixture {
         );
     }
 
-    function test_vetoRemainsAvailableAfterPrepareAuthorizationExpires() public {
+    function test_adminCancellationRemainsAvailableAfterPrepareAuthorizationExpires() public {
         _prepare(account, next, E.ChangeKind.Security);
         vm.warp(block.timestamp + 1 hours);
-        _veto(account, _ecdsa(alice));
+        _cancel(account);
         _assertEmpty(account.snapshot().pending);
-        assertEq(account.snapshot().admin, 1);
+        assertEq(account.snapshot().admin, 2);
     }
 
-    function test_longestRecoveryWaitDoesNotRequireLongLivedAcceptanceSignature() public {
-        T.SecurityPolicy memory original = _policy(alice, bob);
-        original.recoveryDelaySeconds = 30 days;
-        account = new V3SecurityEdgeHarness(original, keccak256(abi.encode(_chains())));
-        T.SecurityChange memory change = _change(account, next, E.ChangeKind.Recovery);
-        bytes32 proposal = _prepare(account, next, E.ChangeKind.Recovery);
-        assertEq(change.validUntil - change.validAfter, 5 minutes);
-        assertEq(account.snapshot().pending.validUntil - change.validAfter, 37 days);
-        vm.warp(account.snapshot().pending.readyAt);
-        account.activate(proposal);
-        assertEq(account.snapshot().version, 2);
-        account.spendEnabled();
+    function test_spendOnlyMemberCannotCancelButCurrentAdminCan() public {
+        T.SecurityPolicy memory current = _policy(alice, bob);
+        current.adminThreshold = 1;
+        for (uint256 i; i < current.signers.length; ++i) {
+            if (address(bytes20(current.signers[i].key)) == alice) current.signers[i].roles = P.SPEND;
+        }
+        account = new V3SecurityEdgeHarness(current, keccak256(abi.encode(_chains())));
+        _prepare(account, next, E.ChangeKind.Security);
+        T.CancelProposal memory message = _cancelMessage(account);
+        bytes32 digest = T.digest(block.chainid, address(account), T.hashCancel(message));
+        S.Signature[] memory spender = new S.Signature[](1);
+        for (uint256 i; i < current.signers.length; ++i) {
+            if (address(bytes20(current.signers[i].key)) == alice) {
+                spender[0] = S.Signature(SafeCast.toUint8(i), _memberSign(current.signers[i], digest));
+            }
+        }
+        _rejected(
+            abi.encodeCall(account.cancel, (message, spender)), Security.AccountV3Security__InvalidConsent.selector
+        );
+        account.cancel(message, _votes(current, digest, P.ADMIN));
+        _assertEmpty(account.snapshot().pending);
+        assertEq(account.snapshot().admin, 2);
     }
 
     function test_newSignersCannotCommitBeforeOldAuthorityInstallsThem() public {
@@ -168,14 +178,16 @@ contract AccountV3SecurityTest is V3SecurityFixture {
         _commit(account);
         // The newly installed quorum now controls the next transition; removed Bob cannot veto it.
         _prepare(account, _policy(carol, dave), E.ChangeKind.Security);
-        T.SignerDescriptor memory removed = _ecdsa(bob);
-        T.VetoProposal memory veto_ = _vetoMessage(account, removed);
+        T.CancelProposal memory veto_ = _cancelMessage(account);
         _rejected(
             abi.encodeCall(
-                account.veto,
-                (veto_, _memberSign(removed, T.digest(block.chainid, address(account), T.hashVeto(veto_))))
+                account.cancel,
+                (
+                    veto_,
+                    _votes(_policy(bob, dave), T.digest(block.chainid, address(account), T.hashCancel(veto_)), P.ADMIN)
+                )
             ),
-            Security.AccountV3Security__NotCurrentMember.selector
+            Security.AccountV3Security__InvalidConsent.selector
         );
         _commit(account);
         assertEq(account.snapshot().version, 3);
@@ -183,116 +195,38 @@ contract AccountV3SecurityTest is V3SecurityFixture {
         assertEq(T.hashPolicy(account.snapshot().policy), T.hashPolicy(_policy(carol, dave)));
     }
 
-    function test_recoveryPreemptsAdminButAdminAndAnotherRecoveryCannotReplaceIt() public {
-        bytes32 old = _prepare(account, next, E.ChangeKind.Security);
-        bytes32 recovery = _prepare(account, _policy(carol, dave), E.ChangeKind.Recovery);
-        assertNotEq(old, recovery);
-        assertEq(account.snapshot().admin, 1);
-        assertEq(account.snapshot().recovery, 1);
-        _rejected(_prepareData(E.ChangeKind.Security, next), Security.AccountV3Security__PendingProposal.selector);
-        _rejected(_prepareData(E.ChangeKind.Recovery, next), Security.AccountV3Security__PendingProposal.selector);
-        T.CommitProposal memory message = _commitMessage(account);
+    function test_cancelConsumesAdminNonceAndCannotReplay() public {
+        _prepare(account, next, E.ChangeKind.Security);
+        T.CancelProposal memory message = _cancelMessage(account);
         S.Signature[] memory auth = _votes(
-            account.snapshot().policy, T.digest(block.chainid, address(account), T.hashCommit(message)), P.ADMIN
+            account.snapshot().policy, T.digest(block.chainid, address(account), T.hashCancel(message)), P.ADMIN
         );
-        _rejected(abi.encodeCall(account.commit, (message, auth)), Security.AccountV3Security__WrongProposal.selector);
-        _rejected(abi.encodeCall(account.spendEnabled, ()), Security.AccountV3Security__SpendingDisabled.selector);
-        _rejected(abi.encodeCall(account.expire, (old)), Security.AccountV3Security__WrongProposal.selector);
+        account.cancel(message, auth);
+        assertEq(account.snapshot().admin, 2);
+        _prepare(account, next, E.ChangeKind.Security);
+        _rejected(abi.encodeCall(account.cancel, (message, auth)), Security.AccountV3Security__WrongProposal.selector);
     }
 
-    function test_recoveryUsesOldDelayFromAcceptanceAndAnyRelayerCanActivate() public {
-        T.SecurityPolicy memory original = _policy(alice, bob);
-        original.recoveryDelaySeconds = 7 days;
-        account = new V3SecurityEdgeHarness(original, keccak256(abi.encode(_chains())));
-        T.SecurityChange memory change = _change(account, next, E.ChangeKind.Recovery);
-        change.validAfter -= 30;
-        change.validUntil = change.validAfter + 5 minutes;
-        change.proposalValidUntil -= 30;
-        S.Signature[] memory auth = _votes(original, _context(account, change, E.ChangeKind.Recovery), P.RECOVERY);
-        S.Signature[] memory proofs = _proofs(account, next, change, E.ChangeKind.Recovery);
-        vm.warp(block.timestamp + 30);
-        uint256 acceptedAt = block.timestamp;
-        bytes32 hash = account.prepare(E.ChangeKind.Recovery, change, next, _chains(), auth, proofs);
-        uint48 ready = account.snapshot().pending.readyAt;
-        assertEq(ready, acceptedAt + 7 days);
-        vm.warp(ready - 1);
-        _rejected(abi.encodeCall(account.activate, (hash)), Security.AccountV3Security__ProposalNotReady.selector);
-        vm.warp(ready);
-        vm.prank(makeAddr("untrusted-relayer"));
-        account.activate(hash);
-        assertEq(account.snapshot().version, 2);
-        assertEq(account.snapshot().admin, 0);
-        assertEq(account.snapshot().recovery, 1);
-        assertEq(account.snapshot().policy.recoveryDelaySeconds, 72 hours);
-        account.spendEnabled();
-        _rejected(abi.encodeCall(account.activate, (hash)), Security.AccountV3Security__WrongProposal.selector);
-    }
-
-    function test_expiredRecoveryCannotActivateAndPermissionlessCleanupDoesNotRestoreNonce() public {
-        T.SecurityChange memory change = _change(account, next, E.ChangeKind.Recovery);
-        bytes memory replay = _prepareData(E.ChangeKind.Recovery, next);
-        bytes32 hash = _prepare(account, next, E.ChangeKind.Recovery);
-        vm.warp(change.proposalValidUntil);
-        _rejected(abi.encodeCall(account.activate, (hash)), Security.AccountV3Security__ProposalNotReady.selector);
-        _rejected(abi.encodeCall(account.spendEnabled, ()), Security.AccountV3Security__SpendingDisabled.selector);
-        vm.prank(makeAddr("cleanup-relayer"));
-        account.expire(hash);
-        account.spendEnabled();
-        assertEq(account.snapshot().version, 1);
-        assertEq(account.snapshot().recovery, 1);
-        _assertEmpty(account.snapshot().pending);
-        _rejected(replay, Security.AccountV3Security__OutsideValidity.selector);
-    }
-
-    function test_vetoConsumesOnlyCurrentMembersNonceAndDoesNotMakeProposalReplayable() public {
-        bytes memory replay = _prepareData(E.ChangeKind.Recovery, next);
-        _prepare(account, next, E.ChangeKind.Recovery);
-        T.SignerDescriptor memory member = _ecdsa(bob);
-        T.VetoProposal memory message = _vetoMessage(account, member);
-        bytes memory signedVeto = _memberSign(member, T.digest(block.chainid, address(account), T.hashVeto(message)));
-        account.veto(message, signedVeto);
-        assertEq(account.vetoNonce(T.signerId(member)), 1);
-        assertEq(account.vetoNonce(T.signerId(_ecdsa(alice))), 0);
-        assertEq(account.snapshot().admin, 0);
-        assertEq(account.snapshot().recovery, 1);
-        assertEq(account.snapshot().version, 1);
-        _rejected(replay, Security.AccountV3Security__WrongNonce.selector);
-        _prepare(account, next, E.ChangeKind.Recovery);
-        _rejected(
-            abi.encodeCall(account.veto, (message, signedVeto)), Security.AccountV3Security__WrongProposal.selector
-        );
-        T.VetoProposal memory changed = _vetoMessage(account, member);
-        changed.nonce = 0;
+    function test_pendingMemberCannotCancelAndExpiryHasExactBoundary() public {
+        _prepare(account, next, E.ChangeKind.Security);
+        T.CancelProposal memory message = _cancelMessage(account);
         _rejected(
             abi.encodeCall(
-                account.veto,
-                (changed, _memberSign(member, T.digest(block.chainid, address(account), T.hashVeto(changed))))
+                account.cancel,
+                (message, _votes(next, T.digest(block.chainid, address(account), T.hashCancel(message)), P.ADMIN))
             ),
-            Security.AccountV3Security__WrongNonce.selector
+            Security.AccountV3Security__InvalidConsent.selector
         );
-    }
-
-    function test_pendingNewMemberCannotVetoAndExpiryHasExactBoundary() public {
-        bytes32 hash = _prepare(account, next, E.ChangeKind.Security);
-        T.SignerDescriptor memory newcomer = _ecdsa(carol);
-        T.VetoProposal memory message = _vetoMessage(account, newcomer);
-        _rejected(
-            abi.encodeCall(
-                account.veto,
-                (message, _memberSign(newcomer, T.digest(block.chainid, address(account), T.hashVeto(message))))
-            ),
-            Security.AccountV3Security__NotCurrentMember.selector
-        );
+        bytes32 hash = account.snapshot().pending.proposalHash;
         vm.warp(account.snapshot().pending.validUntil - 1);
         _rejected(abi.encodeCall(account.expire, (hash)), Security.AccountV3Security__NotExpired.selector);
         vm.warp(block.timestamp + 1);
         account.expire(hash);
-        assertEq(account.snapshot().admin, 1);
         _assertEmpty(account.snapshot().pending);
     }
 
-    function test_freezeIsIrreversibleSurvivesRecoveryAndDoesNotRestartTheWait() public {
-        _prepare(account, next, E.ChangeKind.Recovery);
+    function test_freezeIsIrreversibleSurvivesRotationAndDoesNotRestartTheWait() public {
+        _prepare(account, next, E.ChangeKind.Security);
         V3SecurityHarness.Snapshot memory before_ = account.snapshot();
         _freeze(account);
         V3SecurityHarness.Snapshot memory frozen = account.snapshot();
@@ -301,9 +235,9 @@ contract AccountV3SecurityTest is V3SecurityFixture {
         assertEq(frozen.pending.proposalHash, before_.pending.proposalHash);
         assertEq(frozen.version, before_.version);
         assertEq(frozen.manifest, before_.manifest);
-        assertEq(frozen.admin, 1);
+        assertEq(frozen.admin, 2);
         vm.warp(frozen.pending.readyAt);
-        account.activate(frozen.pending.proposalHash);
+        _commit(account);
         assertTrue(account.snapshot().frozen);
         _rejected(_freezeData(), Security.AccountV3Security__AlreadyFrozen.selector);
         _prepare(account, _policy(bob, dave), E.ChangeKind.Security);
@@ -321,13 +255,6 @@ contract AccountV3SecurityTest is V3SecurityFixture {
         _freeze(account);
         _assertEmpty(account.snapshot().pending);
         assertEq(account.snapshot().version, 1);
-    }
-
-    function test_recoveryReplacementClearsSeededUpgradePayload() public {
-        account.seedUpgrade();
-        _prepare(account, next, E.ChangeKind.Recovery);
-        assertEq(account.snapshot().pending.upgrade.runtimeCodeHash, bytes32(0));
-        assertEq(uint8(account.snapshot().pending.kind), uint8(D.ProposalKind.Recovery));
     }
 
     function test_missingPossessionAndProposalSignatureReusedAsCommitFail() public {
@@ -498,43 +425,9 @@ contract AccountV3SecurityTest is V3SecurityFixture {
         );
     }
 
-    function testFuzz_recoveryWaitMustFitEntirelyInsideProposalValidity(uint48 window) public {
-        window = SafeCast.toUint48(bound(window, 301, 72 hours));
-        T.SecurityChange memory change = _change(account, next, E.ChangeKind.Recovery);
-        change.proposalValidUntil = SafeCast.toUint48(block.timestamp + window);
-        S.Signature[] memory auth =
-            _votes(account.snapshot().policy, _context(account, change, E.ChangeKind.Recovery), P.RECOVERY);
-        _rejected(
-            abi.encodeCall(
-                account.prepare,
-                (
-                    E.ChangeKind.Recovery,
-                    change,
-                    next,
-                    _chains(),
-                    auth,
-                    _proofs(account, next, change, E.ChangeKind.Recovery)
-                )
-            ),
-            Security.AccountV3Security__TimelockExceedsValidity.selector
-        );
-    }
-
     function test_exhaustedNonceSpacesFailWithoutWraparound() public {
-        account.seedNonces(type(uint256).max, 0, bytes32(0), 0);
+        account.seedNonces(type(uint256).max);
         _rejected(_prepareData(E.ChangeKind.Security, next), Security.AccountV3Security__WrongNonce.selector);
-        account.seedNonces(0, type(uint256).max, bytes32(0), 0);
-        _rejected(_prepareData(E.ChangeKind.Recovery, next), Security.AccountV3Security__WrongNonce.selector);
-        account.seedNonces(0, 0, T.signerId(_ecdsa(alice)), type(uint256).max);
-        _prepare(account, next, E.ChangeKind.Recovery);
-        T.VetoProposal memory message = _vetoMessage(account, _ecdsa(alice));
-        _rejected(
-            abi.encodeCall(
-                account.veto,
-                (message, _memberSign(_ecdsa(alice), T.digest(block.chainid, address(account), T.hashVeto(message))))
-            ),
-            Security.AccountV3Security__WrongNonce.selector
-        );
     }
 
     function test_exhaustedVersionRevertsCommitIncludingItsNonceIncrement() public {
@@ -548,34 +441,11 @@ contract AccountV3SecurityTest is V3SecurityFixture {
         assertEq(account.snapshot().admin, 1);
     }
 
-    function test_timeOverflowCannotWrapRecoveryReadyAt() public {
-        vm.warp(uint256(type(uint48).max) - 1 days);
-        T.SecurityChange memory change = T.SecurityChange(
-            account.snapshot().id,
-            3,
-            1,
-            account.snapshot().manifest,
-            T.hashPolicy(next),
-            keccak256(abi.encode(_chains())),
-            0,
-            SafeCast.toUint48(block.timestamp),
-            SafeCast.toUint48(block.timestamp + 5 minutes),
-            type(uint48).max
-        );
-        _rejected(
-            abi.encodeCall(
-                account.prepare,
-                (E.ChangeKind.Recovery, change, next, _chains(), new S.Signature[](0), new S.Signature[](0))
-            ),
-            SafeCast.SafeCastOverflowedUintDowncast.selector
-        );
-    }
-
     function test_allMutationsRejectDuringAssetExecution() public {
         bytes memory prepareData = _prepareData(E.ChangeKind.Security, next);
-        _prepare(account, next, E.ChangeKind.Recovery);
+        _prepare(account, next, E.ChangeKind.Security);
         T.CommitProposal memory commit_ = _commitMessage(account);
-        T.VetoProposal memory veto_ = _vetoMessage(account, _ecdsa(alice));
+        T.CancelProposal memory veto_ = _cancelMessage(account);
         bytes memory freezeData = _freezeData();
         bytes32 hash = account.snapshot().pending.proposalHash;
         account.seedHeader(true, true, 1);
@@ -584,8 +454,10 @@ contract AccountV3SecurityTest is V3SecurityFixture {
             abi.encodeCall(account.commit, (commit_, new S.Signature[](0))),
             Security.AccountV3Security__Executing.selector
         );
-        _rejected(abi.encodeCall(account.activate, (hash)), Security.AccountV3Security__Executing.selector);
-        _rejected(abi.encodeCall(account.veto, (veto_, bytes(""))), Security.AccountV3Security__Executing.selector);
+        _rejected(
+            abi.encodeCall(account.cancel, (veto_, new S.Signature[](0))),
+            Security.AccountV3Security__Executing.selector
+        );
         _rejected(freezeData, Security.AccountV3Security__Executing.selector);
         _rejected(abi.encodeCall(account.expire, (hash)), Security.AccountV3Security__Executing.selector);
         _rejected(abi.encodeCall(account.spendEnabled, ()), Security.AccountV3Security__Executing.selector);
@@ -595,70 +467,6 @@ contract AccountV3SecurityTest is V3SecurityFixture {
         bytes memory data = _prepareData(E.ChangeKind.Security, next);
         account.seedHeader(false, false, 1);
         _rejected(data, Security.AccountV3Security__Uninitialized.selector);
-    }
-
-    function test_actualWebAuthnBootstrapRequiresSeparatePromotionAndCommitConsent() public {
-        AccountV3WebAuthnVerifier verifier = new AccountV3WebAuthnVerifier();
-        (uint256 x, uint256 y) = vm.publicKeyP256(1); // Public mathematical test vector ONLY.
-        bytes memory key = abi.encodePacked(sha256("gatopago.com"), sha256("https://gatopago.com"), x, y);
-        T.SecurityPolicy memory bootstrap = _policy(alice, bob);
-        bootstrap.mode = P.BOOTSTRAP;
-        bootstrap.adminThreshold = 0;
-        bootstrap.recoveryThreshold = 0;
-        bootstrap.signers = new T.SignerDescriptor[](1);
-        bootstrap.signers[0] =
-            T.SignerDescriptor(P.WEBAUTHN, address(verifier), address(verifier).codehash, key, P.SPEND, false);
-        T.SecurityPolicy memory active = _policy(alice, bob);
-        active.signers[1] = T.SignerDescriptor(P.WEBAUTHN, address(verifier), address(verifier).codehash, key, 7, false);
-        active.signers[0] = _ecdsa(alice);
-        _sort(active);
-        account = new V3SecurityEdgeHarness(bootstrap, keccak256(abi.encode(_chains())));
-        vm.mockCall(address(0x100), bytes(""), bytes("")); // Force genuine OZ software P256 verification.
-        _rejected(abi.encodeCall(account.spendEnabled, ()), Security.AccountV3Security__SpendingDisabled.selector);
-        _rejected(_prepareData(E.ChangeKind.Security, active), Security.AccountV3Security__WrongMode.selector);
-        _rejected(_freezeData(), Security.AccountV3Security__WrongMode.selector);
-        _prepare(account, active, E.ChangeKind.Bootstrap);
-        _rejected(abi.encodeCall(account.spendEnabled, ()), Security.AccountV3Security__SpendingDisabled.selector);
-        vm.warp(block.timestamp + 1 hours);
-        _commit(account);
-        account.spendEnabled();
-        assertEq(account.snapshot().version, 2);
-        assertEq(account.snapshot().admin, 2);
-        assertEq(T.hashPolicy(account.snapshot().policy), T.hashPolicy(active));
-    }
-
-    function test_recoveryAndAdminUseDifferentAuthoritiesEvenWithFreshPurposeCorrectSignatures() public {
-        T.SecurityPolicy memory separate = _policy(alice, bob);
-        separate.signers = new T.SignerDescriptor[](4);
-        separate.signers[0] = _ecdsa(alice);
-        separate.signers[0].roles = P.SPEND | P.ADMIN;
-        separate.signers[1] = _ecdsa(bob);
-        separate.signers[1].roles = P.SPEND | P.ADMIN;
-        separate.signers[2] = _ecdsa(carol);
-        separate.signers[2].roles = P.RECOVERY;
-        separate.signers[3] = _ecdsa(dave);
-        separate.signers[3].roles = P.RECOVERY;
-        _sort(separate);
-        account = new V3SecurityEdgeHarness(separate, keccak256(abi.encode(_chains())));
-        T.SecurityChange memory change = _change(account, next, E.ChangeKind.Recovery);
-        S.Signature[] memory wrongRole = _votes(separate, _context(account, change, E.ChangeKind.Recovery), P.ADMIN);
-        _rejected(
-            abi.encodeCall(
-                account.prepare,
-                (
-                    E.ChangeKind.Recovery,
-                    change,
-                    next,
-                    _chains(),
-                    wrongRole,
-                    _proofs(account, next, change, E.ChangeKind.Recovery)
-                )
-            ),
-            Security.AccountV3Security__InvalidConsent.selector
-        );
-        _prepare(account, next, E.ChangeKind.Recovery);
-        _veto(account, _ecdsa(dave)); // signerId excludes roles; recovery-only guardian may veto.
-        assertEq(account.vetoNonce(T.signerId(_ecdsa(dave))), 1);
     }
 
     function test_mutableERC1271IsRevalidatedAtCommitEvenWhenCodehashDidNotChange() public {
@@ -671,8 +479,7 @@ contract AccountV3SecurityTest is V3SecurityFixture {
             address(contractSigner),
             address(contractSigner).codehash,
             abi.encodePacked(address(contractSigner)),
-            7,
-            false
+            3
         );
         _sort(policy);
         account = new V3SecurityEdgeHarness(policy, keccak256(abi.encode(_chains())));
@@ -684,13 +491,20 @@ contract AccountV3SecurityTest is V3SecurityFixture {
         contractSigner.revoke();
         assertEq(address(contractSigner).codehash, pinned);
         _rejected(abi.encodeCall(account.commit, (message, auth)), Security.AccountV3Security__InvalidConsent.selector);
-        _veto(account, _ecdsa(alice));
-        assertEq(account.snapshot().admin, 1);
+        // Revoked ADMIN votes cannot cancel either.
+        T.CancelProposal memory cancel_ = _cancelMessage(account);
+        _rejected(
+            abi.encodeCall(
+                account.cancel,
+                (cancel_, _votes(policy, T.digest(block.chainid, address(account), T.hashCancel(cancel_)), P.ADMIN))
+            ),
+            Security.AccountV3Security__InvalidConsent.selector
+        );
     }
 
     function _prepareData(E.ChangeKind kind, T.SecurityPolicy memory policy) private view returns (bytes memory) {
         T.SecurityChange memory change = _change(account, policy, kind);
-        uint8 role = kind == E.ChangeKind.Bootstrap ? P.SPEND : kind == E.ChangeKind.Security ? P.ADMIN : P.RECOVERY;
+        uint8 role = P.ADMIN;
         return abi.encodeCall(
             account.prepare,
             (

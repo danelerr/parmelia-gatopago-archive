@@ -28,7 +28,7 @@ export class TransferSigning {
   }
   choices() {
     return this.preparation.review.policy.signers.flatMap((member,index) => {
-      if (member.assisted || (member.roles & Role.SPEND) === 0) return [];
+      if ((member.roles & Role.SPEND) === 0) return [];
       return [{ index,kind:member.kind,key:member.key,credential_refs: member.kind === SignerKind.WEBAUTHN
         ? this.credentials.filter(c => c.public_key === member.key).map(c => c.credential_ref) : [] }];
     });

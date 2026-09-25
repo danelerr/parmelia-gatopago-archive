@@ -9,13 +9,11 @@ library AccountV3Storage {
     // keccak256(abi.encode(uint256(keccak256("gatopago.account.v3")) - 1)) & ~bytes32(uint256(0xff))
     bytes32 internal constant STORAGE_LOCATION = 0xf7d3d237b2c0508303945fc9697caadd1c97ac71f8ac5d69804370418184b000;
     // Compiler-derived SHA-256 commitment; scripts/v3-storage-layout.mjs verifies it.
-    bytes32 internal constant LAYOUT_HASH = 0x1db59f278cb6ee7f51095e572dc040bf37f9c1e4e63143a9fe0e0eacac97f3b7;
+    bytes32 internal constant LAYOUT_HASH = 0xdcd24b64ea3d183f0c8ec0cf5f2f5a3ed15545805791416ab100c3a0ca160f49;
 
     enum ProposalKind {
         None,
-        Bootstrap,
         Security,
-        Recovery,
         Upgrade
     }
 
@@ -27,7 +25,6 @@ library AccountV3Storage {
     struct StoredSigner {
         uint8 kind;
         uint8 roles;
-        bool assisted;
         address identity;
         bytes32 verifierCodeHash;
         bytes key;
@@ -37,8 +34,6 @@ library AccountV3Storage {
         uint8 mode;
         uint16 spendThreshold;
         uint16 adminThreshold;
-        uint16 recoveryThreshold;
-        uint48 recoveryDelaySeconds;
         uint48 upgradeDelaySeconds;
         StoredSigner[] signers;
     }
@@ -72,8 +67,6 @@ library AccountV3Storage {
         bytes32 chainScopeHash;
         uint256 spendNonce;
         uint256 adminNonce;
-        uint256 recoveryNonce;
-        mapping(bytes32 signerId => uint256 nonce) vetoNonces;
         StoredPolicy policy;
         PendingProposal pending;
     }

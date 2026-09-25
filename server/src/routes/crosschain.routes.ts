@@ -1,5 +1,5 @@
 // Cross-chain outbound (Flow B): a GatoPago user sends USDC from Arbitrum to
-// another CCTP chain. CCTP v2 direct via the legacy-named ParmeliaCrosschainRouter:
+// another CCTP chain. CCTP v2 direct via the legacy-named GatoPagoCrosschainRouter:
 //   POST /crosschain/quote   → fee + amount-out estimate (stateless, deterministic)
 //   POST /crosschain/prepare → builds the ERC-7821 batch (approve + bridgeUSDC) as a
 //                              sponsored UserOp; the client signs it and submits via

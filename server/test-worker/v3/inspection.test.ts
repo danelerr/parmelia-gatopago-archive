@@ -23,7 +23,7 @@ describe('V3 original creation composition in workerd', () => {
 		expect(signed.packed.initCode.startsWith(candidate.prepared.message.factory)).toBe(true);
 		expect(signed.userOpHash).toBe(getUserOperationHash({ chainId: Number(candidate.prepared.chainId),
 			entryPointAddress: candidate.plan.entryPoint, entryPointVersion: '0.9', userOperation: signed.operation }));
-		expect(signed.prepared.policy.mode).toBe('bootstrap');
+		expect(signed.prepared.policy.mode).toBe('active');
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
 	it('checks all code and immutables with request-local HTTP ids and the same canonical block', async () => {

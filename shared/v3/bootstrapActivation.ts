@@ -21,8 +21,8 @@ export interface BootstrapActivationInput {
 }
 
 export const accountActivationAbi = parseAbi([
-	'struct SignerDescriptor { uint8 kind; address verifier; bytes32 verifierCodeHash; bytes key; uint8 roles; bool assisted; }',
-	'struct SecurityPolicy { uint8 mode; SignerDescriptor[] signers; uint16 spendThreshold; uint16 adminThreshold; uint16 recoveryThreshold; uint48 recoveryDelaySeconds; uint48 upgradeDelaySeconds; }',
+	'struct SignerDescriptor { uint8 kind; address verifier; bytes32 verifierCodeHash; bytes key; uint8 roles; }',
+	'struct SecurityPolicy { uint8 mode; SignerDescriptor[] signers; uint16 spendThreshold; uint16 adminThreshold; uint48 upgradeDelaySeconds; }',
 	'struct SecurityChange { bytes32 accountId; uint32 generation; uint64 securityVersion; bytes32 previousManifestHash; bytes32 nextPolicyHash; bytes32 chainScopeHash; uint256 nonce; uint48 validAfter; uint48 validUntil; uint48 proposalValidUntil; }',
 	'struct CommitProposal { bytes32 accountId; uint32 generation; uint64 securityVersion; bytes32 previousManifestHash; bytes32 proposalHash; bytes32 acknowledgementsHash; bytes32 chainScopeHash; uint256 nonce; uint48 validAfter; uint48 validUntil; }',
 	'struct Signature { uint8 signerIndex; bytes signature; }',
@@ -34,11 +34,11 @@ export const accountActivationAbi = parseAbi([
  * ERC-1271 may itself depend on the lost domain: never count its address as proof of independence. */
 export function assessPolicyContinuity(policy: SecurityPolicy) {
 	hashSecurityPolicy(policy);
-	const direct = policy.signers.filter((s) => s.kind === SignerKind.ECDSA && !s.assisted);
+	const direct = policy.signers.filter((s) => s.kind === SignerKind.ECDSA);
 	const reachable = (role: number, threshold: number) => policy.mode === 'active' && threshold > 0
 		&& direct.filter((s) => (s.roles & role) !== 0).length >= threshold;
 	return Object.freeze({ direct_key_quorums: Object.freeze({ spend: reachable(Role.SPEND, policy.spendThreshold),
-		admin: reachable(Role.ADMIN, policy.adminThreshold), recovery: reachable(Role.RECOVERY, policy.recoveryThreshold) }),
+		admin: reachable(Role.ADMIN, policy.adminThreshold) }),
 		factor_independence: 'not_assessed' as const, sovereign_readiness: 'not_assessed' as const });
 }
 
@@ -53,7 +53,7 @@ function state(initial: ReturnType<typeof prepareInitialization>, observation: S
 	if (observation.status !== 'recognized' || observation.network_id !== initial.profile.deployment.network_id
 		|| observation.account !== initial.account || observation.account_id !== initial.message.accountId
 		|| observation.manifest_sha256 !== deploymentDocumentDigest(JSON.stringify(initial.profile.deployment))
-		|| observation.security_version !== '1' || observation.security.phase !== 'bootstrap'
+		|| observation.security_version !== '1' || observation.security.phase !== 'active_policy'
 		|| observation.security.creation_valid_after !== 0 || observation.security.creation_valid_until !== 0
 		|| observation.security.manifest_hash !== manifestHash || observation.security.chain_scope_hash !== initial.message.chainScopeHash
 		|| observation.security.policy_hash !== initial.message.initialSecurityCommitment
@@ -69,6 +69,7 @@ function state(initial: ReturnType<typeof prepareInitialization>, observation: S
 /** Prepare consent, not execution. Account identity/factory are preserved, scope is the original
  * single chain, and the original passkey must remain a spending factor. Changed roles require
  * a new EnrollmentProof even for that same key. No nonce, signature or state is persisted here. */
+/** Historical internal name; now only an optional first backup enrollment using ADMIN SecurityChange. */
 export function prepareBootstrapActivation(input: BootstrapActivationInput, now: number) {
 	window(input.validAfter, input.validUntil, now);
 	if (!Number.isSafeInteger(input.proposalValidUntil) || input.proposalValidUntil >= 2 ** 48
@@ -83,8 +84,9 @@ export function prepareBootstrapActivation(input: BootstrapActivationInput, now:
 	if (nonce >= 2n ** 256n - 2n) throw new Error('ACTIVATION_NONCE_EXHAUSTED');
 	const next: SecurityPolicy = Object.freeze({ ...input.nextPolicy,
 		signers: Object.freeze(input.nextPolicy.signers.map((s) => Object.freeze({ ...s }))) });
+	if (next.spendThreshold !== 1 || next.adminThreshold !== 1 || next.signers.some((s) => s.roles !== (Role.SPEND | Role.ADMIN))) throw new Error('CONSUMER_POLICY_REQUIRED');
 	const nextHash = hashSecurityPolicy(next), old = initial.policy.signers[0], oldId = signerId(old);
-	if (next.mode !== 'active' || !next.signers.some((s) => signerId(s) === oldId && (s.roles & Role.SPEND) !== 0 && !s.assisted)) {
+	if (next.mode !== 'active' || !next.signers.some((s) => signerId(s) === oldId && (s.roles & Role.SPEND) !== 0)) {
 		throw new Error('ACTIVATION_MUST_RETAIN_INITIAL_FACTOR');
 	}
 	// This local consent adapter supports direct ECDSA and the already pinned WebAuthn verifier.
@@ -99,9 +101,9 @@ export function prepareBootstrapActivation(input: BootstrapActivationInput, now:
 	const message = Object.freeze({ accountId: initial.message.accountId, generation: 3, securityVersion: 1n,
 		previousManifestHash: observation.security.manifest_hash, nextPolicyHash: nextHash, chainScopeHash: initial.message.chainScopeHash,
 		nonce, validAfter: input.validAfter, validUntil: input.validUntil, proposalValidUntil: input.proposalValidUntil });
-	const digest = authorizationDigest('BootstrapActivation', initial.chainId, initial.account, message);
+	const digest = authorizationDigest('SecurityChange', initial.chainId, initial.account, message);
 	const enrollments = next.signers.flatMap((member, index) => {
-		if (signerId(member) === oldId && member.roles === old.roles && member.assisted === old.assisted) return [];
+		if (signerId(member) === oldId && member.roles === old.roles) return [];
 		const proof = Object.freeze({ accountId: message.accountId, generation: 3, securityVersion: 1n, signerId: signerId(member),
 			nextPolicyHash: nextHash, contextHash: digest, nonce, validAfter: message.validAfter, validUntil: message.validUntil });
 		return [Object.freeze({ signerIndex: index, message: proof,

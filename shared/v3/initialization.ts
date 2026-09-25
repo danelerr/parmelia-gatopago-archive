@@ -1,6 +1,6 @@
 import { concatHex, encodeAbiParameters, encodeFunctionData, keccak256, parseAbi, type Address, type Hex } from 'viem';
 import { authorizationDigest, deriveAccountId, hashChainScope, predictAccountAddress } from './authorizations';
-import { MIN_RECOVERY_DELAY_SECONDS, MIN_UPGRADE_DELAY_SECONDS } from './constants.mjs';
+import { MIN_UPGRADE_DELAY_SECONDS } from './constants.mjs';
 import { deploymentDocumentDigest, loadPinnedDeploymentManifest, requireDeploymentAddress, requireHash,
 	validateDeploymentComponent, type AccountDeploymentManifest, type DeploymentComponent } from './deployment';
 import { evmChainId } from './primitives';
@@ -45,8 +45,8 @@ export function loadPinnedCreationProfile(document: string, expectedDigest: Hex)
 }
 
 export const accountCreationAbi = parseAbi([
-	'struct SignerDescriptor { uint8 kind; address verifier; bytes32 verifierCodeHash; bytes key; uint8 roles; bool assisted; }',
-	'struct SecurityPolicy { uint8 mode; SignerDescriptor[] signers; uint16 spendThreshold; uint16 adminThreshold; uint16 recoveryThreshold; uint48 recoveryDelaySeconds; uint48 upgradeDelaySeconds; }',
+	'struct SignerDescriptor { uint8 kind; address verifier; bytes32 verifierCodeHash; bytes key; uint8 roles; }',
+	'struct SecurityPolicy { uint8 mode; SignerDescriptor[] signers; uint16 spendThreshold; uint16 adminThreshold; uint48 upgradeDelaySeconds; }',
 	'struct InitializationApproval { bytes32 accountId; uint32 generation; bytes32 initialSecurityCommitment; bytes32 userSaltCommitment; address factory; address entryPoint; bytes32 chainScopeHash; uint256 nonce; uint48 validAfter; uint48 validUntil; }',
 	'struct Signature { uint8 signerIndex; bytes signature; }',
 	'function createAccount(InitializationApproval message, SecurityPolicy policy, uint256[] chains, Signature[] proofs) returns (address account)',
@@ -63,8 +63,8 @@ export interface InitializationInput {
 }
 
 /** Recompute this locally on BOTH sides before a user gesture; never sign a server-supplied
- * digest alone. Consumer's first account has one proven key and remains bootstrap (no spend,
- * admin or recovery capability until explicit independent-factor activation).
+ * digest alone. Consumer's first account has one proven key with SPEND and ADMIN authority.
+ * The creation window must still be consumed before the account is ready for direct use.
  * Initial scope is exactly the chosen chain; multichain expansion requires its own policy.
  */
 export function prepareInitialization(input: InitializationInput) {
@@ -77,11 +77,10 @@ export function prepareInitialization(input: InitializationInput) {
 		throw new Error('Invalid initialization lifetime');
 	}
 	const verifier = profile.webauthn_verifier;
-	const policy: SecurityPolicy = Object.freeze({ mode: 'bootstrap',
+	const policy: SecurityPolicy = Object.freeze({ mode: 'active',
 		signers: Object.freeze([Object.freeze({ kind: SignerKind.WEBAUTHN, verifier: verifier.address,
-			verifierCodeHash: verifier.runtime_code_hash, key: input.publicKey, roles: Role.SPEND, assisted: false })]),
-		spendThreshold: 1, adminThreshold: 0, recoveryThreshold: 0,
-		recoveryDelaySeconds: MIN_RECOVERY_DELAY_SECONDS, upgradeDelaySeconds: MIN_UPGRADE_DELAY_SECONDS });
+			verifierCodeHash: verifier.runtime_code_hash, key: input.publicKey, roles: Role.SPEND | Role.ADMIN })]),
+		spendThreshold: 1, adminThreshold: 1, upgradeDelaySeconds: MIN_UPGRADE_DELAY_SECONDS });
 	const initialSecurityCommitment = hashSecurityPolicy(policy);
 	const accountId = deriveAccountId(initialSecurityCommitment, input.userSaltCommitment);
 	const chainId = evmChainId(profile.deployment.network_id), chains = Object.freeze([chainId]);
@@ -106,7 +105,7 @@ export function authorizeInitialization(input: InitializationInput, assertion: W
 	const signature = encodeWebAuthnAssertion({ scope: prepared.scope, key: prepared.policy.signers[0].key,
 		challenge: prepared.digest, response: assertion });
 	const factoryData = encodeFunctionData({ abi: accountCreationAbi, functionName: 'createAccount', args: [prepared.message,
-		{ ...prepared.policy, mode: 0 }, prepared.chains, [{ signerIndex: 0, signature }]] });
+		{ ...prepared.policy, mode: 1 }, prepared.chains, [{ signerIndex: 0, signature }]] });
 	return Object.freeze({ digest: prepared.digest, account: prepared.account, factory: prepared.message.factory,
 		factoryData, initCode: concatHex([prepared.message.factory, factoryData]), signature });
 }

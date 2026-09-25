@@ -111,6 +111,37 @@ contract AccountV3EntryPointTest is V3SecurityFixture {
         _assertUncreated(op.sender);
     }
 
+    /// @dev Documents a release blocker: deployed-account recovery cannot rescue an uncreated address.
+    function test_prefundedExpiredCreationCannotRenewWithLostInitialSigner() public {
+        (T.InitializationApproval memory initial, T.SecurityPolicy memory policy) = _initial();
+        S.Signature[] memory oldProofs = _possession(initial, policy);
+        bytes memory oldCode = _initCode(initial, policy);
+        vm.warp(initial.validUntil + 1);
+        uint48 now_ = SafeCast.toUint48(block.timestamp);
+        // A fresh spend signature cannot extend the old creation authorization.
+        PackedUserOperation memory op = _operation(initial, policy, oldCode, 0, now_, now_ + 100, false);
+        vm.deal(op.sender, 1 ether);
+        vm.expectRevert(abi.encodeWithSelector(IEntryPoint.FailedOp.selector, 0, "AA22 expired or not due"));
+        _submit(op);
+        _assertUncreated(op.sender);
+
+        initial.validAfter = now_;
+        initial.validUntil = now_ + 1000;
+        S.Signature[] memory proofs = _possession(initial, policy);
+        // Model loss: the missing key cannot renew its proof; only its old signature is available.
+        proofs[0] = oldProofs[0];
+        bytes memory renewed = abi.encodePacked(
+            address(factory), abi.encodeCall(factory.createAccount, (initial, policy, _chains(), proofs))
+        );
+        op = _operation(initial, policy, renewed, 0, now_, now_ + 100, false);
+        vm.expectRevert(abi.encodeWithSelector(IEntryPoint.FailedOp.selector, 0, "AA13 initCode failed or OOG"));
+        _submit(op);
+        _assertUncreated(op.sender);
+        // Replacing the lost member changes the identity/address; it does not recover the funded one.
+        T.SecurityPolicy memory replacement = _policy(alice, carol);
+        assertNotEq(factory.getAddress(T.hashPolicy(replacement), initial.userSaltCommitment), op.sender);
+    }
+
     function test_invalidUserOpSignatureRevertsWholeCreation() public {
         (T.InitializationApproval memory initial, T.SecurityPolicy memory policy) = _initial();
         PackedUserOperation memory op =

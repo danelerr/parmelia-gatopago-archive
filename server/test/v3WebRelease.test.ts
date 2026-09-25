@@ -22,7 +22,7 @@ beforeEach(() => {
   directory = mkdtempSync(join(tmpdir(), 'gatopago-v3-release-'));
   fixtureFile('scripts/v3-web-release.mjs', script);
   for (const path of ['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'apps/web/package.json',
-    'apps/web/next.config.ts', 'apps/web/tsconfig.json', 'apps/web/src/page.tsx',
+    'apps/web/next.config.ts', 'apps/web/postcss.config.mjs', 'apps/web/tsconfig.json', 'apps/web/src/page.tsx',
     'apps/web/public/icon.png', 'packages/brand/token.ts', 'packages/environment/index.ts', 'shared/primitives.ts']) {
     fixtureFile(path, 'fixture\n');
   }

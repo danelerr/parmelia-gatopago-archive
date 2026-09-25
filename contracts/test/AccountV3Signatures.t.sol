@@ -35,14 +35,6 @@ contract V3SignatureHarness {
         return S.verifyQuorum(policy, role, digest, signatures);
     }
 
-    function bootstrap(T.SecurityPolicy memory policy, bytes32 digest, bytes memory signature)
-        external
-        view
-        returns (bool)
-    {
-        return S.verifyBootstrap(policy, digest, signature);
-    }
-
     function validatedQuorum(
         T.SecurityPolicy memory policy,
         uint8 role,
@@ -159,18 +151,6 @@ contract AccountV3SignaturesTest is Test {
         assertEq(harness.validatedQuorum(policy, role, digest, votes), harness.quorum(policy, role, digest, votes));
     }
 
-    function test_bootstrapAcceptsRealBrowserProofButCannotSpend() public view {
-        (T.SignerDescriptor memory signer, bytes32 digest, bytes memory signature) = _browser();
-        T.SecurityPolicy memory policy = _bootstrap(signer);
-        assertTrue(harness.bootstrap(policy, digest, signature));
-        S.Signature[] memory signatures = new S.Signature[](1);
-        signatures[0] = S.Signature(0, signature);
-        assertFalse(harness.quorum(policy, P.SPEND, digest, signatures));
-        assertFalse(harness.quorum(policy, P.ADMIN, digest, new S.Signature[](0)));
-        assertFalse(harness.quorum(policy, P.RECOVERY, digest, new S.Signature[](0)));
-        assertFalse(harness.bootstrap(_active(), digest, signature));
-    }
-
     function test_realWebAuthnQuorumWithEcdsa() public view {
         (T.SignerDescriptor memory signer, bytes32 digest, bytes memory signature) = _browser();
         T.SecurityPolicy memory policy = _active();
@@ -280,7 +260,7 @@ contract AccountV3SignaturesTest is Test {
         T.SecurityPolicy memory policy = _active();
         S.Signature[] memory signatures = _votes(policy, digest, true);
         assertTrue(harness.quorum(policy, P.ADMIN, digest, signatures));
-        assertTrue(harness.quorum(policy, P.RECOVERY, digest, signatures));
+        assertTrue(harness.quorum(policy, P.ADMIN, digest, signatures));
         S.Signature memory first = signatures[0];
         signatures[0] = signatures[1];
         signatures[1] = first;
@@ -310,24 +290,6 @@ contract AccountV3SignaturesTest is Test {
         assertFalse(harness.quorum(policy, P.SPEND, DIGEST, signatures));
     }
 
-    function test_assistanceCanRecoverButCannotSpendOrAdminister() public view {
-        T.SecurityPolicy memory policy = _active();
-        T.SignerDescriptor[] memory signers = new T.SignerDescriptor[](3);
-        signers[0] = policy.signers[0];
-        signers[1] = policy.signers[1];
-        signers[2] = _ecdsa(helper);
-        signers[2].assisted = true;
-        signers[2].roles = P.RECOVERY;
-        policy.signers = signers;
-        _sort(policy);
-        S.Signature[] memory votes = _votes(policy, DIGEST, true);
-        assertTrue(harness.quorum(policy, P.RECOVERY, DIGEST, votes));
-        votes[1] = S.Signature(_index(policy, abi.encodePacked(helper)), _sign(helperKey, DIGEST));
-        assertTrue(harness.quorum(policy, P.RECOVERY, DIGEST, votes));
-        assertFalse(harness.quorum(policy, P.ADMIN, DIGEST, votes));
-        assertFalse(harness.quorum(policy, P.SPEND, DIGEST, votes));
-    }
-
     function test_badModesAndCounts() public {
         T.SecurityPolicy memory policy = _active();
         policy.mode = 2;
@@ -342,39 +304,25 @@ contract AccountV3SignaturesTest is Test {
         harness.validate(policy);
     }
 
-    function test_bootstrapCannotBeEcdsaOrHaveAdminRecoveryThreshold() public {
-        T.SecurityPolicy memory policy = _bootstrap(_ecdsa(alice));
-        vm.expectRevert(P.AccountV3Policy__InvalidPolicy.selector);
-        harness.validate(policy);
-        (T.SignerDescriptor memory signer,,) = _browser();
-        policy = _bootstrap(signer);
-        policy.adminThreshold = 1;
-        vm.expectRevert(P.AccountV3Policy__InvalidPolicy.selector);
-        harness.validate(policy);
-    }
-
-    function testFuzz_thresholdsAreReachable(uint16 spend, uint16 admin, uint16 recovery) public {
+    function testFuzz_thresholdsAreReachable(uint16 spend, uint16 admin) public {
         T.SecurityPolicy memory policy = _active();
         policy.spendThreshold = spend;
         policy.adminThreshold = admin;
-        policy.recoveryThreshold = recovery;
-        bool valid = spend >= 1 && spend <= 2 && admin == 2 && recovery == 2;
+        bool valid = spend >= 1 && spend <= 2 && admin >= 1 && admin <= 2;
         if (!valid) vm.expectRevert(P.AccountV3Policy__InvalidThreshold.selector);
         harness.validate(policy);
     }
 
-    function testFuzz_delaysRespectBounds(uint48 recovery, uint48 upgrade) public {
+    function testFuzz_delaysRespectBounds(uint48 upgrade) public {
         T.SecurityPolicy memory policy = _active();
-        policy.recoveryDelaySeconds = recovery;
         policy.upgradeDelaySeconds = upgrade;
-        bool valid = recovery >= 72 hours && recovery <= 30 days && upgrade >= 72 hours && upgrade <= 30 days;
+        bool valid = upgrade >= 72 hours && upgrade <= 30 days;
         if (!valid) vm.expectRevert(P.AccountV3Policy__InvalidDelay.selector);
         harness.validate(policy);
     }
 
     function test_minAndMaxDelaysAndMaximumSigners() public view {
         T.SecurityPolicy memory policy = _active();
-        policy.recoveryDelaySeconds = 30 days;
         policy.upgradeDelaySeconds = 72 hours;
         policy.signers = new T.SignerDescriptor[](P.MAX_SIGNERS);
         for (uint256 i; i < P.MAX_SIGNERS; ++i) {
@@ -382,7 +330,6 @@ contract AccountV3SignaturesTest is Test {
         }
         policy.spendThreshold = 16;
         policy.adminThreshold = 16;
-        policy.recoveryThreshold = 16;
         _sort(policy);
         harness.validate(policy);
     }
@@ -408,8 +355,7 @@ contract AccountV3SignaturesTest is Test {
             address(123),
             bytes32(uint256(456)),
             abi.encodePacked(bytes32(uint256(1)), bytes32(uint256(2)), Bytes.slice(signer.key, 64)),
-            7,
-            false
+            3
         );
         _sort(policy);
         vm.expectRevert(P.AccountV3Policy__DuplicateKey.selector);
@@ -419,18 +365,17 @@ contract AccountV3SignaturesTest is Test {
     function test_ecdsaAndContractAliasesCannotCountTwice() public {
         T.SecurityPolicy memory policy = _active();
         policy.signers[0] = _ecdsa(alice);
-        policy.signers[1] = T.SignerDescriptor(P.ERC1271, alice, bytes32(uint256(1)), abi.encodePacked(alice), 7, false);
+        policy.signers[1] = T.SignerDescriptor(P.ERC1271, alice, bytes32(uint256(1)), abi.encodePacked(alice), 3);
         _sort(policy);
         vm.expectRevert(P.AccountV3Policy__DuplicateKey.selector);
         harness.validate(policy);
     }
 
-    function testFuzz_invalidRolesOrAssistance(uint8 roles) public {
+    function testFuzz_invalidRoles(uint8 roles) public {
+        roles = uint8(bound(roles, 4, 255));
         T.SecurityPolicy memory policy = _active();
         policy.signers[0].roles = roles;
-        policy.signers[0].assisted = true;
-        if (roles == P.RECOVERY) vm.expectRevert(P.AccountV3Policy__InvalidThreshold.selector);
-        else vm.expectRevert(P.AccountV3Policy__InvalidSigner.selector);
+        vm.expectRevert(P.AccountV3Policy__InvalidSigner.selector);
         harness.validate(policy);
     }
 
@@ -474,8 +419,6 @@ contract AccountV3SignaturesTest is Test {
         policy.signers[1] = _ecdsa(bob);
         policy.spendThreshold = 1;
         policy.adminThreshold = 2;
-        policy.recoveryThreshold = 2;
-        policy.recoveryDelaySeconds = 72 hours;
         policy.upgradeDelaySeconds = 72 hours;
         _sort(policy);
     }
@@ -485,16 +428,15 @@ contract AccountV3SignaturesTest is Test {
         signer.roles = P.SPEND;
         policy.signers[0] = signer;
         policy.spendThreshold = 1;
-        policy.recoveryDelaySeconds = 72 hours;
         policy.upgradeDelaySeconds = 72 hours;
     }
 
     function _ecdsa(address key) private pure returns (T.SignerDescriptor memory) {
-        return T.SignerDescriptor(P.ECDSA, address(0), bytes32(0), abi.encodePacked(key), 7, false);
+        return T.SignerDescriptor(P.ECDSA, address(0), bytes32(0), abi.encodePacked(key), 3);
     }
 
     function _contract(address key) private view returns (T.SignerDescriptor memory) {
-        return T.SignerDescriptor(P.ERC1271, key, key.codehash, abi.encodePacked(key), 7, false);
+        return T.SignerDescriptor(P.ERC1271, key, key.codehash, abi.encodePacked(key), 3);
     }
 
     function _browser()
@@ -504,7 +446,7 @@ contract AccountV3SignaturesTest is Test {
     {
         string memory vector = vm.readFile("../shared/fixtures/v3-webauthn-encoding.json");
         signer = T.SignerDescriptor(
-            P.WEBAUTHN, address(passkeyVerifier), address(passkeyVerifier).codehash, vector.readBytes(".key"), 7, false
+            P.WEBAUTHN, address(passkeyVerifier), address(passkeyVerifier).codehash, vector.readBytes(".key"), 3
         );
         digest = vector.readBytes32(".challenge");
         signature = vector.readBytes(".signature");

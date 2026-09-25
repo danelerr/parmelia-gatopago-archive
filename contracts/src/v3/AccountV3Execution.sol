@@ -78,7 +78,7 @@ abstract contract AccountV3Execution is AccountV3EntryPoint, ReentrancyGuardTran
         _execute(calls, plan.securityVersion, EXECUTION_DIRECT);
     }
 
-    /// @notice A bootstrap account may finish authenticated creation, never execute asset calls.
+    /// @notice A pending account may finish authenticated creation, never execute asset calls.
     /// @dev Validation accepts this selector only while creation is pending. No generic callback.
     function completeCreation() external onlyEntryPoint {
         emit CreationCompleted();
@@ -130,7 +130,7 @@ abstract contract AccountV3Execution is AccountV3EntryPoint, ReentrancyGuardTran
             }
         } else {
             if (bytes4(op.callData[:4]) != this.execute.selector) revert AccountV3Execution__InvalidPlan();
-            if (state.policy.mode != P.ACTIVE || state.pending.kind == D.ProposalKind.Recovery) {
+            if (state.policy.mode != P.ACTIVE) {
                 revert Security.AccountV3Security__SpendingDisabled();
             }
             (T.Call[] memory calls, uint64 version) = abi.decode(op.callData[4:], (T.Call[], uint64));
@@ -155,7 +155,7 @@ abstract contract AccountV3Execution is AccountV3EntryPoint, ReentrancyGuardTran
     function _checkCalls(T.Call[] memory calls) private view {
         if (calls.length == 0 || calls.length > MAX_CALLS) revert AccountV3Execution__InvalidCalls();
         for (uint256 i; i < calls.length; ++i) {
-            // Security/recovery/upgrade are separate typed operations, never nested in a spend batch.
+            // Security changes/upgrades are separate typed operations, never nested in a spend batch.
             if (calls[i].target == address(0) || calls[i].target == address(this)) {
                 revert AccountV3Execution__InvalidCalls();
             }

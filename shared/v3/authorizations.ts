@@ -13,7 +13,7 @@ import {
 import { ACCOUNT_GENERATION } from "./constants.mjs";
 import { ACCOUNT_DOMAIN as accountDomain } from "./constants.mjs";
 export { ACCOUNT_DOMAIN as accountDomain } from "./constants.mjs";
-export { ACCOUNT_GENERATION, MIN_RECOVERY_DELAY_SECONDS, MIN_UPGRADE_DELAY_SECONDS } from "./constants.mjs";
+export { ACCOUNT_GENERATION, MIN_UPGRADE_DELAY_SECONDS } from "./constants.mjs";
 
 /** E0 candidate protocol: policy proposals bind acceptance and completion deadlines separately.
  * Account V3 deployment is blocked until Gate A closes. */
@@ -33,18 +33,6 @@ export const authorizationTypes = {
 		{ name: "validAfter", type: "uint48" },
 		{ name: "validUntil", type: "uint48" },
 	],
-	BootstrapActivation: [
-		{ name: "accountId", type: "bytes32" },
-		{ name: "generation", type: "uint32" },
-		{ name: "securityVersion", type: "uint64" },
-		{ name: "previousManifestHash", type: "bytes32" },
-		{ name: "nextPolicyHash", type: "bytes32" },
-		{ name: "chainScopeHash", type: "bytes32" },
-		{ name: "nonce", type: "uint256" },
-		{ name: "validAfter", type: "uint48" },
-		{ name: "validUntil", type: "uint48" },
-		{ name: "proposalValidUntil", type: "uint48" },
-	],
 	EnrollmentProof: [
 		{ name: "accountId", type: "bytes32" },
 		{ name: "generation", type: "uint32" },
@@ -56,12 +44,11 @@ export const authorizationTypes = {
 		{ name: "validAfter", type: "uint48" },
 		{ name: "validUntil", type: "uint48" },
 	],
-	VetoProposal: [
+	CancelProposal: [
 		{ name: "accountId", type: "bytes32" },
 		{ name: "generation", type: "uint32" },
 		{ name: "securityVersion", type: "uint64" },
 		{ name: "proposalHash", type: "bytes32" },
-		{ name: "signerId", type: "bytes32" },
 		{ name: "nonce", type: "uint256" },
 		{ name: "validAfter", type: "uint48" },
 		{ name: "validUntil", type: "uint48" },
@@ -116,18 +103,6 @@ export const authorizationTypes = {
 		{ name: "validUntil", type: "uint48" },
 		{ name: "proposalValidUntil", type: "uint48" },
 	],
-	RecoveryProposal: [
-		{ name: "accountId", type: "bytes32" },
-		{ name: "generation", type: "uint32" },
-		{ name: "securityVersion", type: "uint64" },
-		{ name: "previousManifestHash", type: "bytes32" },
-		{ name: "nextPolicyHash", type: "bytes32" },
-		{ name: "chainScopeHash", type: "bytes32" },
-		{ name: "nonce", type: "uint256" },
-		{ name: "validAfter", type: "uint48" },
-		{ name: "validUntil", type: "uint48" },
-		{ name: "proposalValidUntil", type: "uint48" },
-	],
 	UpgradeManifest: [
 		{ name: "accountId", type: "bytes32" },
 		{ name: "generation", type: "uint32" },
@@ -147,14 +122,12 @@ export const authorizationTypes = {
 export type AuthorizationKind = keyof typeof authorizationTypes;
 export type AuthorizationMessages = {
 	InitializationApproval: MessageDefinition<typeof authorizationTypes, "InitializationApproval">["message"];
-	BootstrapActivation: MessageDefinition<typeof authorizationTypes, "BootstrapActivation">["message"];
 	EnrollmentProof: MessageDefinition<typeof authorizationTypes, "EnrollmentProof">["message"];
-	VetoProposal: MessageDefinition<typeof authorizationTypes, "VetoProposal">["message"];
+	CancelProposal: MessageDefinition<typeof authorizationTypes, "CancelProposal">["message"];
 	FreezeUpgrades: MessageDefinition<typeof authorizationTypes, "FreezeUpgrades">["message"];
 	CommitProposal: MessageDefinition<typeof authorizationTypes, "CommitProposal">["message"];
 	ExecutionPlan: MessageDefinition<typeof authorizationTypes, "ExecutionPlan">["message"];
 	SecurityChange: MessageDefinition<typeof authorizationTypes, "SecurityChange">["message"];
-	RecoveryProposal: MessageDefinition<typeof authorizationTypes, "RecoveryProposal">["message"];
 	UpgradeManifest: MessageDefinition<typeof authorizationTypes, "UpgradeManifest">["message"];
 };
 export type ExecutionPlan = AuthorizationMessages["ExecutionPlan"];

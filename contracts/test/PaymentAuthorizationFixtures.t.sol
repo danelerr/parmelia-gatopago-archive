@@ -6,8 +6,8 @@ import {stdJson} from "forge-std/StdJson.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
-import {ParmeliaPaymentRouterV2} from "src/ParmeliaPaymentRouterV2.sol";
-import {ParmeliaCctpPaymentRouter} from "src/ParmeliaCctpPaymentRouter.sol";
+import {GatoPagoPaymentRouter} from "src/GatoPagoPaymentRouter.sol";
+import {GatoPagoCctpPaymentRouter} from "src/GatoPagoCctpPaymentRouter.sol";
 import {ITokenMessengerV2} from "src/interfaces/ITokenMessengerV2.sol";
 
 contract FixtureUSDC is ERC20 {
@@ -35,7 +35,7 @@ contract PaymentAuthorizationFixturesTest is Test {
 
     function test_localVectorMatchesSolidityEncodingAndDomain() public {
         string memory json = vm.readFile(FIXTURE_PATH);
-        ParmeliaPaymentRouterV2.PaymentAuthorization memory authorization = ParmeliaPaymentRouterV2.PaymentAuthorization({
+        GatoPagoPaymentRouter.PaymentAuthorization memory authorization = GatoPagoPaymentRouter.PaymentAuthorization({
             intentId: json.readBytes32(".local.message.intentId"),
             attemptId: json.readBytes32(".local.message.attemptId"),
             payer: json.readAddress(".local.message.payer"),
@@ -48,7 +48,7 @@ contract PaymentAuthorizationFixturesTest is Test {
         });
 
         vm.chainId(json.readUint(".local.domain.chainId"));
-        ParmeliaPaymentRouterV2 router = new ParmeliaPaymentRouterV2(
+        GatoPagoPaymentRouter router = new GatoPagoPaymentRouter(
             makeAddr("owner"), IERC20(address(usdc)), makeAddr("treasury"), makeAddr("signer"), makeAddr("guardian")
         );
 
@@ -77,8 +77,8 @@ contract PaymentAuthorizationFixturesTest is Test {
 
     function test_cctpVectorMatchesSolidityEncodingAndDomain() public {
         string memory json = vm.readFile(FIXTURE_PATH);
-        ParmeliaCctpPaymentRouter.CctpPaymentAuthorization memory authorization =
-            ParmeliaCctpPaymentRouter.CctpPaymentAuthorization({
+        GatoPagoCctpPaymentRouter.CctpPaymentAuthorization memory authorization =
+            GatoPagoCctpPaymentRouter.CctpPaymentAuthorization({
                 intentId: json.readBytes32(".cctp.message.intentId"),
                 attemptId: json.readBytes32(".cctp.message.attemptId"),
                 payer: json.readAddress(".cctp.message.payer"),
@@ -96,7 +96,7 @@ contract PaymentAuthorizationFixturesTest is Test {
             });
 
         vm.chainId(json.readUint(".cctp.domain.chainId"));
-        ParmeliaCctpPaymentRouter router = new ParmeliaCctpPaymentRouter(
+        GatoPagoCctpPaymentRouter router = new GatoPagoCctpPaymentRouter(
             makeAddr("owner"),
             IERC20(address(usdc)),
             messenger,

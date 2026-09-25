@@ -11,12 +11,12 @@ export * from "./userOperations";
 // ABIs (chain-independent - compiled from contracts/out)
 // ============================================================
 
-export { abi as accountWebAuthnV2Abi } from "../contracts/out/AccountWebAuthnV2.sol/AccountWebAuthnV2.json";
-export { abi as accountFactoryV2Abi } from "../contracts/out/AccountFactoryV2.sol/AccountFactoryV2.json";
-export { abi as paymentRouterAbi } from "../contracts/out/ParmeliaPaymentRouter.sol/ParmeliaPaymentRouter.json";
-export { abi as paymentRouterV2Abi } from "../contracts/out/ParmeliaPaymentRouterV2.sol/ParmeliaPaymentRouterV2.json";
-export { abi as cctpPaymentRouterAbi } from "../contracts/out/ParmeliaCctpPaymentRouter.sol/ParmeliaCctpPaymentRouter.json";
-export { abi as crosschainRouterAbi } from "../contracts/out/ParmeliaCrosschainRouter.sol/ParmeliaCrosschainRouter.json";
+// Historical Worker only. V3 uses its own typed ABI modules and must not import these snapshots.
+export { default as accountWebAuthnV2Abi } from "../contracts/legacy/abi/AccountWebAuthnV2.json";
+export { default as accountFactoryV2Abi } from "../contracts/legacy/abi/AccountFactoryV2.json";
+export { abi as paymentRouterAbi } from "../contracts/out/GatoPagoPaymentRouter.sol/GatoPagoPaymentRouter.json";
+export { abi as cctpPaymentRouterAbi } from "../contracts/out/GatoPagoCctpPaymentRouter.sol/GatoPagoCctpPaymentRouter.json";
+export { abi as crosschainRouterAbi } from "../contracts/out/GatoPagoCrosschainRouter.sol/GatoPagoCrosschainRouter.json";
 export * from "./paymentContracts";
 export * from "./fees";
 

@@ -8,7 +8,7 @@ import {AccountV3Signatures as S} from "src/v3/AccountV3Signatures.sol";
 import {AccountV3Storage as D} from "src/v3/AccountV3Storage.sol";
 
 /// @notice Fixed security composition for Account V3, not an installable module system.
-/// @dev Solidity links the library address into the implementation bytecode. Only the six typed
+/// @dev Solidity links the library address into the implementation bytecode. Only the five typed
 /// transitions, the canonical policy reader, the execution/ERC-1271 predicates and the one-time
 /// initializer may delegate to it. The signature predicate is read-only and cannot execute calls.
 /// No storage slot, caller input, registry or admin can change
@@ -47,12 +47,8 @@ abstract contract AccountV3SecurityModule {
         Security.commitPolicy(message, auth);
     }
 
-    function activate(bytes32 proposal) external securityModuleIntact {
-        Security.activateRecovery(proposal);
-    }
-
-    function veto(T.VetoProposal memory message, bytes memory signature) external securityModuleIntact {
-        Security.veto(message, signature);
+    function cancel(T.CancelProposal memory message, S.Signature[] memory signatures) external securityModuleIntact {
+        Security.cancel(message, signatures);
     }
 
     function freeze(T.FreezeUpgrades memory message, uint256[] calldata chains, S.Signature[] memory auth)
@@ -75,13 +71,13 @@ abstract contract AccountV3SecurityModule {
     }
 
     /// @notice Observe account-local security without relying on GatoPago or packed storage offsets.
-    /// @dev Available while creation/recovery is pending. Does not expire, activate, emit, or sign.
+    /// @dev Available while creation is pending. Does not expire, activate, emit, or sign.
     /// Read this and securityPolicy at the SAME canonical block, after verifying proxy/composition.
     /// An active policy is not evidence that the caller possesses usable signing factors.
     /// Fixed read-only wire schema (NOT storage offsets):
     /// [0] flags: initialized=1, upgradesFrozen=2, executing=4; other bits reserved;
     /// [1] securityVersion, [2] manifestHash, [3] chainScopeHash,
-    /// [4..5] creation validAfter/validUntil, [6..8] spend/admin/recovery nonces,
+    /// [4..5] creation validAfter/validUntil, [6..7] spend/admin nonces, [8] wire revision (1),
     /// [9] pending kind, [10] pending hash, [11] pending version,
     /// [12] pending previous manifest, [13] pending chain scope, [14..15] readyAt/validUntil.
     /// Identity/generation remain in creationIdentity(). Hashes are unchanged 256-bit words.
@@ -97,7 +93,8 @@ abstract contract AccountV3SecurityModule {
         result[5] = state.creationValidUntil;
         result[6] = state.spendNonce;
         result[7] = state.adminNonce;
-        result[8] = state.recoveryNonce;
+        // Wire revision marker: old snapshots must not be interpreted as consumer snapshots.
+        result[8] = 1;
         result[9] = uint8(pending.kind);
         result[10] = uint256(pending.proposalHash);
         result[11] = pending.securityVersion;

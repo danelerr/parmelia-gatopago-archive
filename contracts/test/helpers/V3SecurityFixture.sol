@@ -23,7 +23,6 @@ contract V3SecurityHarness {
         bytes32 manifest;
         bytes32 scope;
         uint256 admin;
-        uint256 recovery;
         uint256 spend;
         T.SecurityPolicy policy;
         D.PendingProposal pending;
@@ -58,12 +57,8 @@ contract V3SecurityHarness {
         Security.commitPolicy(message, auth);
     }
 
-    function activate(bytes32 proposal) external {
-        Security.activateRecovery(proposal);
-    }
-
-    function veto(T.VetoProposal memory message, bytes memory signature) external {
-        Security.veto(message, signature);
+    function cancel(T.CancelProposal memory message, S.Signature[] memory signatures) external {
+        Security.cancel(message, signatures);
     }
 
     function freeze(T.FreezeUpgrades memory message, uint256[] calldata chains, S.Signature[] memory auth) external {
@@ -78,10 +73,6 @@ contract V3SecurityHarness {
         Security.requireSpendEnabled();
     }
 
-    function vetoNonce(bytes32 id) external view returns (uint256) {
-        return D.layout().vetoNonces[id];
-    }
-
     function snapshot() external view returns (Snapshot memory) {
         D.Layout storage s = D.layout();
         return Snapshot(
@@ -91,7 +82,6 @@ contract V3SecurityHarness {
             s.manifestHash,
             s.chainScopeHash,
             s.adminNonce,
-            s.recoveryNonce,
             s.spendNonce,
             PS.load(s.policy),
             s.pending
@@ -110,11 +100,9 @@ contract V3SecurityEdgeHarness is V3SecurityHarness {
         state.securityVersion = version;
     }
 
-    function seedNonces(uint256 admin, uint256 recovery, bytes32 member, uint256 veto_) external {
+    function seedNonces(uint256 admin) external {
         D.Layout storage state = D.layout();
         state.adminNonce = admin;
-        state.recoveryNonce = recovery;
-        state.vetoNonces[member] = veto_;
     }
 
     function seedUpgrade() external {
@@ -156,14 +144,12 @@ abstract contract V3SecurityFixture is Test {
         policy.signers[1] = _ecdsa(b);
         policy.spendThreshold = 1;
         policy.adminThreshold = 2;
-        policy.recoveryThreshold = 2;
-        policy.recoveryDelaySeconds = 72 hours;
         policy.upgradeDelaySeconds = 72 hours;
         _sort(policy);
     }
 
     function _ecdsa(address key) internal pure returns (T.SignerDescriptor memory) {
-        return T.SignerDescriptor(P.ECDSA, address(0), bytes32(0), abi.encodePacked(key), 7, false);
+        return T.SignerDescriptor(P.ECDSA, address(0), bytes32(0), abi.encodePacked(key), 3);
     }
 
     function _sort(T.SecurityPolicy memory policy) internal pure {
@@ -181,7 +167,11 @@ abstract contract V3SecurityFixture is Test {
         chains[0] = block.chainid;
     }
 
-    function _change(V3SecurityHarness account, T.SecurityPolicy memory next, E.ChangeKind kind)
+    function _change(
+        V3SecurityHarness account,
+        T.SecurityPolicy memory next,
+        E.ChangeKind /* kind */
+    )
         internal
         view
         returns (T.SecurityChange memory)
@@ -194,12 +184,10 @@ abstract contract V3SecurityFixture is Test {
             state.manifest,
             T.hashPolicy(next),
             keccak256(abi.encode(_chains())),
-            kind == E.ChangeKind.Recovery ? state.recovery : state.admin,
+            state.admin,
             SafeCast.toUint48(block.timestamp),
             SafeCast.toUint48(block.timestamp + 5 minutes),
-            SafeCast.toUint48(
-                block.timestamp + 7 days + (kind == E.ChangeKind.Recovery ? state.policy.recoveryDelaySeconds : 0)
-            )
+            SafeCast.toUint48(block.timestamp + 7 days)
         );
     }
 
@@ -208,9 +196,7 @@ abstract contract V3SecurityFixture is Test {
         view
         returns (bytes32)
     {
-        bytes32 h = kind == E.ChangeKind.Bootstrap
-            ? T.hashBootstrap(change)
-            : kind == E.ChangeKind.Security ? T.hashSecurity(change) : T.hashRecovery(change);
+        bytes32 h = E.hashChange(kind, change);
         return T.digest(block.chainid, address(account), h);
     }
 
@@ -246,10 +232,7 @@ abstract contract V3SecurityFixture is Test {
             bool same;
             for (uint256 j; j < previous.signers.length; ++j) {
                 T.SignerDescriptor memory old = previous.signers[j];
-                if (
-                    T.signerId(old) == T.signerId(member) && old.roles == member.roles
-                        && old.assisted == member.assisted
-                ) same = true;
+                if (T.signerId(old) == T.signerId(member) && old.roles == member.roles) same = true;
             }
             if (same) continue;
             T.EnrollmentProof memory proof = T.EnrollmentProof(
@@ -279,7 +262,7 @@ abstract contract V3SecurityFixture is Test {
         returns (bytes32)
     {
         T.SecurityChange memory change = _change(account, next, kind);
-        uint8 role = kind == E.ChangeKind.Bootstrap ? P.SPEND : kind == E.ChangeKind.Security ? P.ADMIN : P.RECOVERY;
+        uint8 role = P.ADMIN;
         S.Signature[] memory auth = _votes(account.snapshot().policy, _context(account, change, kind), role);
         S.Signature[] memory proofs = _proofs(account, next, change, kind);
         return account.prepare(kind, change, next, _chains(), auth, proofs);
@@ -288,6 +271,8 @@ abstract contract V3SecurityFixture is Test {
     function _commitMessage(V3SecurityHarness account) internal view returns (T.CommitProposal memory message) {
         V3SecurityHarness.Snapshot memory state = account.snapshot();
         uint48 until = SafeCast.toUint48(block.timestamp + 5 minutes);
+        // Synthetic clock selects a test validity boundary, not randomness or production finality.
+        // forge-lint: disable-next-line(block-timestamp)
         if (state.pending.validUntil > block.timestamp && state.pending.validUntil < until) {
             until = state.pending.validUntil;
         }
@@ -309,37 +294,29 @@ abstract contract V3SecurityFixture is Test {
         T.CommitProposal memory message = _commitMessage(account);
         T.SecurityPolicy memory policy = account.snapshot().policy;
         account.commit(
-            message,
-            _votes(
-                policy,
-                T.digest(block.chainid, address(account), T.hashCommit(message)),
-                policy.mode == P.BOOTSTRAP ? P.SPEND : P.ADMIN
-            )
+            message, _votes(policy, T.digest(block.chainid, address(account), T.hashCommit(message)), P.ADMIN)
         );
     }
 
-    function _vetoMessage(V3SecurityHarness account, T.SignerDescriptor memory member)
-        internal
-        view
-        returns (T.VetoProposal memory)
-    {
+    function _cancelMessage(V3SecurityHarness account) internal view returns (T.CancelProposal memory) {
         V3SecurityHarness.Snapshot memory state = account.snapshot();
-        bytes32 id = T.signerId(member);
-        return T.VetoProposal(
+        return T.CancelProposal(
             state.id,
             3,
             state.version,
             state.pending.proposalHash,
-            id,
-            account.vetoNonce(id),
+            state.admin,
             SafeCast.toUint48(block.timestamp),
-            SafeCast.toUint48(block.timestamp + 1 days)
+            SafeCast.toUint48(block.timestamp + 5 minutes)
         );
     }
 
-    function _veto(V3SecurityHarness account, T.SignerDescriptor memory member) internal {
-        T.VetoProposal memory message = _vetoMessage(account, member);
-        account.veto(message, _memberSign(member, T.digest(block.chainid, address(account), T.hashVeto(message))));
+    function _cancel(V3SecurityHarness account) internal {
+        T.CancelProposal memory message = _cancelMessage(account);
+        account.cancel(
+            message,
+            _votes(account.snapshot().policy, T.digest(block.chainid, address(account), T.hashCancel(message)), P.ADMIN)
+        );
     }
 
     function _freezeMessage(V3SecurityHarness account) internal view returns (T.FreezeUpgrades memory) {
@@ -385,15 +362,6 @@ abstract contract V3SecurityFixture is Test {
     }
 
     function _fingerprint(V3SecurityHarness account) internal view returns (bytes32) {
-        // Include all fixture member veto nonce domains in rollback assertions, not just the visible policy.
-        return keccak256(
-            abi.encode(
-                account.snapshot(),
-                account.vetoNonce(T.signerId(_ecdsa(alice))),
-                account.vetoNonce(T.signerId(_ecdsa(bob))),
-                account.vetoNonce(T.signerId(_ecdsa(carol))),
-                account.vetoNonce(T.signerId(_ecdsa(dave)))
-            )
-        );
+        return keccak256(abi.encode(account.snapshot()));
     }
 }

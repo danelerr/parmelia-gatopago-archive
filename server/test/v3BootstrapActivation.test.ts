@@ -14,21 +14,21 @@ describe('Account V3 bootstrap consent compiler', () => {
 		expect(p.message).toMatchObject({ generation: 3, securityVersion: 1n, nonce: 0n });
 		expect(p.enrollments).toHaveLength(2);
 		expect(p.enrollments.every((e) => e.message.contextHash === p.digest && e.message.nextPolicyHash === p.message.nextPolicyHash)).toBe(true);
-		expect(p.continuity).toEqual({ direct_key_quorums: { spend: true, admin: true, recovery: true },
+		expect(p.continuity).toEqual({ direct_key_quorums: { spend: true, admin: true },
 			factor_independence: 'not_assessed', sovereign_readiness: 'not_assessed' });
 	});
 	it('does not equate a second passkey plus one direct key with domain-independent administration', () => {
 		const f = activationFixture();
-		const retained = { ...f.initial.policy.signers[0], roles: 7 };
-		const policy = { ...f.input.nextPolicy, signers: [retained, f.input.nextPolicy.signers.find((s) => s.kind === 0)!]
+		const retained = { ...f.initial.policy.signers[0], roles: 3 };
+		const policy = { ...f.input.nextPolicy, adminThreshold: 2, signers: [retained, f.input.nextPolicy.signers.find((s) => s.kind === 0)!]
 			.sort((a, b) => signerId(a).localeCompare(signerId(b))) };
-		expect(assessPolicyContinuity(policy).direct_key_quorums).toEqual({ spend: true, admin: false, recovery: false });
-		expect(assessPolicyContinuity(f.initial.policy).direct_key_quorums).toEqual({ spend: false, admin: false, recovery: false });
+		expect(assessPolicyContinuity(policy).direct_key_quorums).toEqual({ spend: true, admin: false });
+		expect(assessPolicyContinuity(f.initial.policy).direct_key_quorums).toEqual({ spend: false, admin: false });
 	});
-	it('requires another enrollment proof when the existing passkey gains roles', async () => {
+	it('does not require another enrollment proof for an unchanged existing owner', async () => {
 		const f = activationFixture();
-		const input = { ...f.input, nextPolicy: { ...f.input.nextPolicy, signers: f.input.nextPolicy.signers.map((s) => ({ ...s, roles: 7 })) } };
-		const p = prepareBootstrapActivation(input, input.validAfter); expect(p.enrollments).toHaveLength(3);
+		const input = { ...f.input, nextPolicy: { ...f.input.nextPolicy, signers: f.input.nextPolicy.signers.map((s) => ({ ...s, roles: 3 })) } };
+		const p = prepareBootstrapActivation(input, input.validAfter); expect(p.enrollments).toHaveLength(2);
 		const result = await authorizeBootstrapActivation(input, f.assertion(p.digest), await f.proofs(input), input.validAfter);
 		expect(result.account_readiness).toBe('not_assessed');
 	});
@@ -46,7 +46,7 @@ describe('Account V3 bootstrap consent compiler', () => {
 		expect(() => prepareBootstrapActivation({ ...f.input, observation }, f.input.validAfter)).toThrow('ACTIVATION_STATE_MISMATCH');
 	});
 	it.each([
-		{ phase: 'creation_pending' }, { creation_valid_until: 1 }, { creation_valid_after: 1 }, { phase: 'active_policy' },
+		{ phase: 'creation_pending' }, { creation_valid_until: 1 }, { creation_valid_after: 1 }, { phase: 'bootstrap' },
 		{ manifest_hash: fixtureHash('e') }, { chain_scope_hash: fixtureHash('e') }, { policy_hash: fixtureHash('e') },
 	])('rejects inconsistent bootstrap security %#', (patch) => {
 		const f = activationFixture(), observation = { ...f.input.observation, security: { ...f.input.observation.security, ...patch } };
@@ -83,7 +83,7 @@ describe('Account V3 bootstrap consent compiler', () => {
 	});
 	it('rejects changed policies/nonce even with the old genuine signatures', async () => {
 		const f = activationFixture(), p = prepareBootstrapActivation(f.input, f.input.validAfter), proofs = await f.proofs();
-		const changed = { ...f.input, nextPolicy: { ...f.input.nextPolicy, spendThreshold: 2 } };
+		const changed = { ...f.input, nextPolicy: { ...f.input.nextPolicy, upgradeDelaySeconds: f.input.nextPolicy.upgradeDelaySeconds + 1 } };
 		await expect(authorizeBootstrapActivation(changed, f.assertion(p.digest), proofs, f.input.validAfter)).rejects.toThrow();
 		await expect(authorizeBootstrapActivation(changed, f.assertion(prepareBootstrapActivation(changed, f.input.validAfter).digest), proofs,
 			f.input.validAfter)).rejects.toThrow('ACTIVATION_ECDSA_INVALID');
@@ -108,7 +108,7 @@ describe('Account V3 bootstrap consent compiler', () => {
 		const f = activationFixture(), nextPolicy = { ...f.input.nextPolicy, signers: f.input.nextPolicy.signers.map((s) => s.kind === 0
 			? { ...s, kind: 2 as const, verifier: s.key, verifierCodeHash: fixtureHash('a') } : s).sort((a, b) => signerId(a).localeCompare(signerId(b))) };
 		expect(() => prepareBootstrapActivation({ ...f.input, nextPolicy }, f.input.validAfter)).toThrow('ACTIVATION_SIGNER_TRANSPORT_UNSUPPORTED');
-		expect(assessPolicyContinuity(nextPolicy).direct_key_quorums).toEqual({ spend: false, admin: false, recovery: false });
+		expect(assessPolicyContinuity(nextPolicy).direct_key_quorums).toEqual({ spend: false, admin: false });
 	});
 	it('rejects a different passkey verifier even when the supplied policy is structurally valid', () => {
 		const f = activationFixture(), nextPolicy = { ...f.input.nextPolicy, signers: [...f.input.nextPolicy.signers,

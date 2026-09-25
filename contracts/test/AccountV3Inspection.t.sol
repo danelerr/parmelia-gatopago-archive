@@ -218,13 +218,13 @@ contract AccountV3InspectionTest is V3ExecutionFixture {
         );
         T.SecurityPolicy memory replacement = _policy(carol, dave);
         (T.SecurityChange memory change,, S.Signature[] memory proofs) =
-            _executionChange(replacement, E.ChangeKind.Recovery);
+            _executionChange(replacement, E.ChangeKind.Security);
         account.prepare(
-            E.ChangeKind.Recovery,
+            E.ChangeKind.Security,
             change,
             replacement,
             _chains(),
-            _votes(policy, T.digest(block.chainid, address(account), T.hashRecovery(change)), P.RECOVERY),
+            _votes(policy, T.digest(block.chainid, address(account), T.hashSecurity(change)), P.ADMIN),
             proofs
         );
         bytes32 before_ = _snapshot();

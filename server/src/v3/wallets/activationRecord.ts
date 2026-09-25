@@ -67,11 +67,11 @@ export function readActivationSnapshot(value: unknown, input: InitializationInpu
   manifest_id: deployment.manifest_id, manifest_sha256: deploymentDocumentDigest(JSON.stringify(deployment)),
   checkpoint: { block_hash: checkpoint.block_hash, block_number: blockNumber }, spend_readiness: 'not_assessed',
   implementation: deployment.components.implementation.address, security_version: '1', storage_layout_hash: deployment.storage_layout_hash,
-  security: { phase: 'bootstrap', policy: initial.policy, policy_hash: initial.message.initialSecurityCommitment,
+  security: { phase: 'active_policy', policy: initial.policy, policy_hash: initial.message.initialSecurityCommitment,
    manifest_hash: hashSecurityManifest({ accountId: initial.message.accountId, generation: 3, securityVersion: 1n,
     previousManifestHash: zeroHash, policyHash: initial.message.initialSecurityCommitment, chainScopeHash: initial.message.chainScopeHash }),
    chain_scope_hash: initial.message.chainScopeHash, upgrades_frozen: boolean(r.upgrades_frozen), creation_valid_after: 0, creation_valid_until: 0,
-   nonces: { spend: parseAtomicAmount(nonces.spend), admin: parseAtomicAmount(nonces.admin), recovery: parseAtomicAmount(nonces.recovery) }, pending: null }
+   nonces: { spend: parseAtomicAmount(nonces.spend), admin: parseAtomicAmount(nonces.admin) }, pending: null }
  };
  const canonical = JSON.stringify({ checkpoint: observation.checkpoint, nonces: observation.security.nonces,
   upgrades_frozen: observation.security.upgrades_frozen, finality_evidence: evidence, observed_at: observedAt, expires_at: expiresAt });

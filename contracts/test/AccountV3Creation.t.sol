@@ -68,7 +68,7 @@ contract AccountV3CreationTest is V3CreationFixture {
             state.manifest,
             T.hashManifest(T.SecurityManifest(state.id, 3, 1, bytes32(0), T.hashPolicy(initialPolicy), state.scope))
         );
-        assertEq(state.admin + state.recovery + state.spend, 0);
+        assertEq(state.admin + state.spend, 0);
         assertFalse(state.frozen);
         assertEq(uint8(state.pending.kind), 0);
     }
@@ -172,7 +172,7 @@ contract AccountV3CreationTest is V3CreationFixture {
 
     function test_invalidInitialQuorumCannotReachCompactStorageEvenWithMatchingIdentity() public {
         T.SecurityPolicy memory weak = initialPolicy;
-        weak.adminThreshold = 1;
+        weak.adminThreshold = 0;
         T.InitializationApproval memory m = _initial(weak, approval.userSaltCommitment);
         _reject(m, weak, _chains(), _initialProofs(m, weak), P.AccountV3Policy__InvalidThreshold.selector);
         assertEq(factory.getAddress(m.initialSecurityCommitment, m.userSaltCommitment).code.length, 0);
@@ -322,9 +322,9 @@ contract AccountV3CreationTest is V3CreationFixture {
     function test_recoveryAndFreezeSurviveExistingAddressLookup() public {
         V3SecurityHarness account = _validCreate();
         _freeze(account);
-        _prepare(account, _policy(carol, dave), E.ChangeKind.Recovery);
+        _prepare(account, _policy(carol, dave), E.ChangeKind.Security);
         vm.warp(block.timestamp + 72 hours);
-        account.activate(account.snapshot().pending.proposalHash);
+        _commit(account);
         bytes32 before_ = _fingerprint(account);
         _create(approval, initialPolicy, new uint256[](0), new S.Signature[](0));
         assertEq(_fingerprint(account), before_);
@@ -370,26 +370,24 @@ contract AccountV3CreationTest is V3CreationFixture {
         new V3InitializedSecurityHarness(address(123));
     }
 
-    function test_bootstrapUsesRealWebAuthnAndStillCannotSpend() public {
+    function test_singlePasskeyAfterCreationCanSpendAndAdminister() public {
         AccountV3WebAuthnVerifier verifier = new AccountV3WebAuthnVerifier();
         T.SecurityPolicy memory policy = _policy(alice, bob);
-        policy.mode = P.BOOTSTRAP;
-        policy.adminThreshold = 0;
-        policy.recoveryThreshold = 0;
+        policy.mode = P.ACTIVE;
+        policy.adminThreshold = 1;
         policy.signers = new T.SignerDescriptor[](1);
         policy.signers[0] = T.SignerDescriptor(
             P.WEBAUTHN,
             address(verifier),
             address(verifier).codehash,
             abi.encodePacked(sha256("gatopago.com"), sha256("https://gatopago.com"), P256.GX, P256.GY),
-            P.SPEND,
-            false
+            (P.SPEND | P.ADMIN)
         );
         T.InitializationApproval memory m = _initial(policy, keccak256("bootstrap"));
         V3SecurityHarness account = _create(m, policy, _chains(), _initialProofs(m, policy));
         (bool enabled,) = address(account).staticcall(abi.encodeCall(account.spendEnabled, ()));
-        assertFalse(enabled);
-        _prepare(account, _policy(carol, dave), E.ChangeKind.Bootstrap);
+        assertTrue(enabled);
+        _prepare(account, _policy(carol, dave), E.ChangeKind.Security);
         _commit(account);
         account.spendEnabled(); // The real execution suite separately proves spending after bootstrap.
         assertEq(account.snapshot().version, 2);
@@ -401,7 +399,7 @@ contract AccountV3CreationTest is V3CreationFixture {
         T.SecurityPolicy memory policy = _policy(alice, bob);
         policy.signers[0] = _ecdsa(alice);
         policy.signers[1] = T.SignerDescriptor(
-            P.ERC1271, address(signer), address(signer).codehash, abi.encodePacked(address(signer)), 7, false
+            P.ERC1271, address(signer), address(signer).codehash, abi.encodePacked(address(signer)), 3
         );
         _sort(policy);
         T.InitializationApproval memory m = _initial(policy, keccak256("contract signer"));

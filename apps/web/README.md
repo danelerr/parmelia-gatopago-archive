@@ -4,6 +4,38 @@ Next.js consumer: marketing, login, shell de cuenta y checkout público. Wallet
 Core y Flow siguen siendo los propietarios del estado y la autorización.
 Este candidato local todavía no crea Account V3 ni permite recibir/pagar.
 
+## Migración Consumer a Next — 20 de septiembre de 2026
+
+El frontend activo es **apps/web**, un proyecto Next.js con Tailwind 4,
+marketing, PWA, Consumer y rutas públicas. Los comandos pnpm dev:client,
+pnpm build:client y pnpm build ahora apuntan a Web. No se importan
+React Router, el entrypoint Vite ni el cliente financiero V2 desde Next.
+
+Las 17 rutas consumer tienen entradas App Router, además de login, alias y
+rutas públicas. Home, Ajustes, Mover y los formularios recuperan los tokens,
+marco, controles y marca del client. QR tiene cámara, imagen y entrada manual;
+no convierte contenido no confiable en instrucciones de ejecución.
+
+**Esto no equivale a paridad funcional completa con client ni a una App V3
+operativa.** Varias pantallas son presentadores con operaciones deshabilitadas,
+no implementaciones completas trasladadas del backend anterior. En particular:
+cobros/checkout, perfil/contactos, swap, Earn, cross-chain, recepción, faucet,
+recovery y salida aún necesitan integración V3, no sólo variables de entorno.
+La cuenta, seguridad y envío reutilizan componentes V3 existentes, cuyas
+limitaciones operativas siguen vigentes.
+
+Cuando identidad está deshabilitada, se permite recorrer la UI vacía con un
+aviso explícito: sin usuario ficticio, saldo cero inventado, dirección de
+recepción, firma o petición financiera. Con Firebase habilitado, las rutas
+privadas exigen sesión. Las pantallas públicas no infieren pagos desde la URL.
+
+Se conserva client/ como referencia para comparar paridad; todavía pertenece
+al workspace histórico. No se declara terminado su retiro, la adaptación de
+los gates globales V2 ni la aceptación visual completa. No se tocó la eliminación
+preexistente de Dashboard. La landing Astro original tampoco fue eliminada.
+
+Ver [inventario y límites de esta migración](../../docs/operations/v3-client-next-migration-2026-09-20.md).
+
 ## Comprobaciones
 
 Desde la raíz del monorepo:

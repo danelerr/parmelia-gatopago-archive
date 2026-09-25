@@ -31,9 +31,9 @@ export async function creationJobsScenario() {
 			try { securityMethod = decodeFunctionData({ abi: accountSecurityInspectionAbi, data: call.data }).functionName; } catch { /* Other ABI */ }
 			try { accountMethod = decodeFunctionData({ abi: accountInspectionAbi, data: call.data }).functionName; } catch { /* Other ABI */ }
 			if (securityMethod === 'securitySnapshot') return encodeFunctionResult({ abi: accountSecurityInspectionAbi, functionName: securityMethod,
-				result: [1n, 1n, BigInt(manifestHash), BigInt(message.chainScopeHash), 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n, 0n] });
+				result: [1n, 1n, BigInt(manifestHash), BigInt(message.chainScopeHash), 0n, 0n, 0n, 0n, 1n, 0n, 0n, 0n, 0n, 0n, 0n, 0n] });
 			if (securityMethod === 'securityPolicy') return encodeFunctionResult({ abi: accountSecurityInspectionAbi, functionName: securityMethod,
-				result: { ...prepared.policy, mode: 0, signers: [...prepared.policy.signers] } });
+				result: { ...prepared.policy, mode: 1, signers: [...prepared.policy.signers] } });
 			if (accountMethod === 'inspectAccount') return encodeFunctionResult({ abi: accountInspectionAbi, functionName: accountMethod,
 				result: { account: prepared.account, accountId: message.accountId, implementation: prepared.profile.deployment.components.implementation.address,
 					securityVersion: 1n, storageLayoutHash: prepared.profile.deployment.storage_layout_hash } });

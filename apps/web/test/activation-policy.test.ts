@@ -8,20 +8,19 @@ import { policyReviewFixture } from './activation-policy.fixture';
 
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 describe('Passkey policy review, not activation or independent exit', () => {
-  it.each([2, 3, 16])('constructs a sorted %s-key draft with explicit spend/admin/recovery thresholds and no readiness claim', (count) => {
+  it.each([2, 3, 16])('constructs a sorted %s-key draft with explicit spend/admin thresholds and no readiness claim', (count) => {
     const f = policyReviewFixture(count), selected = policySelection(f.consent, f.inventory, f.references, f.pin);
     const draft = passkeyPolicyDraft(selected, f.material);
-    expect(draft.policy).toMatchObject({ mode: 'active', spendThreshold: 1, adminThreshold: 2, recoveryThreshold: 2,
-      recoveryDelaySeconds: 259200, upgradeDelaySeconds: 259200 });
+    expect(draft.policy).toMatchObject({ mode: 'active', spendThreshold: 1, adminThreshold: 1, upgradeDelaySeconds: 259200 });
     expect(draft.hash).toBe(hashSecurityPolicy(draft.policy));
     const ids = draft.factors.map((factor) => signerId(factor.descriptor)); expect(ids).toEqual([...ids].sort());
-    expect(draft.policy.signers.every((row) => row.roles === (Role.SPEND | Role.ADMIN | Role.RECOVERY) && !row.assisted)).toBe(true);
+    expect(draft.policy.signers.every((row) => row.roles === (Role.SPEND | Role.ADMIN))).toBe(true);
     expect(draft).toMatchObject({ activationReady: false, independentExit: 'not_configured', possession: 'not_assessed',
-      onchainAuthority: 'not_assessed', recoverableLostKeys: count - 2 });
+      onchainAuthority: 'not_assessed', recoverableLostKeys: count - 1 });
     expect(Object.isFrozen(draft.policy.signers)).toBe(true); expect(Object.isFrozen(draft.factors[0].descriptor)).toBe(true);
     const compiled = prepareBootstrapActivation({ ...f.t.f.input, nextPolicy: draft.policy }, f.t.f.input.validAfter);
-    // The initial key gains security roles too: its old SPEND role is not proof of consent to those roles.
-    expect(compiled.enrollments).toHaveLength(count);
+    // Initial authority is unchanged; only additional keys prove new possession.
+    expect(compiled.enrollments).toHaveLength(count - 1);
   });
   it.each(['unknown', 'initial-duplicate', 'repeated', 'empty', 'limit', 'pin', 'unauthorized'])('rejects %s selection before fetching material', (change) => {
     const f = policyReviewFixture(), consent = structuredClone(f.consent); let refs = [...f.references]; const pin = { ...f.pin };

@@ -84,23 +84,6 @@ contract AccountV3EnrollmentTest is Test {
         );
     }
 
-    function test_recoveryCannotBorrowAdminEnrollmentProof() public view {
-        T.SecurityChange memory change = _change();
-        S.Signature[] memory oldProofs = _proofs(change, E.ChangeKind.Security, address(harness));
-        S.Signature[] memory recoveryAuth = _auth(change, E.ChangeKind.Recovery, address(harness));
-        assertFalse(harness.verify(previous, next, E.ChangeKind.Recovery, change, recoveryAuth, oldProofs));
-        assertTrue(
-            harness.verify(
-                previous,
-                next,
-                E.ChangeKind.Recovery,
-                change,
-                recoveryAuth,
-                _proofs(change, E.ChangeKind.Recovery, address(harness))
-            )
-        );
-    }
-
     function test_chainAndAccountDomainCannotBeSubstituted() public {
         T.SecurityChange memory change = _change();
         S.Signature[] memory proofs = _proofs(change, E.ChangeKind.Security, address(harness));
@@ -131,7 +114,7 @@ contract AccountV3EnrollmentTest is Test {
 
     function test_roleChangeRequiresPossessionEvenWithSameSignerId() public {
         next = previous;
-        next.signers[0].roles = P.ADMIN | P.RECOVERY;
+        next.signers[0].roles = P.ADMIN;
         T.SecurityChange memory change = _change();
         S.Signature[] memory auth = _auth(change, E.ChangeKind.Security, address(harness));
         assertFalse(harness.verify(previous, next, E.ChangeKind.Security, change, auth, new S.Signature[](0)));
@@ -161,12 +144,12 @@ contract AccountV3EnrollmentTest is Test {
         expanded.signers[0] = _ecdsa(alice);
         expanded.signers[1] = _ecdsa(bob);
         expanded.signers[2] = _ecdsa(carol);
-        expanded.signers[2].roles = P.RECOVERY;
+        expanded.signers[2].roles = P.ADMIN;
         _sort(expanded);
         previous = expanded;
         next = expanded;
         uint8 index = _index(next, abi.encodePacked(carol));
-        next.signers[index].assisted = true;
+        next.signers[index].roles = P.SPEND | P.ADMIN;
         T.SecurityChange memory change = _change();
         bytes32 digest = _context(change, E.ChangeKind.Security, address(harness));
         S.Signature[] memory auth = new S.Signature[](2);
@@ -226,46 +209,6 @@ contract AccountV3EnrollmentTest is Test {
         assertFalse(harness.verify(previous, next, E.ChangeKind.Security, change, auth, proofs));
     }
 
-    function test_bootstrapPromotionUsesRealWebAuthnAndNewRoleProof() public {
-        AccountV3WebAuthnVerifier verifier = new AccountV3WebAuthnVerifier();
-        // Public test vector scalar 1, not an operational key.
-        (uint256 x, uint256 y) = vm.publicKeyP256(1);
-        bytes memory webKey = abi.encodePacked(sha256("gatopago.com"), sha256("https://gatopago.com"), x, y);
-        T.SignerDescriptor memory web =
-            T.SignerDescriptor(P.WEBAUTHN, address(verifier), address(verifier).codehash, webKey, P.SPEND, false);
-        T.SecurityPolicy memory bootstrap = _policy(alice, bob);
-        bootstrap.mode = P.BOOTSTRAP;
-        bootstrap.signers = new T.SignerDescriptor[](1);
-        bootstrap.signers[0] = web;
-        bootstrap.adminThreshold = 0;
-        bootstrap.recoveryThreshold = 0;
-        T.SecurityPolicy memory active = _policy(alice, bob);
-        // A fresh descriptor: memory structs alias, so mutating `web.roles` would also alter bootstrap.
-        active.signers[1] =
-            T.SignerDescriptor(P.WEBAUTHN, address(verifier), address(verifier).codehash, webKey, 7, false);
-        active.signers[0] = _ecdsa(alice);
-        _sort(active);
-        next = active;
-        T.SecurityChange memory change = _change();
-        bytes32 digest = _context(change, E.ChangeKind.Bootstrap, address(harness));
-        S.Signature[] memory auth = new S.Signature[](1);
-        auth[0] = S.Signature(0, _webSign(digest));
-        S.Signature[] memory proofs = new S.Signature[](2);
-        for (uint256 i; i < 2; ++i) {
-            bytes32 proofHash = _proofDigest(active.signers[i], change, E.ChangeKind.Bootstrap, address(harness));
-            proofs[i] = S.Signature(
-                SafeCast.toUint8(i),
-                active.signers[i].kind == P.WEBAUTHN ? _webSign(proofHash) : _sign(alice, proofHash)
-            );
-        }
-        vm.mockCall(address(0x100), bytes(""), bytes(""));
-        assertTrue(harness.verify(bootstrap, active, E.ChangeKind.Bootstrap, change, auth, proofs));
-        proofs[_index(active, webKey)].signature = auth[0].signature;
-        assertFalse(harness.verify(bootstrap, active, E.ChangeKind.Bootstrap, change, auth, proofs));
-        assertFalse(harness.verify(bootstrap, active, E.ChangeKind.Security, change, auth, proofs));
-        assertFalse(harness.verify(bootstrap, bootstrap, E.ChangeKind.Bootstrap, change, auth, proofs));
-    }
-
     function _policy(address a, address b) private pure returns (T.SecurityPolicy memory policy) {
         policy.mode = P.ACTIVE;
         policy.signers = new T.SignerDescriptor[](2);
@@ -273,14 +216,12 @@ contract AccountV3EnrollmentTest is Test {
         policy.signers[1] = _ecdsa(b);
         policy.spendThreshold = 1;
         policy.adminThreshold = 2;
-        policy.recoveryThreshold = 2;
-        policy.recoveryDelaySeconds = 72 hours;
         policy.upgradeDelaySeconds = 72 hours;
         _sort(policy);
     }
 
     function _ecdsa(address key) private pure returns (T.SignerDescriptor memory) {
-        return T.SignerDescriptor(P.ECDSA, address(0), bytes32(0), abi.encodePacked(key), 7, false);
+        return T.SignerDescriptor(P.ECDSA, address(0), bytes32(0), abi.encodePacked(key), 3);
     }
 
     function _sort(T.SecurityPolicy memory policy) private pure {
@@ -315,9 +256,7 @@ contract AccountV3EnrollmentTest is Test {
         view
         returns (bytes32)
     {
-        bytes32 hash = kind == E.ChangeKind.Security
-            ? T.hashSecurity(change)
-            : kind == E.ChangeKind.Recovery ? T.hashRecovery(change) : T.hashBootstrap(change);
+        bytes32 hash = E.hashChange(kind, change);
         return T.digest(block.chainid, account, hash);
     }
 

@@ -24,8 +24,8 @@ export async function activationProjectionScenario() {
      implementation: f.grant.initial.profile.deployment.components.implementation.address,
      securityVersion: state.version, storageLayoutHash: f.grant.initial.profile.deployment.storage_layout_hash } });
    if (securityMethod === 'securitySnapshot') return encodeFunctionResult({ abi: accountSecurityInspectionAbi, functionName: securityMethod,
-    result: [state.flags, state.version, BigInt(state.manifest), BigInt(state.scope), 0n, 0n, 0n, state.adminNonce, 0n,
-     state.pending ? 3n : 0n, state.pending ? BigInt(f.grant.signed.proposalHash) : 0n, state.pending ? state.version : 0n,
+    result: [state.flags, state.version, BigInt(state.manifest), BigInt(state.scope), 0n, 0n, 0n, state.adminNonce, 1n,
+     state.pending ? 1n : 0n, state.pending ? BigInt(f.grant.signed.proposalHash) : 0n, state.pending ? state.version : 0n,
      state.pending ? BigInt(state.manifest) : 0n, state.pending ? BigInt(state.scope) : 0n,
      state.pending ? 1n : 0n, state.pending ? 2n : 0n] });
    if (securityMethod === 'securityPolicy') return encodeFunctionResult({ abi: accountSecurityInspectionAbi, functionName: securityMethod,

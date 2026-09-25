@@ -34,7 +34,7 @@ export async function activationCommitScenario() {
    let name;
    try { name = decodeFunctionData({ abi: accountSecurityInspectionAbi, data: (params[0] as { data: Hex }).data }).functionName; } catch { /* Another ABI. */ }
    if (name === 'securitySnapshot') return encodeFunctionResult({ abi: accountSecurityInspectionAbi, functionName: name,
-    result: [f.state.flags, f.state.version, BigInt(f.state.manifestHash), BigInt(f.state.scope), 0n, 0n, 0n, state.nonce, 0n,
+    result: [f.state.flags, f.state.version, BigInt(f.state.manifestHash), BigInt(f.state.scope), 0n, 0n, 0n, state.nonce, 1n,
      state.pending ? 1n : 0n, state.pending ? BigInt(state.proposal) : 0n, state.pending ? 1n : 0n,
      state.pending ? BigInt(f.state.manifestHash) : 0n, state.pending ? BigInt(f.state.scope) : 0n,
      state.pending ? BigInt(state.readyAt) : 0n, state.pending ? BigInt(state.validUntil) : 0n] });

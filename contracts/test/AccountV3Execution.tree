@@ -2,7 +2,7 @@ AccountV3Execution
 ├── when the first UserOperation creates the account
 │   ├── it transfers counterfactually funded native assets with real EntryPoint fees
 │   ├── it binds the canonical call array and security version
-│   └── bootstrap can only finish creation, not spend
+│   └── completeCreation ends initialization; consumer needs no later activation
 ├── given an active account
 │   ├── when CALL batches succeed
 │   │   ├── it transfers native assets and ERC20 through arbitrary calldata
@@ -16,6 +16,6 @@ AccountV3Execution
 │   ├── when callbacks attempt nested execution or security mutations
 │   │   └── reentrancy and the cross-domain executing flag block them
 │   └── when another account changes security after batch validation
-│       └── execution rechecks recovery/version before any asset call
+│       └── execution rechecks current version before any asset call
 └── when sender, plan, calldata, domain or authorization is wrong
     └── reject without transferring assets

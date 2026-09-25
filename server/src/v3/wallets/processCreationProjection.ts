@@ -80,7 +80,7 @@ export async function processCreationProjection(database: D1Database, id: Resour
 		rpcUrls: network.providers.map((p) => p.url), finalityPolicy: network.finalityPolicy,
 		finalityEvidence: source.result.finality_evidence }, signal);
 	if (!('security' in security) || security.status !== 'recognized' || security.security_version !== '1'
-		|| security.security.phase !== 'bootstrap' || security.security.manifest_hash !== expectedManifest
+		|| security.security.phase !== 'active_policy' || security.security.manifest_hash !== expectedManifest
 		|| security.security.policy_hash !== message.initialSecurityCommitment || security.security.chain_scope_hash !== message.chainScopeHash
 		|| security.security.pending !== null || security.security.upgrades_frozen
 		|| Object.values(security.security.nonces).some((nonce) => nonce !== '0')) throw new Error('CREATION_SECURITY_CHANGED');

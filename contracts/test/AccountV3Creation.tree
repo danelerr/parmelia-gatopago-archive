@@ -15,5 +15,5 @@ AccountFactoryV3 / AccountV3Initializable
 ├── implementation/direct initializer -> locked
 ├── account already exists
 │   ├── code, implementation or immutable identity differs -> reject
-│   └── same creation identity after rotation/recovery -> return without writes
-└── bootstrap WebAuthn -> receive/security enrollment only, never spend authority
+│   └── same creation identity after rotation -> return without writes
+└── single active consumer WebAuthn -> spend/admin after successful creation

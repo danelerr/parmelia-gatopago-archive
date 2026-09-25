@@ -214,7 +214,10 @@ contract AccountV3WebAuthnVerifierTest is Test {
         assertEq(verifier.verify(_key(), challenge, signature), VALID);
         assertEq(verifier.verify(_key(), T.digest(43113, address(0xbeef), T.hashSecurity(change)), signature), INVALID);
         assertEq(verifier.verify(_key(), T.digest(84532, address(0xcafe), T.hashSecurity(change)), signature), INVALID);
-        assertEq(verifier.verify(_key(), T.digest(84532, address(0xbeef), T.hashRecovery(change)), signature), INVALID);
+        T.CancelProposal memory cancellation;
+        assertEq(
+            verifier.verify(_key(), T.digest(84532, address(0xbeef), T.hashCancel(cancellation)), signature), INVALID
+        );
         change.securityVersion++;
         assertEq(verifier.verify(_key(), T.digest(84532, address(0xbeef), T.hashSecurity(change)), signature), INVALID);
         change.securityVersion--;

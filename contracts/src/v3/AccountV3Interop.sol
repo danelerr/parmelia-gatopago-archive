@@ -10,9 +10,9 @@ import {AccountV3Execution} from "src/v3/AccountV3Execution.sol";
 import {AccountV3Security as Security} from "src/v3/AccountV3Security.sol";
 import {AccountV3Types as T} from "src/v3/AccountV3Types.sol";
 
-/// @notice V3 contract signatures, token receivers and introspection. UUPS composition is still pending.
+/// @notice V3 contract signatures, token receivers and introspection; composed with typed UUPS in AccountV3.
 /// @dev ERC-1271 uses an explicit AccountSignature envelope, never raw owner signatures or ERC-7739.
-/// Signature validity can change with security/recovery state. Read access is not spend authority.
+/// Signature validity can change with security state. Read access is not spend authority.
 /// Native receiving is inherited from OZ Account; ERC-20 requires no receiver callback.
 /// @custom:security-contact https://github.com/danelerr/parmelia-links/blob/main/SECURITY.md
 abstract contract AccountV3Interop is AccountV3Execution, IERC1271, IERC5267, ERC721Holder, ERC1155Holder {

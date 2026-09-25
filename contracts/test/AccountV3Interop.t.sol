@@ -57,6 +57,8 @@ contract V3SignatureApp is EIP712 {
         uint256 deadline,
         bytes calldata sig
     ) external {
+        // Synthetic clock selects a test validity boundary, not randomness or production finality.
+        // forge-lint: disable-next-line(block-timestamp)
         require(nonces[owner] == nonce && block.timestamp < deadline, "application nonce/deadline");
         require(
             SignatureChecker.isValidSignatureNow(owner, orderHash(owner, recipient, amount, nonce, deadline), sig),
@@ -224,7 +226,7 @@ contract AccountV3InteropTest is V3ExecutionFixture {
     }
 
     function test_adminRecoveryOnlyKeyCannotSignForAnApplication() public {
-        policy.signers[0].roles = P.ADMIN | P.RECOVERY;
+        policy.signers[0].roles = P.ADMIN;
         initial = _initial(policy, keccak256("role separated"));
         account = V3ExecutionAccount(payable(_predicted(initial)));
         _create();
@@ -304,22 +306,6 @@ contract AccountV3InteropTest is V3ExecutionFixture {
         assertTrue(app.check(address(account), hash, _signature(hash)));
     }
 
-    function test_recoverySuspendsApplicationSignaturesUntilExplicitlyExpired() public {
-        _create();
-        bytes32 hash = keccak256("application");
-        bytes memory sig = _signature(hash);
-        T.SecurityPolicy memory next = _policy(carol, dave);
-        (T.SecurityChange memory change, bytes32 digest, S.Signature[] memory proofs) =
-            _executionChange(next, E.ChangeKind.Recovery);
-        bytes32 proposal =
-            account.prepare(E.ChangeKind.Recovery, change, next, _chains(), _votes(policy, digest, P.RECOVERY), proofs);
-        assertFalse(app.check(address(account), hash, sig));
-        vm.warp(change.proposalValidUntil);
-        assertFalse(app.check(address(account), hash, sig));
-        account.expire(proposal);
-        assertTrue(app.check(address(account), hash, sig));
-    }
-
     function test_callbackMayValidateAnApplicationSignatureDuringAuthorizedExecution() public {
         _create();
         bytes32 hash = keccak256("callback approval");
@@ -386,7 +372,7 @@ contract AccountV3InteropTest is V3ExecutionFixture {
         ) = account.eip712Domain();
         assertEq(fields, hex"0f");
         assertEq(name, "GatoPago Account");
-        assertEq(version, "3");
+        assertEq(version, "3.0-consumer");
         assertEq(chain, block.chainid);
         assertEq(verifier, address(account));
         assertEq(salt, bytes32(0));
@@ -431,15 +417,14 @@ contract AccountV3InteropTest is V3ExecutionFixture {
         assertEq(libraryCalls, 1);
     }
 
-    function test_activeWebAuthnSignsApplicationsButBootstrapCannot() public {
+    function test_singleAndMultipleWebAuthnSignApplicationsAfterCreation() public {
         AccountV3WebAuthnVerifier verifier = new AccountV3WebAuthnVerifier();
         policy.signers[0] = T.SignerDescriptor(
             P.WEBAUTHN,
             address(verifier),
             address(verifier).codehash,
             abi.encodePacked(sha256("gatopago.com"), sha256("https://gatopago.com"), P256.GX, P256.GY),
-            7,
-            false
+            3
         );
         T.SecurityPolicy memory ordered = policy;
         _sort(ordered);
@@ -451,17 +436,16 @@ contract AccountV3InteropTest is V3ExecutionFixture {
         bytes32 hash = keccak256("webauthn application");
         assertTrue(app.check(address(account), hash, _signature(hash)));
         T.SignerDescriptor memory passkey = policy.signers[policy.signers[0].kind == P.WEBAUTHN ? 0 : 1];
-        policy.mode = P.BOOTSTRAP;
-        policy.adminThreshold = 0;
-        policy.recoveryThreshold = 0;
+        policy.mode = P.ACTIVE;
+        policy.adminThreshold = 1;
         policy.spendThreshold = 1;
         delete policy.signers;
-        passkey.roles = P.SPEND;
+        passkey.roles = P.SPEND | P.ADMIN;
         policy.signers.push(passkey);
         initial = _initial(policy, keccak256("interop bootstrap"));
         account = V3ExecutionAccount(payable(_predicted(initial)));
         _createWithSoftwareP256();
-        assertFalse(app.check(address(account), hash, _signature(hash)));
+        assertTrue(app.check(address(account), hash, _signature(hash)));
     }
 
     function _createWithSoftwareP256() private {

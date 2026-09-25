@@ -1,13 +1,11 @@
 AccountV3Enrollment.verifyChange
-├── given the current policy and a proposed active policy
-│   ├── obtain authority only from current members and correct purpose/role
-│   ├── require possession from each new descriptor or changed role/assistance
-│   ├── unchanged members and removed members require no enrollment proof
-│   ├── reject missing, duplicate, out-of-range, extra or unchanged-member proofs
-│   └── reject downgrade to bootstrap or non-live authorization window
-├── given valid old-authority signatures freshly generated for an altered proposal
-│   └── reject old enrollment proofs after changes to nonce/version/account/policy/purpose/window/domain
-└── given bootstrap promotion
-    ├── require a real WebAuthn signature from the bootstrap key
-    ├── require proof for its expanded roles and each new factor
-    └── return consent only: storage nonce consumption, wait and commit remain the account's responsibility
+├── current policy authorizes exact SecurityChange
+│   ├── existing ADMIN quorum, not prospective keys or SPEND-only signers
+│   ├── new or role-changed descriptor proves possession
+│   ├── unchanged/removed keys do not need new proof
+│   └── missing, duplicate, extra, stale, wrong-scope proofs fail
+├── consumer profile
+│   ├── one active WebAuthn key can spend and administer
+│   └── optional equivalent backup keeps SPEND/ADMIN at 1-of-N
+└── pure consent verification
+    └── account owns proposal, nonce, fresh commit and storage transitions

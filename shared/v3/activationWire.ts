@@ -42,9 +42,9 @@ function time(value: unknown): number {
 function policy(value: SecurityPolicy): SecurityPolicy {
 	if (!Array.isArray(value.signers) || value.signers.length > 16) throw new Error('Invalid activation policy');
 	const p: SecurityPolicy = { mode: value.mode, signers: value.signers.map((s) => Object.freeze({ kind: s.kind,
-		verifier: s.verifier, verifierCodeHash: s.verifierCodeHash, key: s.key, roles: s.roles, assisted: s.assisted })),
-		spendThreshold: value.spendThreshold, adminThreshold: value.adminThreshold, recoveryThreshold: value.recoveryThreshold,
-		recoveryDelaySeconds: value.recoveryDelaySeconds, upgradeDelaySeconds: value.upgradeDelaySeconds };
+		verifier: s.verifier, verifierCodeHash: s.verifierCodeHash, key: s.key, roles: s.roles })),
+		spendThreshold: value.spendThreshold, adminThreshold: value.adminThreshold,
+		upgradeDelaySeconds: value.upgradeDelaySeconds };
 	equal(value, p); hashSecurityPolicy(p);
 	if (p.mode !== 'active') throw new Error('Invalid activation policy');
 	Object.freeze(p.signers); return Object.freeze(p);
@@ -85,11 +85,11 @@ function observation(value: unknown, input: InitializationInput, pending: boolea
 		manifest_id: deployment.manifest_id, manifest_sha256: deploymentDocumentDigest(JSON.stringify(deployment)),
 		checkpoint: { block_hash: c.block_hash, block_number: parseAtomicAmount(c.block_number) }, spend_readiness: 'not_assessed',
 		implementation: deployment.components.implementation.address, security_version: '1', storage_layout_hash: deployment.storage_layout_hash,
-		security: { phase: 'bootstrap', policy: initial.policy, policy_hash: initial.message.initialSecurityCommitment,
+		security: { phase: 'active_policy', policy: initial.policy, policy_hash: initial.message.initialSecurityCommitment,
 			manifest_hash: hashSecurityManifest({ accountId: initial.message.accountId, generation: 3, securityVersion: 1n,
 				previousManifestHash: zeroHash, policyHash: initial.message.initialSecurityCommitment, chainScopeHash: initial.message.chainScopeHash }),
 			chain_scope_hash: initial.message.chainScopeHash, upgrades_frozen: s.upgrades_frozen, creation_valid_after: 0, creation_valid_until: 0,
-			nonces: { spend: parseAtomicAmount(n.spend), admin: parseAtomicAmount(n.admin), recovery: parseAtomicAmount(n.recovery) }, pending: proposal },
+			nonces: { spend: parseAtomicAmount(n.spend), admin: parseAtomicAmount(n.admin) }, pending: proposal },
 	};
 	equal(value, result); return result;
 }

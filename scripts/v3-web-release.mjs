@@ -7,7 +7,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const descriptor = 'shared/v3/web-release.json';
 const paths = [
   'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'apps/web/package.json',
-  'apps/web/next.config.ts', 'apps/web/tsconfig.json', 'scripts/v3-web-release.mjs',
+  'apps/web/next.config.ts', 'apps/web/postcss.config.mjs', 'apps/web/tsconfig.json', 'scripts/v3-web-release.mjs',
 ];
 const skippedDirectories = new Set(['node_modules', '.git']);
 function walk(directory) {

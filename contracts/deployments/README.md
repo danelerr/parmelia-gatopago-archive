@@ -1,5 +1,9 @@
 # GatoPago deployment manifests
 
+The existing Parmelia/V2 manifests are historical, not V3 admission. New V3
+source/CREATE2 salts must never be paired with those addresses. See the
+[V3 release runbook](../../docs/operations/v3-contract-regularization-2026-09-21.md).
+
 Only successful, source-checked deployments belong here. A dry-run is evidence
 for preflight and deterministic address prediction, but it is not a deployment
 manifest.

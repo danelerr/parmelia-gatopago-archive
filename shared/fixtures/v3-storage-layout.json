@@ -5,15 +5,13 @@
   "compiler": "0.8.34",
   "proposalKinds": [
     "None",
-    "Bootstrap",
     "Security",
-    "Recovery",
     "Upgrade"
   ],
   "layout": {
     "label": "struct AccountV3Storage.Layout",
     "encoding": "inplace",
-    "numberOfBytes": "896",
+    "numberOfBytes": "832",
     "members": [
       {
         "label": "generation",
@@ -146,38 +144,8 @@
         }
       },
       {
-        "label": "recoveryNonce",
-        "slot": "7",
-        "offset": 0,
-        "type": {
-          "label": "uint256",
-          "encoding": "inplace",
-          "numberOfBytes": "32"
-        }
-      },
-      {
-        "label": "vetoNonces",
-        "slot": "8",
-        "offset": 0,
-        "type": {
-          "label": "mapping(bytes32 => uint256)",
-          "encoding": "mapping",
-          "numberOfBytes": "32",
-          "key": {
-            "label": "bytes32",
-            "encoding": "inplace",
-            "numberOfBytes": "32"
-          },
-          "value": {
-            "label": "uint256",
-            "encoding": "inplace",
-            "numberOfBytes": "32"
-          }
-        }
-      },
-      {
         "label": "policy",
-        "slot": "9",
+        "slot": "7",
         "offset": 0,
         "type": {
           "label": "struct AccountV3Storage.StoredPolicy",
@@ -215,29 +183,9 @@
               }
             },
             {
-              "label": "recoveryThreshold",
-              "slot": "0",
-              "offset": 5,
-              "type": {
-                "label": "uint16",
-                "encoding": "inplace",
-                "numberOfBytes": "2"
-              }
-            },
-            {
-              "label": "recoveryDelaySeconds",
-              "slot": "0",
-              "offset": 7,
-              "type": {
-                "label": "uint48",
-                "encoding": "inplace",
-                "numberOfBytes": "6"
-              }
-            },
-            {
               "label": "upgradeDelaySeconds",
               "slot": "0",
-              "offset": 13,
+              "offset": 5,
               "type": {
                 "label": "uint48",
                 "encoding": "inplace",
@@ -278,19 +226,9 @@
                       }
                     },
                     {
-                      "label": "assisted",
-                      "slot": "0",
-                      "offset": 2,
-                      "type": {
-                        "label": "bool",
-                        "encoding": "inplace",
-                        "numberOfBytes": "1"
-                      }
-                    },
-                    {
                       "label": "identity",
                       "slot": "0",
-                      "offset": 3,
+                      "offset": 2,
                       "type": {
                         "label": "address",
                         "encoding": "inplace",
@@ -326,7 +264,7 @@
       },
       {
         "label": "pending",
-        "slot": "11",
+        "slot": "9",
         "offset": 0,
         "type": {
           "label": "struct AccountV3Storage.PendingProposal",
@@ -484,16 +422,6 @@
                               "encoding": "inplace",
                               "numberOfBytes": "1"
                             }
-                          },
-                          {
-                            "label": "assisted",
-                            "slot": "3",
-                            "offset": 1,
-                            "type": {
-                              "label": "bool",
-                              "encoding": "inplace",
-                              "numberOfBytes": "1"
-                            }
                           }
                         ]
                       }
@@ -520,29 +448,9 @@
                     }
                   },
                   {
-                    "label": "recoveryThreshold",
-                    "slot": "2",
-                    "offset": 4,
-                    "type": {
-                      "label": "uint16",
-                      "encoding": "inplace",
-                      "numberOfBytes": "2"
-                    }
-                  },
-                  {
-                    "label": "recoveryDelaySeconds",
-                    "slot": "2",
-                    "offset": 6,
-                    "type": {
-                      "label": "uint48",
-                      "encoding": "inplace",
-                      "numberOfBytes": "6"
-                    }
-                  },
-                  {
                     "label": "upgradeDelaySeconds",
                     "slot": "2",
-                    "offset": 12,
+                    "offset": 4,
                     "type": {
                       "label": "uint48",
                       "encoding": "inplace",
@@ -690,5 +598,5 @@
     ]
   },
   "hashAlgorithm": "sha256-canonical-json-v1",
-  "storageLayoutHash": "0x1db59f278cb6ee7f51095e572dc040bf37f9c1e4e63143a9fe0e0eacac97f3b7"
+  "storageLayoutHash": "0xdcd24b64ea3d183f0c8ec0cf5f2f5a3ed15545805791416ab100c3a0ca160f49"
 }

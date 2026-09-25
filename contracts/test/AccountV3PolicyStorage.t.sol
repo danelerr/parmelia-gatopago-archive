@@ -60,8 +60,8 @@ contract AccountV3PolicyStorageTest is V3SecurityFixture {
         harness = new V3PolicyStorageHarness();
     }
 
-    function testFuzz_roundTripAllSignerKinds(uint8 countSeed, bytes32 seed, bool assisted) public {
-        _roundTrip(_mixed(bound(countSeed, 2, 16), seed, assisted));
+    function testFuzz_roundTripAllSignerKinds(uint8 countSeed, bytes32 seed, bool variation) public {
+        _roundTrip(_mixed(bound(countSeed, 2, 16), seed, variation));
     }
 
     function test_roundTripMaximumSixteenSigners() public {
@@ -74,12 +74,11 @@ contract AccountV3PolicyStorageTest is V3SecurityFixture {
         for (uint256 i; i < policy.signers.length; ++i) {
             if (policy.signers[i].kind == P.WEBAUTHN) signer = policy.signers[i];
         }
-        signer.roles = P.SPEND;
-        policy.mode = P.BOOTSTRAP;
+        signer.roles = P.SPEND | P.ADMIN;
+        policy.mode = P.ACTIVE;
         policy.signers = new T.SignerDescriptor[](1);
         policy.signers[0] = signer;
-        policy.adminThreshold = 0;
-        policy.recoveryThreshold = 0;
+        policy.adminThreshold = 1;
         _roundTrip(policy);
     }
 
@@ -92,7 +91,7 @@ contract AccountV3PolicyStorageTest is V3SecurityFixture {
         harness.store(before_);
         // Compiler-derived layout: policy header at root+9, signers anchor root+10,
         // each StoredSigner uses three words. The layout guard also commits these offsets.
-        uint256 start = uint256(keccak256(abi.encode(uint256(D.STORAGE_LOCATION) + 10)));
+        uint256 start = uint256(keccak256(abi.encode(uint256(D.STORAGE_LOCATION) + 8)));
         bytes32[] memory oldKeyRoots = new bytes32[](16);
         for (uint256 i; i < before_.signers.length; ++i) {
             if (before_.signers[i].kind == P.WEBAUTHN) {
@@ -136,7 +135,7 @@ contract AccountV3PolicyStorageTest is V3SecurityFixture {
         } else if (mutation == 4) {
             invalid.signers[0].roles = 8;
         } else if (mutation == 5) {
-            invalid.signers[0].assisted = true;
+            invalid.signers[0].roles = 0;
         } else {
             invalid.signers[0].kind = 3;
         }
@@ -155,7 +154,7 @@ contract AccountV3PolicyStorageTest is V3SecurityFixture {
         vm.expectRevert(P.AccountV3Policy__InvalidPolicy.selector);
         harness.store(invalid);
         invalid = _policy(address(3), address(4));
-        invalid.adminThreshold = 1;
+        invalid.adminThreshold = 0;
         vm.expectRevert(P.AccountV3Policy__InvalidThreshold.selector);
         harness.store(invalid);
         assertEq(abi.encode(harness.load()), abi.encode(previous));
@@ -224,7 +223,7 @@ contract AccountV3PolicyStorageTest is V3SecurityFixture {
         }
     }
 
-    function _mixed(uint256 count, bytes32 seed, bool assisted) internal pure returns (T.SecurityPolicy memory p) {
+    function _mixed(uint256 count, bytes32 seed, bool /* variation */) internal pure returns (T.SecurityPolicy memory p) {
         p = _policy(address(1), address(2));
         p.signers = new T.SignerDescriptor[](count);
         for (uint256 i; i < count; ++i) {
@@ -232,11 +231,7 @@ contract AccountV3PolicyStorageTest is V3SecurityFixture {
             p.signers[i] = _ecdsa(identity);
             if (i >= 2) {
                 p.signers[i].kind = SafeCast.toUint8(i % 3);
-                p.signers[i].roles = SafeCast.toUint8(1 + uint256(keccak256(abi.encode(i, seed))) % 7);
-                if (i == count - 1 && assisted) {
-                    p.signers[i].assisted = true;
-                    p.signers[i].roles = P.RECOVERY;
-                }
+                p.signers[i].roles = SafeCast.toUint8(1 + uint256(keccak256(abi.encode(i, seed))) % 3);
                 if (p.signers[i].kind != P.ECDSA) {
                     p.signers[i].verifier = identity;
                     p.signers[i].verifierCodeHash = keccak256(abi.encode(seed, i, "verifier"));

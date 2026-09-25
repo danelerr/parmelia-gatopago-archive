@@ -7,13 +7,11 @@ import {AccountV3Signatures as S} from "src/v3/AccountV3Signatures.sol";
 
 /// @notice Cryptographic consent for a policy proposal, including every new/changed member's possession proof.
 /// @dev No state transition. The account MUST load previous policy from storage, compare accountId/version/
-/// predecessor/nonce/scope with its state, consume the appropriate nonce and apply timelock/commit/veto rules.
+/// predecessor/nonce/scope with its state, consume the appropriate nonce and apply timelock/commit/cancellation rules.
 /// Internal address(this)/block.chainid prevent callers from substituting the EIP-712 domain.
 library AccountV3Enrollment {
     enum ChangeKind {
-        Bootstrap,
-        Security,
-        Recovery
+        Security
     }
 
     function verifyChange(
@@ -32,18 +30,11 @@ library AccountV3Enrollment {
                 || change.chainScopeHash == bytes32(0) || change.nextPolicyHash != T.hashPolicy(next)
         ) return false;
         // Signed, half-open validity window, not randomness. Small consensus timestamp skew remains possible;
-        // the account's separate 72h recovery/upgrade timelock must start when the proposal is accepted.
+        // the account's separate upgrade timelock must start when the proposal is accepted.
         // forge-lint: disable-next-line(block-timestamp)
         if (block.timestamp < change.validAfter || block.timestamp >= change.validUntil) return false;
         bytes32 contextHash = T.digest(block.chainid, address(this), hashChange(kind, change));
-        if (kind == ChangeKind.Bootstrap) {
-            if (
-                authorizations.length != 1 || authorizations[0].signerIndex != 0
-                    || !S.verifyBootstrap(previous, contextHash, authorizations[0].signature)
-            ) return false;
-        } else if (!S.verifyQuorum(
-                previous, kind == ChangeKind.Security ? P.ADMIN : P.RECOVERY, contextHash, authorizations
-            )) {
+        if (!S.verifyQuorum(previous, P.ADMIN, contextHash, authorizations)) {
             return false;
         }
 
@@ -54,7 +45,7 @@ library AccountV3Enrollment {
             bytes32 id = T.signerId(member);
             for (uint256 j; j < previous.signers.length; ++j) {
                 T.SignerDescriptor memory old = previous.signers[j];
-                if (id == T.signerId(old) && member.roles == old.roles && member.assisted == old.assisted) {
+                if (id == T.signerId(old) && member.roles == old.roles) {
                     unchanged = true;
                     break;
                 }
@@ -91,11 +82,8 @@ library AccountV3Enrollment {
     }
 
     /// @dev One encoding shared by verification and persistence. The selected typehash
-    /// retains purpose separation even though the three policy-change payloads coincide.
-    function hashChange(ChangeKind kind, T.SecurityChange memory change) internal pure returns (bytes32) {
-        bytes32 typeHash = kind == ChangeKind.Bootstrap
-            ? T.BOOTSTRAP_TYPEHASH
-            : kind == ChangeKind.Security ? T.SECURITY_TYPEHASH : T.RECOVERY_TYPEHASH;
-        return keccak256(abi.encode(typeHash, change));
+    /// has a single SecurityChange purpose; retired recovery/activation payloads are not admitted.
+    function hashChange(ChangeKind, T.SecurityChange memory change) internal pure returns (bytes32) {
+        return T.hashSecurity(change);
     }
 }

@@ -21,7 +21,7 @@ describe('Public EIP-712 external enrollment transport', () => {
     expect(hashTypedData(t.typedData)).toBe(t.request.summary.digest);
     expect(encoded).toMatchObject({ schema_version: 1, activation_id: t.choice.activationId, signer_index: t.index,
       signer_address: t.key.address.toLowerCase(), proposal_hash: t.compiled.digest, policy: t.compiled.nextPolicy,
-      typed_data: { primaryType: 'EnrollmentProof', domain: { name: 'GatoPago Account', version: '3', chainId: t.f.initial.chainId.toString(), verifyingContract: t.f.initial.account },
+      typed_data: { primaryType: 'EnrollmentProof', domain: { name: 'GatoPago Account', version: '3.0-consumer', chainId: t.f.initial.chainId.toString(), verifyingContract: t.f.initial.account },
         message: { nonce: t.compiled.message.nonce.toString(), securityVersion: '1', nextPolicyHash: t.compiled.message.nextPolicyHash, contextHash: t.compiled.digest } } });
     expect(Object.keys(encoded.typed_data.types).sort()).toEqual(['EIP712Domain', 'EnrollmentProof']);
     expect(t.request.json).not.toContain(t.choice.consent.preparation.credential_id);

@@ -13,9 +13,9 @@ function fields(value: unknown, keys: readonly string[]): Record<string, unknown
  * nonce, checkpoint, deployment pin, execution payload or finality assertion. */
 export function parseActivationRequest(value: unknown) {
  const r = fields(value, ['request_id', 'initialization_id', 'wallet_id', 'wallet_account_id', 'next_policy', 'proposal_valid_until']);
- const p = fields(r.next_policy, ['mode', 'signers', 'spendThreshold', 'adminThreshold', 'recoveryThreshold', 'recoveryDelaySeconds', 'upgradeDelaySeconds']);
+ const p = fields(r.next_policy, ['mode', 'signers', 'spendThreshold', 'adminThreshold', 'upgradeDelaySeconds']);
  if (p.mode !== 'active' || !Array.isArray(p.signers) || p.signers.length > 16) throw new Error('Invalid activation policy');
- for (const signer of p.signers) fields(signer, ['kind', 'verifier', 'verifierCodeHash', 'key', 'roles', 'assisted']);
+ for (const signer of p.signers) fields(signer, ['kind', 'verifier', 'verifierCodeHash', 'key', 'roles']);
  const nextPolicy = activationPolicy(p);
  if (typeof r.proposal_valid_until !== 'number' || !Number.isSafeInteger(r.proposal_valid_until)
   || r.proposal_valid_until <= 0 || r.proposal_valid_until >= 2 ** 48) throw new Error('Invalid proposal lifetime');

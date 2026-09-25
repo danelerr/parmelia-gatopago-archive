@@ -8,7 +8,7 @@ import { securityInspectionScenario } from './fixtures/v3SecurityInspection';
 
 const snapshotSelector = encodeFunctionData({ abi: accountSecurityInspectionAbi, functionName: 'securitySnapshot' });
 const policySelector = encodeFunctionData({ abi: accountSecurityInspectionAbi, functionName: 'securityPolicy' });
-function pending(test: ReturnType<typeof securityInspectionScenario>, kind = 3) {
+function pending(test: ReturnType<typeof securityInspectionScenario>, kind = 1) {
 	Object.assign(test.security, { pendingKind: BigInt(kind), pendingHash: fixtureHash('f'), pendingVersion: 2n,
 		pendingPreviousManifestHash: test.security.manifestHash, pendingChainScopeHash: fixtureHash('f'), pendingReadyAt: 1n, pendingValidUntil: 2n });
 }
@@ -43,45 +43,45 @@ describe('Current Account V3 security inspection', () => {
 			expect(test.request.mock.calls.some(([r]) => JSON.stringify(r).includes(snapshotSelector))).toBe(false);
 		}
 	});
-	it('reports recovery pending even if its time window elapsed, without auto-expiring it', async () => {
+	it('reports an administrative proposal pending even if its time window elapsed, without auto-expiring it', async () => {
 		const test = securityInspectionScenario(); pending(test); test.security.flags = 3n;
 		const result = await inspectAccountSecurity(test.client, test.input);
-		expect(result).toMatchObject({ spend_readiness: 'not_assessed', security: { phase: 'recovery_pending', upgrades_frozen: true,
-			pending: { kind: 3, ready_at: 1, valid_until: 2 } } });
+		expect(result).toMatchObject({ spend_readiness: 'not_assessed', security: { phase: 'active_policy', upgrades_frozen: true,
+			pending: { kind: 1, ready_at: 1, valid_until: 2 } } });
 	});
-	it.each([2, 4])('preserves pending change kind %i without treating it as recovery', async (kind) => {
+	it.each([1, 2])('preserves pending change kind %i without treating it as recovery', async (kind) => {
 		const test = securityInspectionScenario(); pending(test, kind);
 		expect(await inspectAccountSecurity(test.client, test.input)).toMatchObject({ security: { phase: 'active_policy', pending: { kind } } });
 	});
-	it('rejects pending bootstrap on an active policy and pending upgrade after a freeze', async () => {
-		const test = securityInspectionScenario(); pending(test, 1);
+	it('rejects retired proposal kind on an active policy and pending upgrade after a freeze', async () => {
+		const test = securityInspectionScenario(); pending(test, 3);
 		await expect(inspectAccountSecurity(test.client, test.input)).rejects.toThrow('IDENTITY_MISMATCH');
-		pending(test, 4); test.security.flags = 3n;
+		pending(test, 2); test.security.flags = 3n;
 		await expect(inspectAccountSecurity(test.client, test.input)).rejects.toThrow('IDENTITY_MISMATCH');
 	});
 	it('reports creation pending without equating an initialized proxy with completed creation', async () => {
 		const test = securityInspectionScenario(); test.security.creationValidAfter = 10n; test.security.creationValidUntil = 20n;
 		expect(await inspectAccountSecurity(test.client, test.input)).toMatchObject({ security: { phase: 'creation_pending' }, spend_readiness: 'not_assessed' });
 	});
-	it('reports bootstrap and verifies the live code of its WebAuthn validator', async () => {
+	it('reports a single active passkey and verifies the live code of its WebAuthn validator', async () => {
 		const test = securityInspectionScenario(), verifier = fixtureAddress('f'), code = '0x6060' as const;
-		test.wirePolicy.mode = 0; test.wirePolicy.adminThreshold = 0; test.wirePolicy.recoveryThreshold = 0;
-		test.wirePolicy.signers = [{ kind: 1, verifier, verifierCodeHash: keccak256(code), key: `0x${'ab'.repeat(128)}`, roles: 1, assisted: false }];
+		test.wirePolicy.adminThreshold = 1;
+		test.wirePolicy.signers = [{ kind: 1, verifier, verifierCodeHash: keccak256(code), key: `0x${'ab'.repeat(128)}`, roles: 3 }];
 		test.state.codes.set(verifier, code);
-		expect(await inspectAccountSecurity(test.client, test.input)).toMatchObject({ security: { phase: 'bootstrap' }, spend_readiness: 'not_assessed' });
+		expect(await inspectAccountSecurity(test.client, test.input)).toMatchObject({ security: { phase: 'active_policy' }, spend_readiness: 'not_assessed' });
 		test.state.codes.set(verifier, '0x');
 		await expect(inspectAccountSecurity(test.client, test.input)).rejects.toThrow('UNEXPECTED_CODE');
 	});
 	it('deduplicates contract-code reads while enforcing every signer pin', async () => {
 		const test = securityInspectionScenario(), verifier = fixtureAddress('f'), code = '0x6060' as const;
 		test.wirePolicy.signers = ['ab', 'cd'].map((key) => ({ kind: 1 as const, verifier, verifierCodeHash: keccak256(code),
-			key: `0x${key.repeat(128)}` as Hex, roles: 7, assisted: false })).sort((a, b) => signerId(a).localeCompare(signerId(b)));
+			key: `0x${key.repeat(128)}` as Hex, roles: 3 })).sort((a, b) => signerId(a).localeCompare(signerId(b)));
 		test.state.codes.set(verifier, code);
 		await inspectAccountSecurity(test.client, test.input);
 		expect(test.request.mock.calls.filter(([r]) => r.method === 'eth_getCode' && r.params?.[0] === verifier)).toHaveLength(1);
 	});
 	it.each([
-		{ flags: 0n }, { securityVersion: 1n },
+		{ wireRevision: 0n }, { flags: 0n }, { securityVersion: 1n },
 		{ manifestHash: zeroHash }, { chainScopeHash: zeroHash }, { flags: 5n }, { pendingKind: 5n },
 		{ flags: 9n }, { pendingVersion: 2n ** 64n }, { creationValidUntil: 2n ** 48n },
 		{ creationValidAfter: 1 }, { creationValidAfter: 2, creationValidUntil: 1 }, { pendingHash: fixtureHash('f') },

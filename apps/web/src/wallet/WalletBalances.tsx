@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useState, useSyncExternalStore } from 'react';
 import dynamic from 'next/dynamic';
-import { atomicToDecimal } from '@gatopago/shared/v3/amount';
+import { BalanceCard } from '../consumer/BalanceCard';
 import type { BrowserAuth } from '../auth/browser';
 import { BalanceStore } from './balance-store';
 import { creationFeeUnit } from './creation-fee';
@@ -11,8 +11,8 @@ import { TransferProgress } from './TransferProgress';
 
 const TransferEntry = dynamic(() => import('./TransferEntry').then(module => module.TransferEntry));
 
-export function WalletBalances({ runtime, uid, walletId, english: en }: {
-  runtime: BrowserAuth; uid: string; walletId: string; english: boolean;
+export function WalletBalances({ runtime, uid, walletId, english: en, mode = 'balance' }: {
+  runtime: BrowserAuth; uid: string; walletId: string; english: boolean; mode?: 'balance' | 'send' | 'activity';
 }) {
   const [store] = useState(() => new BalanceStore(() => runtime.balances(uid), walletId));
   const state = useSyncExternalStore(store.subscribe, store.snapshot, store.snapshot);
@@ -46,22 +46,14 @@ export function WalletBalances({ runtime, uid, walletId, english: en }: {
         : 'No pudimos consultar este saldo. Esto no significa que sea cero.'}</p>
         {state.error === 'client/update-required' ? <button type="button" onClick={() => reloadPage()}>{en ? 'Update app' : 'Actualizar app'}</button> : null}</div> : null}
       {state.phase === 'expired' ? <p role="status">{en ? 'This balance observation expired. Refresh to check again.' : 'Esta observación del saldo venció. Actualiza para volver a consultar.'}</p> : null}
-      {state.balance ? <div role="status">
-        <ul>{state.balance.assets.map((asset) => <li key={asset.asset_id}>
-          <strong style={{ overflowWrap: 'anywhere' }}>{atomicToDecimal(asset.amount_atomic, asset.decimals)} {asset.symbol}</strong>
-          <details><summary>{en ? 'Asset identity' : 'Identidad del activo'}</summary><code style={{ overflowWrap: 'anywhere' }}>{asset.asset_id}</code></details>
-        </li>)}</ul>
-        <p>{en ? 'Observed at' : 'Observado el'} <time dateTime={new Date(state.balance.observed_at * 1000).toISOString()}>
-          {new Date(state.balance.observed_at * 1000).toLocaleString(en ? 'en-US' : 'es-BO')}</time>.</p>
-        <p>{en ? 'Finalized block' : 'Bloque finalizado'}: {state.balance.block_number}.</p>
-      </div> : null}
+      <BalanceCard balance={state.balance} network={state.selected ? creationFeeUnit(state.selected.network_id)?.network ?? state.selected.network_id : (en ? 'Choose a network' : 'Elige una red')} english={en} />
       {state.selected ? <button type="button" className="auth-secondary" disabled={busy} onClick={() => void store.refresh()}>
         {en ? 'Refresh balance' : 'Actualizar saldo'}</button> : null}
       <p>{en ? 'This is an observed onchain balance, not an available-to-spend quote. Receiving and sending still require their own checks.'
         : 'Es un saldo observado en red, no una cotización disponible para gastar. Recibir y enviar requieren sus propias comprobaciones.'}</p>
-      {state.selected ? <TransferEntry key={`${uid}:${state.selected.wallet_id}:${state.selected.id}`}
+      {state.selected && mode === 'send' ? <TransferEntry key={`${uid}:${state.selected.wallet_id}:${state.selected.id}`}
         runtime={runtime} uid={uid} account={state.selected} balance={state.balance} english={en}/> : null}
-      {state.selected ? <TransferProgress key={`${uid}:${state.selected.wallet_id}:${state.selected.id}`}
+      {state.selected && mode === 'activity' ? <TransferProgress key={`${uid}:${state.selected.wallet_id}:${state.selected.id}`}
         runtime={runtime} uid={uid} account={state.selected} english={en} /> : null}
     </>}
   </section>;

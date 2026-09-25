@@ -15,7 +15,7 @@ const MAX_VERSION = (1n << 64n) - 1n;
 // Independent specification limits, deliberately not imported from the compiler.
 const MAX_CONSENT_SECONDS = 5 * 60;
 const MAX_COMPLETION_SECONDS = 7 * 24 * 60 * 60;
-type NonceSpace = "spend" | "admin" | "recovery";
+type NonceSpace = "spend" | "admin";
 type ChangeMessage = AuthorizationMessages["SecurityChange"];
 type VersionedMessage = Exclude<AuthorizationMessages[AuthorizationKind], AuthorizationMessages["InitializationApproval"]>;
 
@@ -40,7 +40,7 @@ interface ProposalBase {
 	readyAt: number;
 	validUntil: number;
 }
-type PendingProposal = (ProposalBase & { kind: "bootstrap" | "security" | "recovery"; nextPolicy: SecurityPolicy }) |
+type PendingProposal = (ProposalBase & { kind: "security"; nextPolicy: SecurityPolicy }) |
 	(ProposalBase & { kind: "upgrade"; upgrade: AuthorizationMessages["UpgradeManifest"] });
 
 export interface AuthorityModelState {
@@ -51,7 +51,6 @@ export interface AuthorityModelState {
 	manifestHash: Hex;
 	chainScopeHash: Hex;
 	nonces: Record<NonceSpace, bigint>;
-	vetoNonces: Record<Hex, bigint>;
 	upgradesFrozen: boolean;
 	pending: PendingProposal | null;
 	/** Ghost state only: number of accepted spend authorizations, NOT a wallet balance. */
@@ -59,11 +58,10 @@ export interface AuthorityModelState {
 }
 
 export type ModelAction =
-	| { type: "prepareBootstrap" | "prepareSecurity" | "proposeRecovery"; message: ChangeMessage; nextPolicy: SecurityPolicy; chains: readonly bigint[]; witnesses: readonly ModelWitness[]; enrollments: readonly ModelWitness[] }
+	| { type: "prepareSecurity"; message: ChangeMessage; nextPolicy: SecurityPolicy; chains: readonly bigint[]; witnesses: readonly ModelWitness[]; enrollments: readonly ModelWitness[] }
 	| { type: "proposeUpgrade"; message: AuthorizationMessages["UpgradeManifest"]; chains: readonly bigint[]; witnesses: readonly ModelWitness[] }
 	| { type: "commit"; message: AuthorizationMessages["CommitProposal"]; witnesses: readonly ModelWitness[]; observedCodeHash?: Hex; migrationCall?: Hex }
-	| { type: "activateRecovery"; proposalHash: Hex }
-	| { type: "veto"; message: AuthorizationMessages["VetoProposal"]; witness: ModelWitness }
+	| { type: "cancel"; message: AuthorizationMessages["CancelProposal"]; witnesses: readonly ModelWitness[] }
 	| { type: "freeze"; message: AuthorizationMessages["FreezeUpgrades"]; chains: readonly bigint[]; witnesses: readonly ModelWitness[] }
 	| { type: "spend"; message: AuthorizationMessages["ExecutionPlan"]; witnesses: readonly ModelWitness[] }
 	| { type: "expire"; proposalHash: Hex };
@@ -116,11 +114,11 @@ function checkNonce(state: AuthorityModelState, message: { nonce: bigint }, spac
 	requireModel(message.nonce === state.nonces[space], "WRONG_NONCE");
 }
 
-/** All new descriptors and role/assistance changes need explicit possession for THIS proposal. */
+/** All new descriptors and role changes need explicit possession for THIS proposal. */
 function enrollment(state: AuthorityModelState, message: ChangeMessage, nextPolicy: SecurityPolicy, contextHash: Hex, witnesses: readonly ModelWitness[]): void {
 	const changed = nextPolicy.signers.filter((signer) => {
 		const previous = state.policy.signers.find((old) => signerId(old) === signerId(signer));
-		return !previous || previous.roles !== signer.roles || previous.assisted !== signer.assisted;
+		return !previous || previous.roles !== signer.roles;
 	});
 	requireModel(witnesses.length === changed.length, "MISSING_ENROLLMENT");
 	const seen = new Set<Hex>();
@@ -163,7 +161,7 @@ export function initializeAuthorityModel(config: ModelConfig, message: Authoriza
 	const manifestHash = hashSecurityManifest({ accountId: message.accountId, generation: ACCOUNT_GENERATION, securityVersion: 1n,
 		previousManifestHash: ZERO_HASH, policyHash: message.initialSecurityCommitment, chainScopeHash: message.chainScopeHash });
 	return { config: structuredClone(config), accountId: message.accountId, policy: structuredClone(policy), securityVersion: 1n,
-		manifestHash, chainScopeHash: message.chainScopeHash, nonces: { spend: 0n, admin: 0n, recovery: 0n }, vetoNonces: {},
+		manifestHash, chainScopeHash: message.chainScopeHash, nonces: { spend: 0n, admin: 0n },
 		upgradesFrozen: false, pending: null, spendAuthorizations: 0n };
 }
 
@@ -172,35 +170,31 @@ export function transitionAuthorityModel(original: AuthorityModelState, action: 
 	const state = structuredClone(original);
 	requireModel(Number.isSafeInteger(now) && now >= 0 && now < 2 ** 48, "INVALID_TIME");
 	switch (action.type) {
-		case "prepareBootstrap":
 		case "prepareSecurity":
-		case "proposeRecovery": {
+		{
 			const { message, nextPolicy, witnesses, chains, enrollments } = action;
 			checkVersion(state, message, now);
 			requireScope(state.config.chainId, message.chainScopeHash, chains);
 			validateSecurityPolicy(nextPolicy);
 			requireModel(nextPolicy.mode === "active" && hashSecurityPolicy(nextPolicy) === message.nextPolicyHash, "WRONG_NEXT_POLICY");
 			requireModel(message.nextPolicyHash !== hashSecurityPolicy(state.policy), "UNCHANGED_POLICY");
-			const bootstrap = action.type === "prepareBootstrap";
-			const recovery = action.type === "proposeRecovery";
 			shortConsent(message);
 			requireModel(Number.isSafeInteger(message.proposalValidUntil) && message.proposalValidUntil >= 0 && message.proposalValidUntil < 2 ** 48, "INVALID_TIME");
-			const maximumLifetime = MAX_COMPLETION_SECONDS + (recovery ? state.policy.recoveryDelaySeconds : 0);
+			const maximumLifetime = MAX_COMPLETION_SECONDS;
 			requireModel(message.proposalValidUntil > message.validUntil && message.proposalValidUntil - message.validAfter <= maximumLifetime, "INVALID_PROPOSAL_LIFETIME");
-			requireModel(bootstrap ? state.policy.mode === "bootstrap" : state.policy.mode === "active", "WRONG_ACCOUNT_MODE");
-			// Recovery supersedes a queued admin action; an admin action cannot suppress recovery.
-			requireModel(!state.pending || (recovery && state.pending.kind !== "recovery"), "PROPOSAL_ALREADY_PENDING");
-			const space = recovery ? "recovery" : "admin";
+			requireModel(state.policy.mode === "active", "WRONG_ACCOUNT_MODE");
+			// Only one exact administrative proposal may be pending.
+			requireModel(!state.pending, "PROPOSAL_ALREADY_PENDING");
+			const space = "admin";
 			checkNonce(state, message, space);
-			const kind = bootstrap ? "BootstrapActivation" : recovery ? "RecoveryProposal" : "SecurityChange";
+			const kind = "SecurityChange";
 			const digest = consent(state, kind, message);
-			quorum(state, digest, witnesses, bootstrap ? Role.SPEND : recovery ? Role.RECOVERY : Role.ADMIN,
-				bootstrap ? 1 : recovery ? state.policy.recoveryThreshold : state.policy.adminThreshold);
+			quorum(state, digest, witnesses, Role.ADMIN, state.policy.adminThreshold);
 			enrollment(state, message, nextPolicy, digest, enrollments);
-			const readyAt = now + (recovery ? state.policy.recoveryDelaySeconds : 0);
+			const readyAt = now;
 			requireModel(readyAt < message.proposalValidUntil, "TIMELOCK_EXCEEDS_VALIDITY");
 			consume(state, space);
-			state.pending = { kind: bootstrap ? "bootstrap" : recovery ? "recovery" : "security", hash: digest,
+			state.pending = { kind: "security", hash: digest,
 				securityVersion: state.securityVersion, previousManifestHash: state.manifestHash,
 				chainScopeHash: message.chainScopeHash, readyAt, validUntil: message.proposalValidUntil, nextPolicy: structuredClone(nextPolicy) };
 			return state;
@@ -226,7 +220,7 @@ export function transitionAuthorityModel(original: AuthorityModelState, action: 
 			const { message, witnesses } = action;
 			checkVersion(state, message, now);
 			const pending = state.pending;
-			requireModel(!!pending && pending.kind !== "recovery", "NO_ADMIN_PROPOSAL");
+			requireModel(!!pending, "NO_ADMIN_PROPOSAL");
 			requireModel(pending.securityVersion === state.securityVersion && pending.previousManifestHash === state.manifestHash, "STALE_PROPOSAL");
 			requireModel(pending.hash === message.proposalHash && pending.chainScopeHash === message.chainScopeHash, "WRONG_PROPOSAL");
 			requireModel(now >= pending.readyAt && now < pending.validUntil, "PROPOSAL_NOT_READY");
@@ -239,7 +233,7 @@ export function transitionAuthorityModel(original: AuthorityModelState, action: 
 			requireModel(message.acknowledgementsHash !== ZERO_HASH, "MISSING_ACKNOWLEDGEMENTS");
 			checkNonce(state, message, "admin");
 			quorum(state, consent(state, "CommitProposal", message), witnesses,
-				pending.kind === "bootstrap" ? Role.SPEND : Role.ADMIN, pending.kind === "bootstrap" ? 1 : state.policy.adminThreshold);
+				Role.ADMIN, state.policy.adminThreshold);
 			consume(state, "admin");
 			if (pending.kind === "upgrade") {
 				requireModel(!state.upgradesFrozen, "UPGRADES_DISABLED");
@@ -252,23 +246,14 @@ export function transitionAuthorityModel(original: AuthorityModelState, action: 
 			} else installPolicy(state, pending);
 			return state;
 		}
-		case "activateRecovery": {
-			const pending = state.pending;
-			requireModel(!!pending && pending.kind === "recovery" && pending.hash === action.proposalHash, "NO_RECOVERY_PROPOSAL");
-			requireModel(pending.securityVersion === state.securityVersion && pending.previousManifestHash === state.manifestHash, "STALE_RECOVERY");
-			requireModel(now >= pending.readyAt && now < pending.validUntil, "PROPOSAL_NOT_READY");
-			// Anybody may relay after the stored quorum + timelock. No transfer/upgrade/migration argument exists.
-			installPolicy(state, pending);
-			return state;
-		}
-		case "veto": {
-			const { message, witness } = action;
+		case "cancel": {
+			const { message, witnesses } = action;
 			checkVersion(state, message, now);
+			shortConsent(message);
 			requireModel(!!state.pending && state.pending.hash === message.proposalHash, "WRONG_PROPOSAL");
-			requireModel(state.policy.signers.some((signer) => signerId(signer) === message.signerId), "VETO_REQUIRES_CURRENT_MEMBER");
-			requireModel(message.nonce === (state.vetoNonces[message.signerId] ?? 0n) && message.nonce < MAX_NONCE, "WRONG_VETO_NONCE");
-			requireModel(witness.signerId === message.signerId && witness.digest === consent(state, "VetoProposal", message), "INVALID_VETO_WITNESS");
-			state.vetoNonces[message.signerId] = message.nonce + 1n;
+			checkNonce(state, message, "admin");
+			quorum(state, consent(state, "CancelProposal", message), witnesses, Role.ADMIN, state.policy.adminThreshold);
+			consume(state, "admin");
 			state.pending = null;
 			return state;
 		}
@@ -287,7 +272,7 @@ export function transitionAuthorityModel(original: AuthorityModelState, action: 
 		case "spend": {
 			const { message, witnesses } = action;
 			checkVersion(state, message, now);
-			requireModel(state.policy.mode === "active" && state.pending?.kind !== "recovery", "SPENDING_DISABLED");
+			requireModel(state.policy.mode === "active", "SPENDING_DISABLED");
 			requireModel(message.entryPoint === state.config.entryPoint && message.executionMode === 0, "UNSUPPORTED_EXECUTION");
 			checkNonce(state, message, "spend");
 			quorum(state, consent(state, "ExecutionPlan", message), witnesses, Role.SPEND, state.policy.spendThreshold);

@@ -11,7 +11,9 @@ CREATE TABLE account_creation_projections (
   security_sha256 TEXT NOT NULL CHECK (length(security_sha256) = 66),
   projected_at INTEGER NOT NULL CHECK (projected_at > 0),
   evidence_expires_at INTEGER NOT NULL CHECK (evidence_expires_at > projected_at),
-  CHECK (json_extract(security_json, '$.security.phase') IS 'bootstrap'),
+  -- Clean, undeployed V3 baseline: initial policy is active after verified creation.
+  -- Existing development databases must be recreated explicitly; this is not an in-place upgrade.
+  CHECK (json_extract(security_json, '$.security.phase') IS 'active_policy'),
   CHECK (json_extract(security_json, '$.finality') IS 'finalized'),
   CHECK (json_extract(security_json, '$.spend_readiness') IS 'not_assessed'),
   CHECK (json_extract(security_json, '$.security_version') IS '1'),

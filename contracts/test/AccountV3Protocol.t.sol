@@ -53,13 +53,13 @@ contract AccountV3ProtocolTest is Test {
     }
 
     function test_initialAndActivePolicyVector() public view {
-        T.SecurityPolicy memory bootstrap = _policy(".bootstrapPolicy", 1, 0);
+        T.SecurityPolicy memory initial = _policy(".initialPolicy", 1, 1);
         T.SecurityPolicy memory active = _policy(".activePolicy", 2, 1);
-        Policy.validate(bootstrap);
+        Policy.validate(initial);
         Policy.validate(active);
-        assertEq(T.hashPolicy(bootstrap), vectors.readBytes32(".identity.initialSecurityCommitment"));
+        assertEq(T.hashPolicy(initial), vectors.readBytes32(".identity.initialSecurityCommitment"));
         assertEq(T.hashPolicy(active), vectors.readBytes32(".activePolicyHash"));
-        assertNotEq(T.hashPolicy(bootstrap), T.hashPolicy(active));
+        assertNotEq(T.hashPolicy(initial), T.hashPolicy(active));
     }
 
     function test_scopeAndCallsEncodingVector() public view {
@@ -103,12 +103,8 @@ contract AccountV3ProtocolTest is Test {
         _check("ExecutionPlan", T.EXECUTION_TYPEHASH, T.hashExecution(plan));
     }
 
-    function test_securityAndRecoveryAreDifferentAuthorities() public view {
-        T.SecurityChange memory change = _change();
-        _check("SecurityChange", T.SECURITY_TYPEHASH, T.hashSecurity(change));
-        _check("RecoveryProposal", T.RECOVERY_TYPEHASH, T.hashRecovery(change));
-        assertNotEq(T.hashSecurity(change), T.hashRecovery(change));
-        assertEq(T.MIN_RECOVERY_DELAY, 72 hours);
+    function test_securityVector() public view {
+        _check("SecurityChange", T.SECURITY_TYPEHASH, T.hashSecurity(_change()));
         assertEq(T.MIN_UPGRADE_DELAY, 72 hours);
     }
 
@@ -149,13 +145,6 @@ contract AccountV3ProtocolTest is Test {
         assertEq(approval.accountId, T.accountId(approval.initialSecurityCommitment, approval.userSaltCommitment));
     }
 
-    function test_bootstrapDoesNotReuseAnAdminOrRecoverySignature() public view {
-        T.SecurityChange memory change = _change();
-        _check("BootstrapActivation", T.BOOTSTRAP_TYPEHASH, T.hashBootstrap(change));
-        assertNotEq(T.hashBootstrap(change), T.hashSecurity(change));
-        assertNotEq(T.hashBootstrap(change), T.hashRecovery(change));
-    }
-
     function test_enrollmentProofVector() public view {
         string memory p = ".authorizations.EnrollmentProof.message.";
         T.EnrollmentProof memory proof = T.EnrollmentProof({
@@ -172,19 +161,18 @@ contract AccountV3ProtocolTest is Test {
         _check("EnrollmentProof", T.ENROLLMENT_TYPEHASH, T.hashEnrollment(proof));
     }
 
-    function test_vetoProofVector() public view {
-        string memory p = ".authorizations.VetoProposal.message.";
-        T.VetoProposal memory veto = T.VetoProposal({
+    function test_cancelProofVector() public view {
+        string memory p = ".authorizations.CancelProposal.message.";
+        T.CancelProposal memory cancel = T.CancelProposal({
             accountId: vectors.readBytes32(string.concat(p, "accountId")),
             generation: uint32(vectors.readUint(string.concat(p, "generation"))),
             securityVersion: uint64(vectors.readUint(string.concat(p, "securityVersion"))),
             proposalHash: vectors.readBytes32(string.concat(p, "proposalHash")),
-            signerId: vectors.readBytes32(string.concat(p, "signerId")),
             nonce: vectors.readUint(string.concat(p, "nonce")),
             validAfter: uint48(vectors.readUint(string.concat(p, "validAfter"))),
             validUntil: uint48(vectors.readUint(string.concat(p, "validUntil")))
         });
-        _check("VetoProposal", T.VETO_TYPEHASH, T.hashVeto(veto));
+        _check("CancelProposal", T.CANCEL_TYPEHASH, T.hashCancel(cancel));
     }
 
     function test_freezeProofVector() public view {
@@ -290,14 +278,11 @@ contract AccountV3ProtocolTest is Test {
                 verifier: vectors.readAddress(string.concat(p, "verifier")),
                 verifierCodeHash: vectors.readBytes32(string.concat(p, "verifierCodeHash")),
                 key: vectors.readBytes(string.concat(p, "key")),
-                roles: uint8(vectors.readUint(string.concat(p, "roles"))),
-                assisted: vectors.readBool(string.concat(p, "assisted"))
+                roles: uint8(vectors.readUint(string.concat(p, "roles")))
             });
         }
         policy.spendThreshold = uint16(vectors.readUint(string.concat(path, ".spendThreshold")));
         policy.adminThreshold = uint16(vectors.readUint(string.concat(path, ".adminThreshold")));
-        policy.recoveryThreshold = uint16(vectors.readUint(string.concat(path, ".recoveryThreshold")));
-        policy.recoveryDelaySeconds = uint48(vectors.readUint(string.concat(path, ".recoveryDelaySeconds")));
         policy.upgradeDelaySeconds = uint48(vectors.readUint(string.concat(path, ".upgradeDelaySeconds")));
     }
 }

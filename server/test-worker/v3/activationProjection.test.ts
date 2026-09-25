@@ -27,14 +27,14 @@ describe('installed activation policy projection', { timeout: 25_000 }, () => {
   expect(await processor.run(env.WALLET_DB, f.id, signal())).toEqual({ state: 'observed', reason: 'commit_finalized' });
   expect(await row(f.id)).not.toBeNull();
  });
- it.each(['manifest','policy','scope','version','admin_nonce','recovery'] as const)('rejects changed %s despite a valid commit receipt', async (field) => {
+ it.each(['manifest','policy','scope','version','admin_nonce','pending_security_change'] as const)('rejects changed %s despite a valid commit receipt', async (field) => {
   const f = await activationProjectionScenario();
   if (field === 'manifest') f.active.manifest = fixtureHash('b');
-  if (field === 'policy') f.active.policy = { ...f.active.policy, recoveryDelaySeconds: f.active.policy.recoveryDelaySeconds + 1 };
+  if (field === 'policy') f.active.policy = { ...f.active.policy, upgradeDelaySeconds: f.active.policy.upgradeDelaySeconds + 1 };
   if (field === 'scope') f.active.scope = fixtureHash('b');
   if (field === 'version') f.active.version = 3n;
   if (field === 'admin_nonce') f.active.adminNonce = 1n;
-  if (field === 'recovery') f.active.pending = true;
+  if (field === 'pending_security_change') f.active.pending = true;
   await expect(f.project()).rejects.toThrow(); expect(await row(f.id)).toBeNull();
  });
  it('retains history across expiry but never renews its evidence or does RPC on replay', async () => {

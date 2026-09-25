@@ -28,15 +28,12 @@ library AccountV3PolicyStorage {
         target.mode = source.mode;
         target.spendThreshold = source.spendThreshold;
         target.adminThreshold = source.adminThreshold;
-        target.recoveryThreshold = source.recoveryThreshold;
-        target.recoveryDelaySeconds = source.recoveryDelaySeconds;
         target.upgradeDelaySeconds = source.upgradeDelaySeconds;
         for (uint256 i; i < source.signers.length; ++i) {
             T.SignerDescriptor memory signer = source.signers[i];
             D.StoredSigner storage stored = target.signers.push();
             stored.kind = signer.kind;
             stored.roles = signer.roles;
-            stored.assisted = signer.assisted;
             stored.identity = signer.kind == P.ECDSA ? address(bytes20(signer.key)) : signer.verifier;
             if (signer.kind != P.ECDSA) stored.verifierCodeHash = signer.verifierCodeHash;
             if (signer.kind == P.WEBAUTHN) stored.key = signer.key;
@@ -47,8 +44,6 @@ library AccountV3PolicyStorage {
         policy.mode = source.mode;
         policy.spendThreshold = source.spendThreshold;
         policy.adminThreshold = source.adminThreshold;
-        policy.recoveryThreshold = source.recoveryThreshold;
-        policy.recoveryDelaySeconds = source.recoveryDelaySeconds;
         policy.upgradeDelaySeconds = source.upgradeDelaySeconds;
         policy.signers = new T.SignerDescriptor[](source.signers.length);
         for (uint256 i; i < policy.signers.length; ++i) {
@@ -59,7 +54,6 @@ library AccountV3PolicyStorage {
     function loadSigner(D.StoredSigner storage source) internal view returns (T.SignerDescriptor memory signer) {
         signer.kind = source.kind;
         signer.roles = source.roles;
-        signer.assisted = source.assisted;
         if (signer.kind == P.WEBAUTHN) {
             signer.verifier = source.identity;
             signer.verifierCodeHash = source.verifierCodeHash;

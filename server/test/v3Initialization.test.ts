@@ -6,11 +6,11 @@ import { fixtureAddress, fixtureHash, fixtureManifest } from './fixtures/v3Inspe
 import { initializationFixture } from './fixtures/v3Initialization';
 
 describe('V3 explicit initialization consent', () => {
-	it('binds bootstrap policy, original CREATE2 composition and short chain-specific typed approval', () => {
+	it('binds the single-passkey consumer policy, original CREATE2 composition and short chain-specific typed approval', () => {
 		const fixture = initializationFixture(), prepared = prepareInitialization(fixture.input);
-		expect(prepared.policy).toMatchObject({ mode: 'bootstrap', spendThreshold: 1, adminThreshold: 0, recoveryThreshold: 0 });
+		expect(prepared.policy).toMatchObject({ mode: 'active', spendThreshold: 1, adminThreshold: 1 });
 		expect(prepared.policy.signers).toEqual([{ kind: 1, verifier: fixture.profile.webauthn_verifier.address,
-			verifierCodeHash: fixture.profile.webauthn_verifier.runtime_code_hash, key: fixture.input.publicKey, roles: 1, assisted: false }]);
+			verifierCodeHash: fixture.profile.webauthn_verifier.runtime_code_hash, key: fixture.input.publicKey, roles: 3 }]);
 		expect(prepared.message).toMatchObject({ generation: 3, factory: fixture.profile.deployment.components.factory.address,
 			entryPoint: fixture.profile.deployment.entry_point, nonce: 0n });
 		expect(prepared.chains).toEqual([84532n]);
@@ -24,7 +24,7 @@ describe('V3 explicit initialization consent', () => {
 		expect(decoded.functionName).toBe('createAccount');
 		expect(decoded.args[0]).toEqual(prepared.message);
 		expect({ ...decoded.args[1], signers: decoded.args[1].signers.map((signer) => ({ ...signer, verifier: signer.verifier.toLowerCase() })) })
-			.toEqual({ ...prepared.policy, mode: 0 });
+			.toEqual({ ...prepared.policy, mode: 1 });
 		expect(decoded.args[2]).toEqual(prepared.chains);
 		expect(decoded.args[3]).toEqual([{ signerIndex: 0, signature: proof.signature }]);
 		expect(proof.initCode).toBe(`${proof.factory}${proof.factoryData.slice(2)}`);

@@ -70,7 +70,7 @@ export function creationLifecycle(row: Row, signed: Signed | null,
 			if (s.status !== 'recognized' || s.finality !== 'finalized' || s.spend_readiness !== 'not_assessed' || s.security_version !== '1'
 				|| typeof s.account !== 'string' || s.account.toLowerCase() !== signed.prepared.account.toLowerCase()
 				|| s.account_id !== m.accountId || s.network_id !== signed.prepared.profile.deployment.network_id || s.providers_agree !== true
-				|| policy.phase !== 'bootstrap' || policy.manifest_hash !== manifestHash || policy.policy_hash !== m.initialSecurityCommitment
+				|| policy.phase !== 'active_policy' || policy.manifest_hash !== manifestHash || policy.policy_hash !== m.initialSecurityCommitment
 				|| policy.chain_scope_hash !== m.chainScopeHash || s.security_expires_at !== row.evidence_expires_at
 				|| typeof row.projected_at !== 'number' || typeof s.security_observed_at !== 'number' || typeof row.source_observed !== 'number'
 				|| row.projected_at < s.security_observed_at || row.projected_at < row.source_observed) throw invalid();

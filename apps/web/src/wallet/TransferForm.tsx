@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { reviewedRecipient } from '../consumer/qr';
 import type { CredentialDetail } from '@gatopago/shared/v3/credential-detail';
 import type { BrowserAuth } from '../auth/browser';
 import type { EnabledAuthConfig } from '../auth/config';
@@ -12,11 +14,13 @@ import { TransferReview } from './TransferReview';
 type Props = { runtime:BrowserAuth; uid:string; selected:TransferSelection; balance:BalanceView;
   environment:EnabledAuthConfig['environment']; english:boolean };
 export function TransferForm(props:Props) {
-  return <OwnedTransferForm key={JSON.stringify([props.uid,props.environment,props.selected,props.balance])} {...props}/>;
+  const params = useSearchParams();
+  const recipient = reviewedRecipient(params, props.selected.network_id);
+  return <OwnedTransferForm key={JSON.stringify([props.uid,props.environment,props.selected,props.balance,recipient])} {...props} recipient={recipient}/>;
 }
-function OwnedTransferForm({ runtime,uid,selected,balance,environment,english:en }:Props) {
+function OwnedTransferForm({ runtime,uid,selected,balance,environment,english:en,recipient }:Props & { recipient: string }) {
   const [metadata] = useState(() => transferAssets(balance,selected));
-  const [asset,setAsset] = useState(metadata[0].asset_id), [destination,setDestination] = useState('');
+  const [asset,setAsset] = useState(metadata[0].asset_id), [destination,setDestination] = useState(recipient);
   const [amount,setAmount] = useState(''), [max,setMax] = useState(false), [busy,setBusy] = useState(false), [error,setError] = useState(false);
   const [closed,setClosed] = useState(false);
   const [prepared,setPrepared] = useState<{ request:ReturnType<typeof transferFormRequest>;

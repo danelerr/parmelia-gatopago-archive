@@ -14,5 +14,5 @@ AccountFactoryV3 composition and read-only account inspection
 │   └── retired initial implementation -> current inspection and direct spend still work
 └── given adversarial current state
     ├── any expected tuple field, proxy, identity, code or library mismatch -> reject
-    ├── recovery/freeze pending -> no mutation or reset
+    ├── security proposal/freeze -> no mutation or reset
     └── upgrade library unavailable -> full-profile inspection fails, independent direct exit remains usable

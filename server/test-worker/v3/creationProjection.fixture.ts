@@ -21,8 +21,8 @@ export async function creationProjectionScenario(observe = true) {
 	const evidence = creationReceiptScenario(false, f.signed), prepared = f.signed.prepared, message = prepared.message;
 	const manifestHash = hashSecurityManifest({ accountId: message.accountId, generation: 3, securityVersion: 1n,
 		previousManifestHash: zeroHash, policyHash: message.initialSecurityCommitment, chainScopeHash: message.chainScopeHash });
-	const state = { flags: 1n, version: 1n, manifestHash, spendNonce: 0n, adminNonce: 0n, recoveryNonce: 0n,
-		creationUntil: 0n, creationAfter: 0n, scope: message.chainScopeHash, mode: 0 };
+	const state = { flags: 1n, version: 1n, manifestHash, spendNonce: 0n, adminNonce: 0n, wireRevision: 1n,
+		creationUntil: 0n, creationAfter: 0n, scope: message.chainScopeHash, mode: 1 };
 	const configuration = { ...f.configuration, networks: [{ ...f.configuration.profiles[0],
 		bundlerUrl: 'https://bundler.invalid/', finalityPolicy: finalityPin(finalityPolicyFixture(inspection.profile.deployment, deliveryNow())),
 		providers: [{ operatorId: 'provider_a', url: 'https://observer-a.invalid/' }, { operatorId: 'provider_b', url: 'https://observer-b.invalid/' }] }] };
@@ -34,7 +34,7 @@ export async function creationProjectionScenario(observe = true) {
 			try { accountMethod = decodeFunctionData({ abi: accountInspectionAbi, data: call.data }).functionName; } catch { /* Other ABI. */ }
 			if (securityMethod === 'securitySnapshot') return encodeFunctionResult({ abi: accountSecurityInspectionAbi, functionName: securityMethod,
 				result: [state.flags, state.version, BigInt(state.manifestHash), BigInt(state.scope), state.creationAfter, state.creationUntil,
-					state.spendNonce, state.adminNonce, state.recoveryNonce, 0n, 0n, 0n, 0n, 0n, 0n, 0n] });
+					state.spendNonce, state.adminNonce, state.wireRevision, 0n, 0n, 0n, 0n, 0n, 0n, 0n] });
 			if (securityMethod === 'securityPolicy') return encodeFunctionResult({ abi: accountSecurityInspectionAbi, functionName: securityMethod,
 				result: { ...prepared.policy, mode: state.mode, signers: [...prepared.policy.signers] } });
 			if (accountMethod === 'inspectAccount') return encodeFunctionResult({ abi: accountInspectionAbi, functionName: accountMethod,

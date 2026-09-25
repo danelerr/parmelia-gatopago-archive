@@ -8,18 +8,18 @@ import { finalityPin, finalityPolicyFixture } from './v3Finality';
 /** Synthetic current revision, no provider, deployment or network admission. */
 export function securityInspectionScenario() {
 	const base = inspectionScenario();
-	const policy: SecurityPolicy = { mode: 'active', spendThreshold: 1, adminThreshold: 2, recoveryThreshold: 2,
-		recoveryDelaySeconds: 259200, upgradeDelaySeconds: 259200, signers: ['a', 'b'].map((digit) => ({
-			kind: 0 as const, key: fixtureAddress(digit), verifier: zeroAddress, verifierCodeHash: zeroHash, roles: 7, assisted: false,
+	const policy: SecurityPolicy = { mode: 'active', spendThreshold: 1, adminThreshold: 2,
+		upgradeDelaySeconds: 259200, signers: ['a', 'b'].map((digit) => ({
+			kind: 0 as const, key: fixtureAddress(digit), verifier: zeroAddress, verifierCodeHash: zeroHash, roles: 3,
 		})).sort((a, b) => signerId(a).localeCompare(signerId(b))) };
 	const wirePolicy = { ...policy, mode: 1, signers: [...policy.signers] };
 	const security = { flags: 1n,
 		securityVersion: 2n, manifestHash: fixtureHash('e'), chainScopeHash: fixtureHash('d'),
-		creationValidAfter: 0n, creationValidUntil: 0n, spendNonce: 5n, adminNonce: 2n, recoveryNonce: 0n,
+		creationValidAfter: 0n, creationValidUntil: 0n, spendNonce: 5n, adminNonce: 2n, wireRevision: 1n,
 		pendingKind: 0n, pendingHash: zeroHash, pendingVersion: 0n, pendingPreviousManifestHash: zeroHash,
 		pendingChainScopeHash: zeroHash, pendingReadyAt: 0n, pendingValidUntil: 0n };
 	const words = () => [security.flags, security.securityVersion, BigInt(security.manifestHash), BigInt(security.chainScopeHash),
-		security.creationValidAfter, security.creationValidUntil, security.spendNonce, security.adminNonce, security.recoveryNonce,
+		security.creationValidAfter, security.creationValidUntil, security.spendNonce, security.adminNonce, security.wireRevision,
 		security.pendingKind, BigInt(security.pendingHash), security.pendingVersion, BigInt(security.pendingPreviousManifestHash),
 		BigInt(security.pendingChainScopeHash), security.pendingReadyAt, security.pendingValidUntil] as const;
 	const original = base.request.getMockImplementation()!;

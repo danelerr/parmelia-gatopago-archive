@@ -2,10 +2,10 @@ import type { CredentialInventory } from '@gatopago/shared/v3/credential-invento
 import type { CreationConsent } from '@gatopago/shared/v3/creation-operation-wire';
 import type { BrowserAuth } from '../auth/browser';
 import type { CreationProfilePin } from './creation-release';
-import { passkeyPolicyDraft, policySelection, guardianPolicyDraft, guardianPolicySelection } from './activation-policy';
+import { passkeyPolicyDraft, policySelection } from './activation-policy';
 
 type Session = Pick<ReturnType<BrowserAuth['credentialInventory']>, 'assertCurrent' | 'detail'>;
-type Draft = ReturnType<typeof passkeyPolicyDraft> | ReturnType<typeof guardianPolicyDraft>;
+type Draft = ReturnType<typeof passkeyPolicyDraft>;
 type View = Readonly<{ phase: 'idle' | 'loading' | 'ready' | 'error' | 'closed'; draft: Draft | null; code: string | null }>;
 
 /** Per-mounted review. No signing, POST, storage, polling or module-global I/O.
@@ -32,9 +32,6 @@ export class ActivationPolicyStore {
   }
   async review(consent: CreationConsent, inventory: CredentialInventory, references: readonly string[], pin: CreationProfilePin) {
     return this.read(() => policySelection(consent, inventory, references, pin), passkeyPolicyDraft);
-  }
-  async reviewGuardians(consent: CreationConsent, inventory: CredentialInventory, addresses: readonly string[], pin: CreationProfilePin) {
-    return this.read(() => guardianPolicySelection(consent, inventory, addresses, pin), guardianPolicyDraft);
   }
   private async read<S extends ReturnType<typeof policySelection>>(select: () => S,
     build: (selected: S, material: Awaited<ReturnType<Session['detail']>>[]) => Draft) {

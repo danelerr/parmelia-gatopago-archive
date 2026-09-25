@@ -248,8 +248,8 @@ contract AccountV3UpgradeTest is V3ExecutionFixture {
         T.SignerDescriptor[] memory members = new T.SignerDescriptor[](3);
         members[0] = replacement.signers[0];
         members[1] = replacement.signers[1];
-        members[0].roles = P.ADMIN | P.RECOVERY;
-        members[1].roles = P.ADMIN | P.RECOVERY;
+        members[0].roles = P.ADMIN;
+        members[1].roles = P.ADMIN;
         members[2] = _ecdsa(alice);
         members[2].roles = P.SPEND;
         replacement.signers = members;
@@ -301,7 +301,7 @@ contract AccountV3UpgradeTest is V3ExecutionFixture {
     }
 
     function testFuzz_targetCodeLayoutEntryPointAndUupsAreValidated(uint8 variant) external {
-        variant = uint8(bound(variant, 0, 7));
+        variant = uint8(bound(variant, 0, 3));
         T.UpgradeManifest memory message = _message(address(next), "");
         if (variant == 0) {
             message.implementation = address(0);
@@ -371,8 +371,45 @@ contract AccountV3UpgradeTest is V3ExecutionFixture {
         assertEq(V3UpgradeRevision(payable(address(account))).marker(), 42);
     }
 
+    function test_minimalMigrationThenTokenSendRotationAndDirectExit() external {
+        V3UpgradeToken token = new V3UpgradeToken(address(account));
+        V3UpgradeRevision revision = new V3UpgradeRevision(address(ep));
+        bytes memory migration = abi.encodeCall(revision.migrate, (42));
+        _queue(_message(address(revision), migration));
+        vm.warp(START + 72 hours);
+        _apply(migration);
+        _submit(_operation(initial, policy, _calls(address(token), 0, abi.encodeCall(token.transfer, (recipient, 25)))));
+        assertEq(token.balanceOf(recipient), 25);
+
+        T.SecurityPolicy memory replacement = _policy(carol, dave);
+        (T.SecurityChange memory change, bytes32 digest, S.Signature[] memory proofs) =
+            _executionChange(replacement, E.ChangeKind.Security);
+        account.prepare(
+            E.ChangeKind.Security, change, replacement, _chains(), _votes(policy, digest, P.ADMIN), proofs
+        );
+        T.CommitProposal memory consent = _executionCommit();
+        account.commit(
+            consent, _votes(policy, T.digest(block.chainid, address(account), T.hashCommit(consent)), P.ADMIN)
+        );
+        policy = replacement;
+        assertEq(account.securityVersion(), 3);
+        assertEq(_implementation(), address(revision));
+        assertEq(V3UpgradeRevision(payable(address(account))).marker(), 42);
+        assertEq(T.hashPolicy(account.securityPolicy()), T.hashPolicy(replacement));
+
+        // Exit using only new authority and direct execution: no EntryPoint/bundler/paymaster call.
+        T.Call[] memory calls = _calls(address(token), 0, abi.encodeCall(token.transfer, (recipient, 75)));
+        (T.ExecutionPlan memory plan, S.Signature[] memory votes) = _direct(calls);
+        vm.prank(recipient);
+        account.executeSigned(calls, plan, votes);
+        assertEq(token.balanceOf(address(account)), 0);
+        assertEq(token.balanceOf(recipient), 100);
+        assertEq(account.directNonce(), 1);
+        assertEq(factory.getAddress(initial.initialSecurityCommitment, initial.userSaltCommitment), address(account));
+    }
+
     function testFuzz_corruptingOrRevertingMigrationRollsBackImplementationAndCore(uint8 variant) external {
-        variant = uint8(bound(variant, 0, 7));
+        variant = uint8(bound(variant, 0, 3));
         V3CorruptingUpgrade revision = new V3CorruptingUpgrade(address(ep));
         bytes memory migration = abi.encodeCall(revision.corrupt, (variant));
         _queue(_message(address(revision), migration));
@@ -409,12 +446,10 @@ contract AccountV3UpgradeTest is V3ExecutionFixture {
         assertEq(_snapshot(), snapshot);
     }
 
-    function test_anyCurrentSignerVetoesAndOldProposalCannotReplay() external {
+    function test_adminCancelsAndOldProposalCannotReplay() external {
         bytes32 proposal = _queue(_message(address(next), ""));
-        T.SignerDescriptor memory member = policy.signers[1];
-        T.VetoProposal memory veto =
-            T.VetoProposal(initial.accountId, 3, 1, proposal, T.signerId(member), 0, START, START + 1 days);
-        account.veto(veto, _memberSign(member, T.digest(block.chainid, address(account), T.hashVeto(veto))));
+        T.CancelProposal memory veto = T.CancelProposal(initial.accountId, 3, 1, proposal, 1, START, START + 5 minutes);
+        account.cancel(veto, _votes(policy, T.digest(block.chainid, address(account), T.hashCancel(veto)), P.ADMIN));
         (, uint8 kind) = account.proposal();
         assertEq(kind, uint8(D.ProposalKind.None));
         T.UpgradeManifest memory message = _message(address(next), "");
@@ -422,7 +457,7 @@ contract AccountV3UpgradeTest is V3ExecutionFixture {
         S.Signature[] memory votes = _upgradeVotes(message);
         vm.expectRevert(Security.AccountV3Security__WrongNonce.selector);
         account.proposeUpgrade(message, _chains(), votes);
-        message.nonce = 1;
+        message.nonce = 2;
         assertNotEq(_queue(message), proposal);
     }
 
@@ -440,7 +475,7 @@ contract AccountV3UpgradeTest is V3ExecutionFixture {
         _queue(_message(address(next), ""));
     }
 
-    function test_freezeCancelsQueuedUpgradeAndRecoveryDoesNotThawIt() external {
+    function test_freezeCancelsQueuedUpgradeAndRotationDoesNotThawIt() external {
         _queue(_message(address(next), ""));
         T.FreezeUpgrades memory freeze = _executionFreeze();
         account.freeze(
@@ -448,34 +483,20 @@ contract AccountV3UpgradeTest is V3ExecutionFixture {
         );
         T.SecurityPolicy memory replacement = _policy(carol, dave);
         (T.SecurityChange memory change, bytes32 digest, S.Signature[] memory proofs) =
-            _executionChange(replacement, E.ChangeKind.Recovery);
-        bytes32 proposal = account.prepare(
-            E.ChangeKind.Recovery, change, replacement, _chains(), _votes(policy, digest, P.RECOVERY), proofs
+            _executionChange(replacement, E.ChangeKind.Security);
+        account.prepare(
+            E.ChangeKind.Security, change, replacement, _chains(), _votes(policy, digest, P.ADMIN), proofs
         );
-        vm.warp(START + 72 hours);
-        account.activate(proposal);
+        T.CommitProposal memory consent = _executionCommit();
+        account.commit(
+            consent, _votes(policy, T.digest(block.chainid, address(account), T.hashCommit(consent)), P.ADMIN)
+        );
+        policy = replacement;
         T.UpgradeManifest memory message = _message(address(next), "");
         S.Signature[] memory votes =
             _votes(replacement, T.digest(block.chainid, address(account), T.hashUpgrade(message)), P.ADMIN);
         vm.expectRevert(Upgrade.AccountV3Upgrade__Disabled.selector);
         account.proposeUpgrade(message, _chains(), votes);
-    }
-
-    function test_recoverySupersedesUpgradeAndCannotCommitImplementation() external {
-        _queue(_message(address(next), ""));
-        T.SecurityPolicy memory replacement = _policy(carol, dave);
-        (T.SecurityChange memory change, bytes32 digest, S.Signature[] memory proofs) =
-            _executionChange(replacement, E.ChangeKind.Recovery);
-        bytes32 proposal = account.prepare(
-            E.ChangeKind.Recovery, change, replacement, _chains(), _votes(policy, digest, P.RECOVERY), proofs
-        );
-        vm.warp(START + 72 hours);
-        T.CommitProposal memory commit = _executionCommit();
-        S.Signature[] memory votes = _commitVotes(commit);
-        vm.expectRevert(Security.AccountV3Security__WrongProposal.selector);
-        account.commitUpgrade(commit, "", votes);
-        account.activate(proposal);
-        assertEq(_implementation(), address(implementation));
     }
 
     function test_upgradeCallbackDuringSpendCannotConsumeValidAdminConsent() external {

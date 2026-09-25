@@ -79,6 +79,7 @@ jobs:
           set +e
           slither . --exclude-dependencies --json slither-report.json
           set -e
+          python ../scripts/check-slither.py --self-test
           python ../scripts/check-slither.py slither-report.json
       - name: Upload Slither report
         if: always()

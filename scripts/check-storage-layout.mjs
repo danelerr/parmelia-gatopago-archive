@@ -7,12 +7,8 @@ const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const contractsDir = resolve(rootDir, "contracts");
 const trackedLayouts = [
   {
-    contract: "AccountWebAuthnV2",
-    snapshot: resolve(contractsDir, "storage-layout", "AccountWebAuthnV2.json"),
-  },
-  {
-    contract: "ParmeliaPaymaster",
-    snapshot: resolve(contractsDir, "storage-layout", "ParmeliaPaymaster.json"),
+    contract: "GatoPagoPaymaster",
+    snapshot: resolve(contractsDir, "storage-layout", "GatoPagoPaymaster.json"),
   },
 ];
 

@@ -14,7 +14,7 @@ import {
 	CCTP_CHAINS,
 	cctpPaymentRouterAbi,
 	getPaymentNetworkCapabilities,
-	paymentRouterV2Abi,
+	paymentRouterAbi,
 } from "../../../shared";
 import type { Bindings } from "../env";
 import {
@@ -119,7 +119,7 @@ function sameAddress(left: unknown, right: string): boolean {
 	return typeof left === "string" && left.toLowerCase() === right.toLowerCase();
 }
 
-function eventArgs(log: Log, abi: typeof paymentRouterV2Abi | typeof cctpPaymentRouterAbi, eventName: "PaymentSettled" | "CctpPaymentBurned"): Record<string, unknown> | null {
+function eventArgs(log: Log, abi: typeof paymentRouterAbi | typeof cctpPaymentRouterAbi, eventName: "PaymentSettled" | "CctpPaymentBurned"): Record<string, unknown> | null {
 	try {
 		const decoded = decodeEventLog({ abi, data: log.data, topics: log.topics, eventName });
 		return decoded.args as unknown as Record<string, unknown>;
@@ -152,7 +152,7 @@ export function validatePaymentSourceReceipt(input: {
 	}
 
 	const eventName = attempt.route === "local" ? "PaymentSettled" : "CctpPaymentBurned";
-	const abi = attempt.route === "local" ? paymentRouterV2Abi : cctpPaymentRouterAbi;
+	const abi = attempt.route === "local" ? paymentRouterAbi : cctpPaymentRouterAbi;
 	const routerLog = receipt.logs.find((log) => sameAddress(log.address, attempt.routerAddress) &&
 		!!eventArgs(log, abi, eventName));
 	if (!routerLog) throw new PaymentSourceEvidenceMismatchError(`${eventName} evidence is missing`);
@@ -478,7 +478,7 @@ export async function scanPaymentRouters(env: Bindings, chainId: number): Promis
 	const addresses = activeRouterAddresses.map((address) => getAddress(address)) as Address[];
 	const logs = await client.getLogs({ address: addresses, fromBlock, toBlock });
 	for (const log of logs) {
-		const local = eventArgs(log, paymentRouterV2Abi, "PaymentSettled");
+		const local = eventArgs(log, paymentRouterAbi, "PaymentSettled");
 		const burn = local ? null : eventArgs(log, cctpPaymentRouterAbi, "CctpPaymentBurned");
 		const hash = String(local?.attemptId ?? burn?.attemptId ?? "");
 		if (log.transactionHash && log.logIndex !== null) {

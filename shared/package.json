@@ -23,7 +23,6 @@
 		"./v3/credential-inventory": "./v3/credentialInventory.ts",
 		"./v3/credential-detail": "./v3/credentialDetail.ts",
 		"./v3/security-policy": "./v3/securityPolicy.ts",
-		"./v3/independent-recovery": "./v3/independentRecovery.ts",
 		"./v3/deployment": "./v3/deployment.ts",
 		"./v3/account-inspection": "./v3/accountInspection.ts",
 		"./v3/initialization": "./v3/initialization.ts",

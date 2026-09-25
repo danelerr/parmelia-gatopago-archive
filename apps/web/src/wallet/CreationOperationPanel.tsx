@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import dynamic from 'next/dynamic';
 import type { CredentialInventory } from '@gatopago/shared/v3/credential-inventory';
 import type { CreationConsent } from '@gatopago/shared/v3/creation-operation-wire';
 import type { BrowserAuth } from '../auth/browser';
@@ -11,7 +10,6 @@ import { creationFeeUnit, formatCreationFee } from './creation-fee';
 import { requestPasskeyProof } from './passkeys';
 import CreationProgress from './CreationProgress';
 
-const ActivationPolicyReview = dynamic(() => import('./ActivationPolicyReview'));
 
 function message(code: string, en: boolean) {
   switch (code) {
@@ -37,14 +35,13 @@ function message(code: string, en: boolean) {
   }
 }
 
-export default function CreationOperationPanel({ runtime, uid, pin, consent, inventory, knownRecorded, english: en, onActiveChange }: {
+export default function CreationOperationPanel({ runtime, uid, pin, consent, knownRecorded, english: en, onActiveChange }: {
   runtime: BrowserAuth; uid: string; pin: CreationProfilePin; consent: CreationConsent; inventory: CredentialInventory; knownRecorded: boolean;
   english: boolean; onActiveChange: (active: boolean) => void;
 }) {
   const [flow] = useState(() => new CreationFlow(() => runtime.creationOperation(uid, pin), requestPasskeyProof, pin, consent, knownRecorded));
   const state = useSyncExternalStore(flow.subscribe, flow.snapshot, flow.snapshot);
   const [cap, setCap] = useState('');
-  const [policyBusy, setPolicyBusy] = useState(false);
   const unit = creationFeeUnit(state.network);
   const busy = ['loading', 'preparing', 'proving', 'submitting'].includes(state.phase);
   useEffect(() => {
@@ -52,7 +49,7 @@ export default function CreationOperationPanel({ runtime, uid, pin, consent, inv
     void flow.restore();
     return () => { unsubscribe(); flow.dispose(); onActiveChange(false); };
   }, [runtime, uid, flow, onActiveChange]);
-  useEffect(() => { onActiveChange(busy || policyBusy); }, [busy, policyBusy, onActiveChange]);
+  useEffect(() => { onActiveChange(busy); }, [busy, onActiveChange]);
   return <section className="account-initialization" aria-labelledby="creation-operation-heading" aria-busy={busy}>
     <h3 id="creation-operation-heading">{en ? 'Create the account on the network' : 'Crear la cuenta en la red'}</h3>
     <p>{en ? 'This separate confirmation authorizes the exact creation operation and its network gas terms. It does not activate payments or recovery.'
@@ -97,16 +94,13 @@ export default function CreationOperationPanel({ runtime, uid, pin, consent, inv
         : (en ? 'Authorize this creation with my key' : 'Autorizar esta creación con mi llave')}</button> : null}
     {state.phase === 'authorized' ? <CreationProgress lifecycle={state.lifecycle} delivery={state.receipt!.delivery_state}
       checkedAt={state.checkedAt} english={en} /> : null}
-    {state.phase === 'authorized' && state.lifecycle?.bootstrap ? <ActivationPolicyReview
-      key={`${uid}:${pin.digest}:${inventory.data.map((row) => row.credential_ref).join(',')}`}
-      runtime={runtime} uid={uid} pin={pin} consent={consent} inventory={inventory} bootstrap={state.lifecycle.bootstrap}
-      english={en} onActiveChange={setPolicyBusy} /> : null}
-    <p role="note">{en ? 'Receiving and sending remain disabled here. Account creation, verified onchain confirmation and activation with an independent factor are different steps.'
-      : 'Recibir y enviar siguen deshabilitados aquí. Crear la cuenta, verificar la confirmación onchain y activarla con un factor independiente son pasos distintos.'}</p>
+
+    <p role="note">{en ? 'Receiving and sending remain disabled here. One passkey is sufficient. Receiving requires verified deployment; losing all keys means losing access. GatoPago cannot reset the account.'
+      : 'Recibir y enviar siguen deshabilitados aquí. Una passkey es suficiente. Recibir requiere verificar el despliegue; perder todas las llaves implica perder el acceso. GatoPago no puede restablecer la cuenta.'}</p>
     {busy ? <><p role="status">{state.phase === 'proving' ? (en ? 'Confirm the creation in your browser…' : 'Confirma la creación en tu navegador…')
       : state.phase === 'loading' ? (en ? 'Reading the same operation…' : 'Consultando la misma operación…') : (en ? 'Checking with GatoPago…' : 'Comprobando con GatoPago…')}</p>
       <button type="button" className="auth-secondary" onClick={() => flow.stop()}>{en ? 'Stop waiting' : 'Detener espera'}</button></> : null}
-    {!busy && state.phase !== 'closed' ? <button type="button" className="auth-secondary" disabled={policyBusy} onClick={() => void flow.restore()}>
+    {!busy && state.phase !== 'closed' ? <button type="button" className="auth-secondary" onClick={() => void flow.restore()}>
       {en ? 'Check the same operation' : 'Consultar la misma operación'}</button> : null}
   </section>;
 }

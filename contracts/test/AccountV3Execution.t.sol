@@ -335,33 +335,6 @@ contract AccountV3ExecutionTest is V3ExecutionFixture {
         assertTrue(frozen);
     }
 
-    function test_recoveryQueuedAfterValidationBlocksSpendAtExecution() public {
-        _create();
-        T.SecurityPolicy memory otherPolicy = _policy(carol, dave);
-        T.InitializationApproval memory other = _initial(otherPolicy, keccak256("separate initiating account"));
-        T.SecurityPolicy memory next = _policy(carol, dave);
-        (T.SecurityChange memory change, bytes32 digest, S.Signature[] memory proofs) =
-            _executionChange(next, E.ChangeKind.Recovery);
-        bytes memory input = abi.encodeCall(
-            account.prepare,
-            (E.ChangeKind.Recovery, change, next, _chains(), _votes(policy, digest, P.RECOVERY), proofs)
-        );
-        PackedUserOperation[] memory ops = new PackedUserOperation[](2);
-        ops[0] = _operation(other, otherPolicy, _calls(address(account), 0, input));
-        ops[1] = _operation(initial, policy, _calls(recipient, 1 ether, ""));
-        vm.deal(ops[0].sender, 10 ether);
-        vm.recordLogs();
-        vm.prank(bundler, bundler);
-        ep.handleOps(ops, beneficiary);
-        (, uint8 kind) = account.proposal();
-        assertEq(kind, 3);
-        assertEq(recipient.balance, 0);
-        assertEq(account.getNonce(), 2);
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        _assertOperationResult(logs, ep.getUserOpHash(ops[0]), true);
-        _assertOperationResult(logs, ep.getUserOpHash(ops[1]), false);
-    }
-
     function test_retiredSignaturesAndChainReplayFail() public {
         _create();
         T.Call[] memory calls = _calls(recipient, 1, "");
@@ -382,49 +355,6 @@ contract AccountV3ExecutionTest is V3ExecutionFixture {
         (plan, votes) = _direct(calls);
         account.executeSigned(calls, plan, votes);
         assertEq(recipient.balance, 1);
-    }
-
-    function test_bootstrapRealWebAuthnCompletesCreationButCannotSpend() public {
-        AccountV3WebAuthnVerifier verifier = new AccountV3WebAuthnVerifier();
-        policy.mode = P.BOOTSTRAP;
-        policy.adminThreshold = 0;
-        policy.recoveryThreshold = 0;
-        delete policy.signers;
-        policy.signers
-            .push(
-                T.SignerDescriptor(
-                    P.WEBAUTHN,
-                    address(verifier),
-                    address(verifier).codehash,
-                    abi.encodePacked(sha256("gatopago.com"), sha256("https://gatopago.com"), P256.GX, P256.GY),
-                    P.SPEND,
-                    false
-                )
-            );
-        initial = _initial(policy, keccak256("bootstrap-execution"));
-        account = V3ExecutionAccount(payable(_predicted(initial)));
-        vm.deal(address(account), 10 ether);
-        PackedUserOperation memory op = _operation(initial, policy, new T.Call[](0));
-        // Software P-256 fallback is measured separately, not claimed to fit the 500k bundler profile.
-        op.accountGasLimits = bytes32((uint256(4_000_000) << 128) | 2_000_000);
-        _resign(op, policy);
-        _submit(op);
-        assertEq(account.getNonce(), 1);
-        T.Call[] memory calls = _calls(recipient, 1, "");
-        (T.ExecutionPlan memory plan, S.Signature[] memory votes) = _direct(calls);
-        vm.expectRevert(Security.AccountV3Security__SpendingDisabled.selector);
-        account.executeSigned(calls, plan, votes);
-        op = _operation(initial, policy, calls);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IEntryPoint.FailedOpWithRevert.selector,
-                0,
-                "AA23 reverted",
-                abi.encodeWithSelector(Security.AccountV3Security__SpendingDisabled.selector)
-            )
-        );
-        _submit(op);
-        assertEq(recipient.balance, 0);
     }
 
     function _resign(PackedUserOperation memory op, T.SecurityPolicy memory p) private view {

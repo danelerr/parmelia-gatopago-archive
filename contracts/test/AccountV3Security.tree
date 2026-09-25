@@ -1,31 +1,18 @@
-AccountV3Security (internal stateful candidate, NOT Account/4337/factory)
-├── given a policy seeded ONLY by the test harness
-│   ├── when preparing security/bootstrap
-│   │   ├── require account/generation/version/predecessor/window/scope/current nonce
-│   │   ├── require OLD authority and new/changed descriptor possession
-│   │   ├── accept only a five-minute consent; sign a distinct bounded proposal deadline
-│   │   ├── after acceptance expiry, require fresh commit; preserve veto and exact proposal expiry
-│   │   ├── consume admin nonce; store pending; leave old policy and version intact
-│   │   └── commit with separate fresh OLD authority; replace all members; advance manifest once
-│   ├── when preparing recovery
-│   │   ├── require recovery authority, not admin signatures
-│   │   ├── replace pending admin, never another recovery
-│   │   ├── wait from acceptance using OLD delay, never validAfter or new delay
-│   │   ├── block spend guard even after expiry until explicit cleanup
-│   │   └── anyone activates at readyAt before expiry, without asset or proxy effects
-│   ├── when vetoing
-│   │   ├── current member can veto with its independent nonce
-│   │   └── removed/new member, stale/replayed/purpose-substituted signatures fail
-│   ├── when expiring
-│   │   └── anyone clears exactly the expired proposal, never its consumed nonces
-│   ├── when freezing upgrades
-│   │   ├── fresh admin authority irreversibly freezes; no policy/version change
-│   │   └── preserves pending recovery; clears seeded upgrade but does NOT prove upgrade execution
-│   └── when reentrant/uninitialized/overflow/corrupted/stale
-│       └── fail closed with unchanged security state
-└── stateful randomized sequences with real signatures
-    ├── versions count exactly installed policies; predecessor and policy remain consistent
-    ├── admin/recovery/veto nonces equal accepted actions and never roll back on cancellation
-    ├── only authorized pending proposals exist; freeze is monotonic
-    ├── pending recovery can never pass spendEnabled or commitPolicy
-    └── ETH/ERC20/proxy slot are unchanged by all security transitions
+AccountV3Security
+├── prepare a SecurityChange
+│   ├── require current ADMIN, current nonce/version/manifest and a live consent window
+│   ├── each new or role-changed key proves possession of this exact proposal
+│   ├── reject another pending proposal; leave current authority unchanged
+│   └── consume nonce, store bounded deadline, require fresh current ADMIN to commit
+├── cancel
+│   ├── exact pending proposal + fresh current ADMIN quorum
+│   └── SPEND-only member, former member and replay cannot cancel
+├── expire
+│   └── clear only expired proposal; consumed nonces never return
+├── freeze upgrades
+│   └── current ADMIN; monotonic freeze, cancel pending upgrade, no asset movement
+└── invariants
+    ├── manifest/version advance exactly once per accepted policy
+    ├── account-local monotonic nonces and reachable SPEND/ADMIN
+    ├── no RECOVERY role, assisted authority or individual veto
+    └── security transitions do not move ETH/ERC20 or change implementation

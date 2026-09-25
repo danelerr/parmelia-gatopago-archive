@@ -52,8 +52,11 @@ contract V3InitializedSecurityHarness is AccountV3 {
         // Fixture-only decoding of the timestamp fields. The real EntryPoint test suite owns
         // validationData intersection and temporal boundary proof; do not inline its full runtime
         // into this security-only composition when measuring remaining implementation headroom.
-        uint48 after_ = uint48(data >> 208);
-        uint48 until_ = uint48(data >> 160);
+        // Isolate each 48-bit field explicitly; until must not include the upper after field.
+        uint48 after_ = SafeCast.toUint48(data >> 208);
+        uint48 until_ = SafeCast.toUint48((data >> 160) & type(uint48).max);
+        // Synthetic clock selects a test validity boundary, not randomness or production finality.
+        // forge-lint: disable-next-line(block-timestamp)
         if (block.timestamp <= after_ || block.timestamp > until_) {
             revert Initialization.AccountV3Initialization__OutsideValidity();
         }
@@ -65,10 +68,6 @@ contract V3InitializedSecurityHarness is AccountV3 {
         Security.requireSpendEnabled();
     }
 
-    function vetoNonce(bytes32 id) external view returns (uint256) {
-        return D.layout().vetoNonces[id];
-    }
-
     function snapshot() external view returns (V3SecurityHarness.Snapshot memory) {
         D.Layout storage s = D.layout();
         return V3SecurityHarness.Snapshot(
@@ -78,7 +77,6 @@ contract V3InitializedSecurityHarness is AccountV3 {
             s.manifestHash,
             s.chainScopeHash,
             s.adminNonce,
-            s.recoveryNonce,
             s.spendNonce,
             securityPolicy(),
             s.pending

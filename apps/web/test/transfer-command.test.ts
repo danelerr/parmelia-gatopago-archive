@@ -197,6 +197,17 @@ describe('Transfer execution lifecycle (commands mocked)', () => {
     await x.flow.confirm([]); expect(x.flow.snapshot().phase).toBe('reserved');
     expect(x.commands.confirm.mock.calls[0].slice(0,4)).toEqual(x.commands.confirm.mock.calls[1].slice(0,4)); x.flow.dispose();
   });
+  it('resolves uncertain confirmation via status read using preserved preparation proofs', async () => {
+    const x = flowFixture(); x.commands.confirm.mockRejectedValueOnce(new Error('lost network response'));
+    await x.flow.confirm([]); expect(x.flow.snapshot().phase).toBe('confirmation-uncertain'); expect(x.flow.snapshot().confirmation).toBeNull();
+    await x.flow.readStatus();
+    expect(x.commands.confirm).toHaveBeenCalledTimes(2);
+    expect(x.transfers.status).toHaveBeenCalledTimes(1);
+    expect(x.flow.snapshot().phase).toBe('observed');
+    expect(x.flow.snapshot().confirmation).not.toBeNull();
+    expect(x.flow.snapshot().status).toEqual(x.status);
+    x.flow.dispose();
+  });
   it.each(['dispose','invalidate'] as const)('ignores late confirmation after %s', async action => {
     const x = flowFixture(), wait = deferred<ReturnType<typeof parseTransferConfirmationReceipt>>(); x.commands.confirm.mockReturnValueOnce(wait.promise);
     const task = x.flow.confirm([]); x.flow[action](); wait.resolve(parseTransferConfirmationReceipt(x.confirmation,x.preparation)); await task;

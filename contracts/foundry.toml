@@ -17,7 +17,8 @@ evm_version = "cancun"
 optimizer = true
 # V3 clean testnet cut: the inherited V2 1,000,000-run profile makes the full
 # Account V3 + UUPS exceed EIP-170. The measured 200-run profile retains the
-# 496,000 verification-gas first-spend regression and restores code headroom.
+# ECDSA first-spend regression and restores code headroom. Consumer software-P256
+# creation exceeds 496,000 verification gas; public bundler admission is NOT proven.
 # This changes bytecode/CREATE2 predictions: never reuse historical manifests.
 # Pin this profile for all new V3 implementations, fixed libraries and factories.
 optimizer_runs = 200

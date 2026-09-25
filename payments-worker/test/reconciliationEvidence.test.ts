@@ -1,6 +1,6 @@
 import { encodeAbiParameters, encodeEventTopics, getAddress, type Hex } from "viem";
 import { describe, expect, it } from "vitest";
-import { paymentRouterV2Abi } from "../../shared";
+import { paymentRouterAbi } from "../../shared";
 import type { PaymentAttempt, PaymentIntent } from "../src/domain/models";
 import {
 	PaymentSourceEvidenceMismatchError,
@@ -37,7 +37,7 @@ function settledLog(overrides: { attemptId?: Hex; payer?: `0x${string}` } = {}) 
 	return {
 		address: router,
 		topics: encodeEventTopics({
-			abi: paymentRouterV2Abi,
+			abi: paymentRouterAbi,
 			eventName: "PaymentSettled",
 			args: { intentId: intentHash, attemptId: overrides.attemptId ?? attemptHash, payer: eventPayer },
 		}),

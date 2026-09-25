@@ -80,7 +80,7 @@ export function sponsorshipProviderNames(env: Bindings): SponsorshipProviderName
 	return fallback && fallback !== primary ? [primary, fallback] : [primary];
 }
 
-function configuredParmeliaPaymaster(env: Bindings): Address {
+function configuredGatoPagoPaymaster(env: Bindings): Address {
 	const configured = env.SPONSORSHIP_PAYMASTER_ADDRESS?.trim() ||
 		getNetworkConfig(env.CHAIN_KEY).contracts.paymaster;
 	if (!isAddress(configured)) throw new SponsorshipError("parmelia", "Parmelia paymaster address is invalid");
@@ -101,7 +101,7 @@ class ParmeliaSponsorshipProvider implements SponsorshipProvider {
 	private async signed(input: SponsorshipInput): Promise<Hex> {
 		try {
 			return await buildSignedPaymasterAndData({ chainId: input.chainId,
-				paymasterAddress: configuredParmeliaPaymaster(input.env), userOp: input.userOp,
+				paymasterAddress: configuredGatoPagoPaymaster(input.env), userOp: input.userOp,
 				signerPrivateKey: getPaymasterSignerKey(input.env),
 				paymasterVerificationGasLimit: input.paymasterVerificationGasLimit,
 				paymasterPostOpGasLimit: input.paymasterPostOpGasLimit });
@@ -326,7 +326,7 @@ export function validateSponsorshipConfig(env: Bindings): string[] {
 	catch { return [...new Set([...issues, "SPONSORSHIP_PROVIDER_INVALID"])]; }
 	for (const name of providers) {
 		try {
-			if (name === "parmelia") configuredParmeliaPaymaster(env);
+			if (name === "parmelia") configuredGatoPagoPaymaster(env);
 			if (name === "erc7677") {
 				serviceUrl(env);
 				serviceContext(env);

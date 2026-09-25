@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { type Address, type Hex } from "viem";
 import vectors from "../../shared/fixtures/v3-protocol.json";
-import { ACCOUNT_GENERATION, authorizationDigest, authorizationStructHash, authorizationTypeHash, authorizationTypes, deriveAccountId, hashCalls, hashChainScope, hashSecurityManifest, MIN_RECOVERY_DELAY_SECONDS, MIN_UPGRADE_DELAY_SECONDS, predictAccountAddress, type AuthorizationKind, type AuthorizationMessages, type ExecutionPlan } from "../../shared/v3/authorizations";
+import { ACCOUNT_GENERATION, authorizationDigest, authorizationStructHash, authorizationTypeHash, authorizationTypes, deriveAccountId, hashCalls, hashChainScope, hashSecurityManifest, MIN_UPGRADE_DELAY_SECONDS, predictAccountAddress, type AuthorizationKind, type AuthorizationMessages, type ExecutionPlan } from "../../shared/v3/authorizations";
 
 const account = vectors.identity.accountAddress as Address;
 const plan: ExecutionPlan = {
@@ -41,9 +41,9 @@ describe("V3 consent, identity and domain separation", () => {
 		});
 	}
 
-	it("keeps all ten ceremony purposes distinct", () => {
+	it("keeps all eight ceremony purposes distinct", () => {
 		const hashes = Object.keys(authorizationTypes).map((kind) => authorizationTypeHash(kind as AuthorizationKind));
-		expect(hashes).toHaveLength(10);
+		expect(hashes).toHaveLength(8);
 		expect(new Set(hashes).size).toBe(hashes.length);
 	});
 
@@ -84,17 +84,9 @@ describe("V3 consent, identity and domain separation", () => {
 		expect(authorizationDigest("ExecutionPlan", 84532n, `0x${"ff".repeat(20)}`, plan)).not.toBe(initial);
 	});
 
-	it("never reuses an admin message as recovery consent", () => {
-		const raw = vectors.authorizations.SecurityChange.message;
-		const change: AuthorizationMessages["SecurityChange"] = {
-			...raw, accountId: raw.accountId as Hex, securityVersion: BigInt(raw.securityVersion), nonce: BigInt(raw.nonce),
-			previousManifestHash: raw.previousManifestHash as Hex, nextPolicyHash: raw.nextPolicyHash as Hex, chainScopeHash: raw.chainScopeHash as Hex,
-		};
-		expect(authorizationDigest("SecurityChange", 84532n, account, change)).toBe(vectors.authorizations.SecurityChange.expectedDigest);
-		expect(authorizationDigest("RecoveryProposal", 84532n, account, change)).toBe(vectors.authorizations.RecoveryProposal.expectedDigest);
-		expect(authorizationDigest("SecurityChange", 84532n, account, change)).not.toBe(authorizationDigest("RecoveryProposal", 84532n, account, change));
+	it("does not publish retired bootstrap, recovery or veto purposes", () => {
+		for (const kind of ["BootstrapActivation", "RecoveryProposal", "VetoProposal"]) expect(authorizationTypes).not.toHaveProperty(kind);
 	});
-
 	it("commits to the ordered batch and exact calldata", () => {
 		const calls = vectors.calls.map((call) => ({ target: call.target as Address, value: BigInt(call.value), data: call.data as Hex }));
 		expect(hashCalls(calls)).toBe(vectors.callsHash);
@@ -110,7 +102,6 @@ describe("V3 consent, identity and domain separation", () => {
 		expect(() => authorizationDigest("ExecutionPlan", 0n, account, plan)).toThrow();
 		expect(() => authorizationDigest("ExecutionPlan", 84532n, account, { ...plan, validUntil: plan.validAfter })).toThrow();
 		expect(ACCOUNT_GENERATION).toBe(3);
-		expect(MIN_RECOVERY_DELAY_SECONDS).toBe(259200);
 		expect(MIN_UPGRADE_DELAY_SECONDS).toBe(259200);
 	});
 	for (const kind of ["InitializationApproval", "ExecutionPlan"] as const) {

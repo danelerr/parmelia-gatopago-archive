@@ -6,9 +6,9 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import {ParmeliaPaymentRouterV2} from "src/ParmeliaPaymentRouterV2.sol";
-import {ParmeliaCctpPaymentRouter} from "src/ParmeliaCctpPaymentRouter.sol";
-import {ParmeliaCrosschainRouter} from "src/ParmeliaCrosschainRouter.sol";
+import {GatoPagoPaymentRouter} from "src/GatoPagoPaymentRouter.sol";
+import {GatoPagoCctpPaymentRouter} from "src/GatoPagoCctpPaymentRouter.sol";
+import {GatoPagoCrosschainRouter} from "src/GatoPagoCrosschainRouter.sol";
 import {NetworkDeploymentConfig} from "script/NetworkDeploymentConfig.sol";
 
 interface ISmokeUSDC is IERC20, IERC20Permit {
@@ -82,7 +82,7 @@ contract SmokePaymentRouter is UniversalCheckoutSmokeScript {
         NetworkDeploymentConfig.Config memory config = NetworkDeploymentConfig.get(block.chainid);
         NetworkDeploymentConfig.preflightLocalCheckout(config);
         address routerAddress = vm.envAddress("GATOPAGO_SMOKE_ROUTER");
-        ParmeliaPaymentRouterV2 router = ParmeliaPaymentRouterV2(routerAddress);
+        GatoPagoPaymentRouter router = GatoPagoPaymentRouter(routerAddress);
         if (address(router.USDC()) != config.usdc) {
             revert Smoke__UnexpectedUsdc(config.usdc, address(router.USDC()));
         }
@@ -92,7 +92,7 @@ contract SmokePaymentRouter is UniversalCheckoutSmokeScript {
 
         (address payer, address merchant, uint256 amount, uint256 deadline, bytes32 intentId, bytes32 attemptId) =
             _smokeContext(routerAddress, config.usdc);
-        ParmeliaPaymentRouterV2.PaymentAuthorization memory authorization = ParmeliaPaymentRouterV2.PaymentAuthorization({
+        GatoPagoPaymentRouter.PaymentAuthorization memory authorization = GatoPagoPaymentRouter.PaymentAuthorization({
             intentId: intentId,
             attemptId: attemptId,
             payer: payer,
@@ -137,7 +137,7 @@ contract SmokeCrosschainRouter is UniversalCheckoutSmokeScript {
         NetworkDeploymentConfig.preflightCctp(config);
 
         address routerAddress = vm.envAddress("GATOPAGO_SMOKE_ROUTER");
-        ParmeliaCrosschainRouter router = ParmeliaCrosschainRouter(routerAddress);
+        GatoPagoCrosschainRouter router = GatoPagoCrosschainRouter(routerAddress);
         if (routerAddress.code.length == 0) revert Smoke__RouterHasNoCode(routerAddress);
         if (address(router.USDC()) != config.usdc) {
             revert Smoke__UnexpectedUsdc(config.usdc, address(router.USDC()));
@@ -166,7 +166,7 @@ contract SmokeCrosschainRouter is UniversalCheckoutSmokeScript {
 
         uint256 routerBalance = IERC20(config.usdc).balanceOf(routerAddress);
         if (routerBalance != 0) revert Smoke__RouterRetainedFunds(routerBalance);
-        if (!router.usedOpId(opId)) revert Smoke__CrosschainEvidenceMissing(opId);
+        if (!router.usedOpId(payer, opId)) revert Smoke__CrosschainEvidenceMissing(opId);
 
         console.log("Hardened outbound CCTP smoke succeeded");
         console.logBytes32(opId);
@@ -180,7 +180,7 @@ contract SmokeCctpPaymentRouter is UniversalCheckoutSmokeScript {
         NetworkDeploymentConfig.requireInboundSourceChain(config);
         NetworkDeploymentConfig.preflightCctp(config);
         address routerAddress = vm.envAddress("GATOPAGO_SMOKE_ROUTER");
-        ParmeliaCctpPaymentRouter router = ParmeliaCctpPaymentRouter(routerAddress);
+        GatoPagoCctpPaymentRouter router = GatoPagoCctpPaymentRouter(routerAddress);
         if (address(router.USDC()) != config.usdc) {
             revert Smoke__UnexpectedUsdc(config.usdc, address(router.USDC()));
         }
@@ -202,8 +202,8 @@ contract SmokeCctpPaymentRouter is UniversalCheckoutSmokeScript {
 
         (address payer, address merchant, uint256 amount, uint256 deadline, bytes32 intentId, bytes32 attemptId) =
             _smokeContext(routerAddress, config.usdc);
-        ParmeliaCctpPaymentRouter.CctpPaymentAuthorization memory authorization =
-            ParmeliaCctpPaymentRouter.CctpPaymentAuthorization({
+        GatoPagoCctpPaymentRouter.CctpPaymentAuthorization memory authorization =
+            GatoPagoCctpPaymentRouter.CctpPaymentAuthorization({
                 intentId: intentId,
                 attemptId: attemptId,
                 payer: payer,

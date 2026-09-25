@@ -5,7 +5,7 @@ AccountV3SecurityModule
 │   ├── canonical policy reads should use the pinned library and preserve the signed format
 │   ├── public fixed-size snapshots should match account state without writes or emitted events
 │   ├── an implementation snapshot should never invent an initialized account identity
-│   ├── recovery, freeze and nonces should remain visible after expiry until an explicit transition
+│   ├── proposals, freeze and nonces remain visible until an explicit transition
 │   ├── when two accounts share the library
 │   │   └── it should keep authority, counters, storage and event emitters account-local
 │   └── when signatures target the library's EIP-712 domain

@@ -9,7 +9,7 @@ import { WalletBalances } from './WalletBalances';
 type State = { phase: 'loading' } | { phase: 'ready'; page: WalletPage } | { phase: 'error'; code: string };
 
 /** Parent keys this component by Firebase UID. No data survives a change of identity. */
-export function WalletOverview({ runtime, uid, english: en }: { runtime: BrowserAuth; uid: string; english: boolean }) {
+export function WalletOverview({ runtime, uid, english: en, mode = 'balance' }: { runtime: BrowserAuth; uid: string; english: boolean; mode?: 'balance' | 'send' | 'activity' }) {
   const [state, setState] = useState<State>({ phase: 'loading' });
   const [revision, setRevision] = useState(0);
   const [moreError, setMoreError] = useState(false);
@@ -62,7 +62,7 @@ export function WalletOverview({ runtime, uid, english: en }: { runtime: Browser
   return <div>
     {state.page.data.length === 0 ? <p>{en ? 'Your profile is ready. You do not have a V3 wallet yet.' : 'Tu perfil está listo. Todavía no tienes una wallet V3.'}</p>
       : <ul>{state.page.data.map((wallet, index) => <li key={wallet.id}>Wallet V3 {index + 1} — {wallet.status === 'archived' ? (en ? 'archived' : 'archivada') : (en ? 'registered' : 'registrada')}
-        {wallet.status === 'active' ? <WalletBalances key={`${uid}:${wallet.id}`} runtime={runtime} uid={uid} walletId={wallet.id} english={en} /> : null}
+        {wallet.status === 'active' ? <WalletBalances key={`${uid}:${wallet.id}:${mode}`} runtime={runtime} uid={uid} walletId={wallet.id} english={en} mode={mode} /> : null}
       </li>)}</ul>}
     <p>{en ? 'Receiving and payments are not enabled in this candidate yet. No key or recovery was started by this check.'
       : 'Recibir y pagar todavía no están habilitados en este candidato. Esta consulta no registró llaves ni inició una recuperación.'}</p>

@@ -16,7 +16,7 @@ export async function activationScenario() {
  const projection = await env.WALLET_DB.prepare('SELECT wallet_id,wallet_account_id FROM account_creation_projections WHERE initialization_id = ?').bind(f.id).first();
  const walletId = parseResourceId('wallet', projection?.wallet_id), walletAccountId = parseResourceId('walletAccount', projection?.wallet_account_id);
  const keys = activationFixture();
- const nextPolicy: SecurityPolicy = { ...f.prepared.policy, mode: 'active', adminThreshold: 2, recoveryThreshold: 2,
+ const nextPolicy: SecurityPolicy = { ...f.prepared.policy, mode: 'active', adminThreshold: 1,
   signers: [f.prepared.policy.signers[0], ...keys.input.nextPolicy.signers.filter((s) => s.kind === 0)].sort((a, b) => signerId(a).localeCompare(signerId(b))) };
  const principal = { ...f.principal, expiresAt: deliveryNow() + 3600 };
  const profiles: ActivationProfiles = vi.fn(async () => {

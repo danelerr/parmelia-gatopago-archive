@@ -96,7 +96,7 @@ describe('activation resource client, independently pinned consent and explicit 
     if (change === 'key') Object.assign(i.initialization, { publicKey: `0x${'00'.repeat(128)}` });
     if (change === 'salt') Object.assign(i.initialization, { userSaltCommitment: fixtureHash('a') });
     if (change === 'initialWindow') Object.assign(i.initialization, { validUntil: i.initialization.validUntil - 1 });
-    if (change === 'policy') i.nextPolicy.recoveryDelaySeconds++;
+    if (change === 'policy') i.nextPolicy.upgradeDelaySeconds++;
     if (change === 'deadline') { Object.assign(i, { proposalValidUntil: i.proposalValidUntil + 1 }); wire.proposal_valid_until++; }
     if (change === 'digest') wire.proposal_hash = fixtureHash('a');
     if (change === 'manifest') o.manifest_id += '-changed';
@@ -117,7 +117,7 @@ describe('activation resource client, independently pinned consent and explicit 
   it('accepts reordered JSON keys but not a response that chooses its own valid policy and hashes', () => {
     const t = fixture(), reordered = Object.fromEntries(Object.entries(t.wire).reverse());
     expect(parseActivationPreview(reordered, t.choice).compiled.digest).toBe(t.compiled.digest);
-    const changed = structuredClone(t.wire); changed.input.nextPolicy.recoveryDelaySeconds++;
+    const changed = structuredClone(t.wire); changed.input.nextPolicy.upgradeDelaySeconds++;
     const recomputed = prepareBootstrapActivation(changed.input, changed.input.validAfter);
     changed.proposal_hash = recomputed.digest; changed.expected_manifest_hash = recomputed.expectedManifestHash;
     expect(() => parseActivationPreview(changed, t.choice)).toThrow();
@@ -167,14 +167,14 @@ describe('activation resource client, independently pinned consent and explicit 
   it('revalidates wire before authorization even if callers modify a returned preview', async () => {
     const t = fixture(); t.fetchMock.mockResolvedValue(Response.json(t.wire));
     const review = await t.client.restore(t.choice, signal());
-    Object.assign((review.wire as typeof t.wire).input.nextPolicy, { recoveryDelaySeconds: t.choice.nextPolicy.recoveryDelaySeconds + 1 });
+    Object.assign((review.wire as typeof t.wire).input.nextPolicy, { upgradeDelaySeconds: t.choice.nextPolicy.upgradeDelaySeconds + 1 });
     await expect(t.client.authorize(t.choice, review, t.f.assertion(t.compiled.digest), await t.f.proofs(), signal())).rejects.toMatchObject({ code: 'activation/invalid' });
     expect(t.fetchMock).toHaveBeenCalledTimes(1);
   });
   it('fits a full sixteen-WebAuthn-factor policy inside the existing bounded transport', async () => {
     const t = fixture(), input = structuredClone(t.f.input), initial = t.f.initial.policy.signers[0];
     input.nextPolicy.signers = [initial, ...Array.from({ length: 15 }, () => ({ ...initial,
-      key: initializationFixture().input.publicKey, roles: 7 }))].sort((a, b) => signerId(a).localeCompare(signerId(b)));
+      key: initializationFixture().input.publicKey, roles: 3 }))].sort((a, b) => signerId(a).localeCompare(signerId(b)));
     const compiled = prepareBootstrapActivation(input, input.validAfter), choice = { ...t.choice, nextPolicy: input.nextPolicy };
     const raw = { ...t.wire, input, proposal_hash: compiled.digest, expected_manifest_hash: compiled.expectedManifestHash, state: 'authorized' };
     expect(new TextEncoder().encode(JSON.stringify(raw)).length).toBeLessThan(32768);
@@ -190,7 +190,7 @@ describe('activation resource client, independently pinned consent and explicit 
     const t = fixture(); let resolve!: (token: string) => void;
     const client = activationClient(config, () => new Promise((done) => { resolve = done; }), t.f.pin);
     t.fetchMock.mockResolvedValue(Response.json(t.wire));
-    const task = client.prepare(t.choice, signal()); t.choice.nextPolicy.recoveryDelaySeconds++; t.choice.proposalValidUntil++;
+    const task = client.prepare(t.choice, signal()); t.choice.nextPolicy.upgradeDelaySeconds++; t.choice.proposalValidUntil++;
     resolve('synthetic.token.signature');
     const result = await task; expect(result.preview.receipt.proposal_valid_until).toBe(t.wire.proposal_valid_until);
     expect(JSON.parse(t.fetchMock.mock.calls[0][1].body).next_policy).toEqual(t.wire.input.nextPolicy);

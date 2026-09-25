@@ -3,14 +3,13 @@
 import { useEffect, useId, useState, useSyncExternalStore } from 'react';
 import type { BrowserAuth } from '../auth/browser';
 import type { CreationProfilePin } from './creation-release';
-import type { ActivationFlow } from './activation-flow';
 import { ActivationCommitFlow } from './activation-commit-flow';
 import { requestPasskeyProof } from './passkeys';
 import ActivationProgress from './ActivationProgress';
 
 export default function ActivationCommitPanel({ runtime, uid, pin, context, english: en }: {
   runtime: BrowserAuth; uid: string; pin: CreationProfilePin;
-  context: NonNullable<ReturnType<ActivationFlow['commitContext']>>; english: boolean;
+  context: ConstructorParameters<typeof ActivationCommitFlow>[2]; english: boolean;
 }) {
   const [flow] = useState(() => new ActivationCommitFlow(() => runtime.activation(uid, pin), requestPasskeyProof, context));
   const state = useSyncExternalStore(flow.subscribe, flow.snapshot, flow.snapshot), id = useId();

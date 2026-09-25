@@ -15,7 +15,7 @@ import {
 import {
 	accountWebAuthnV2Abi,
 	erc20Abi,
-	paymentRouterV2Abi,
+	paymentRouterAbi,
 	getNetworkConfig,
 	getTokenBySymbol,
 	isSupportedChainKey,
@@ -272,7 +272,7 @@ payRoutes.post("/prepare", requireAuth, async (c) => {
 				}
 				const approveData = encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [paymentAttempt.router, totalPayerAmount] });
 				const payData = encodeFunctionData({
-					abi: paymentRouterV2Abi,
+					abi: paymentRouterAbi,
 					functionName: "pay",
 					args: [{
 						intentId: authorization.intentId,

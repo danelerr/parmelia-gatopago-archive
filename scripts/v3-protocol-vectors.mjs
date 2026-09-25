@@ -6,15 +6,15 @@ import { ACCOUNT_SIGNATURE_TYPEHASH, accountSignatureStructHash, accountSignatur
 
 const bytes32 = (value) => `0x${value.repeat(32)}`;
 const address = (value) => `0x${value.repeat(20)}`;
-const passkey = { kind: 1, verifier: address("ab"), verifierCodeHash: bytes32("cd"), key: `0x${"01".repeat(64)}${"11".repeat(64)}`, roles: 1, assisted: false };
-const bootstrapPolicy = { mode: "bootstrap", signers: [passkey], spendThreshold: 1, adminThreshold: 0, recoveryThreshold: 0, recoveryDelaySeconds: 259200, upgradeDelaySeconds: 259200 };
-const activePolicy = { ...bootstrapPolicy, mode: "active", adminThreshold: 2, recoveryThreshold: 2, signers: [
-	{ ...passkey, roles: 7 },
-	{ kind: 0, verifier: address("00"), verifierCodeHash: bytes32("00"), key: address("22"), roles: 7, assisted: false },
+const passkey = { kind: 1, verifier: address("ab"), verifierCodeHash: bytes32("cd"), key: `0x${"01".repeat(64)}${"11".repeat(64)}`, roles: 3 };
+const initialPolicy = { mode: "active", signers: [passkey], spendThreshold: 1, adminThreshold: 1, upgradeDelaySeconds: 259200 };
+const activePolicy = { ...initialPolicy, mode: "active", adminThreshold: 1, signers: [
+	{ ...passkey, roles: 3 },
+	{ kind: 0, verifier: address("00"), verifierCodeHash: bytes32("00"), key: address("22"), roles: 3 },
 ].sort((a, b) => signerId(a).localeCompare(signerId(b))) };
 const identity = {
 	generation: 3,
-	initialSecurityCommitment: hashSecurityPolicy(bootstrapPolicy),
+	initialSecurityCommitment: hashSecurityPolicy(initialPolicy),
 	userSaltCommitment: bytes32("22"),
 	factory: address("33"),
 	proxyInitCodeHash: bytes32("44"),
@@ -29,14 +29,12 @@ const change = { ...common, proposalValidUntil: 1800400000, previousManifestHash
 const proposalHash = authorizationDigest("SecurityChange", 84532n, identity.accountAddress, change);
 const messages = {
 	InitializationApproval: { accountId: identity.accountId, generation: 3, initialSecurityCommitment: identity.initialSecurityCommitment, userSaltCommitment: identity.userSaltCommitment, factory: identity.factory, entryPoint: address("99"), chainScopeHash: change.chainScopeHash, nonce: 0n, validAfter: common.validAfter, validUntil: common.validUntil },
-	BootstrapActivation: change,
 	EnrollmentProof: { ...common, signerId: signerId(activePolicy.signers[0]), nextPolicyHash: change.nextPolicyHash, contextHash: proposalHash },
-	VetoProposal: { ...common, proposalHash, signerId: signerId(activePolicy.signers[0]) },
+	CancelProposal: { ...common, proposalHash },
 	FreezeUpgrades: { ...common, previousManifestHash: change.previousManifestHash, chainScopeHash: change.chainScopeHash },
 	CommitProposal: { ...common, previousManifestHash: change.previousManifestHash, proposalHash, acknowledgementsHash: bytes32("fa"), chainScopeHash: change.chainScopeHash },
 	ExecutionPlan: { ...common, executionMode: 0, entryPoint: address("99"), userOpHash: bytes32("aa"), callsHash: hashCalls(calls), assetLimitsHash: bytes32("bb"), feePolicyHash: bytes32("cc"), paymaster: address("dd"), previewHash: bytes32("ee") },
 	SecurityChange: change,
-	RecoveryProposal: change,
 	UpgradeManifest: { ...common, previousManifestHash: change.previousManifestHash, implementation: address("ab"), runtimeCodeHash: bytes32("ac"), storageLayoutHash: bytes32("ad"), chainScopeHash: change.chainScopeHash, migrationCallHash: bytes32("ae") },
 };
 const authorizations = Object.fromEntries(Object.entries(messages).map(([kind, message]) => [kind, {
@@ -57,7 +55,7 @@ const contractSignature = {
 	votes: [{ signerIndex: 0, signature: "0x1234" }],
 	envelope: encodeAccountSignature(signatureMessage, [{ signerIndex: 0, signature: "0x1234" }]),
 };
-const vector = { schemaVersion: 4, bootstrapPolicy, activePolicy, activePolicyHash: hashSecurityPolicy(activePolicy), identity, chains, chainScopeHash: hashChainScope(chains), calls, callsHash: hashCalls(calls), securityManifest, securityManifestHash: hashSecurityManifest(securityManifest), authorizations, contractSignature };
+const vector = { schemaVersion: 5, initialPolicy, activePolicy, activePolicyHash: hashSecurityPolicy(activePolicy), identity, chains, chainScopeHash: hashChainScope(chains), calls, callsHash: hashCalls(calls), securityManifest, securityManifestHash: hashSecurityManifest(securityManifest), authorizations, contractSignature };
 const output = JSON.stringify(vector, (_, v) => typeof v === "bigint" ? v.toString() : v, 2) + "\n";
 const file = new URL("../shared/fixtures/v3-protocol.json", import.meta.url);
 if (process.argv.includes("--print")) {

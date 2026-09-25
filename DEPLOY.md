@@ -228,15 +228,12 @@ cast wallet new   # paymaster signer
 Fondos: ETH de Sepolia → bridge a Arbitrum Sepolia (o faucet de Arbitrum);
 USDC de prueba para el **faucet** en https://faucet.circle.com (red: Arbitrum Sepolia).
 
-## 2. Desplegar contratos (CREATE2 determinista)
+## 2. Contratos: V2 retirado del despliegue activo
 
 ```bash
 cd contracts
-forge script script/Deploy.s.sol:DeployV2 \
-  --rpc-url https://sepolia-rollup.arbitrum.io/rpc \
-  --account wallet-0x75 \
-  --sender 0x75464f762bc50d0A0B127ab5a085504BF102Bb88 \
-  --broadcast
+# No ejecutar el antiguo DeployV2. Para V3 seguir exclusivamente:
+# docs/operations/v3-contract-regularization-2026-09-21.md
 ```
 
 **`--sender` es obligatorio** (la dirección de `wallet-0x75`). Sin él,
@@ -287,7 +284,7 @@ forge verify-contract <FACTORY> src/AccountFactoryV2.sol:AccountFactoryV2 \
   --constructor-args $(cast abi-encode "constructor(address)" <ACCOUNT_IMPL>)
 
 # 4. Paymaster - constructor: EntryPoint + owner (= el --sender del deploy)
-forge verify-contract <PAYMASTER> src/ParmeliaPaymaster.sol:ParmeliaPaymaster \
+forge verify-contract <PAYMASTER> src/GatoPagoPaymaster.sol:GatoPagoPaymaster \
   --chain 421614 --rpc-url https://sepolia-rollup.arbitrum.io/rpc --watch \
   --constructor-args $(cast abi-encode "constructor(address,address)" \
     0x433709009B8330FDa32311DF1C2AFA402eD8D009 <DEPLOYER>)
@@ -908,7 +905,7 @@ node scripts/write-contract-deployment-manifest.mjs `
   --broadcast contracts/broadcast/Deploy.s.sol/421614/run-<timestamp>.json `
   --rpc-url $env:ARBITRUM_SEPOLIA_RPC_URL `
   --output contracts/deployments/421614/payment-router-v2.json `
-  --contract ParmeliaPaymentRouterV2 --chain-id 421614 `
+  --contract GatoPagoPaymentRouter --chain-id 421614 `
   --owner $owner --treasury $treasury `
   --authorization-signer $authorizationSigner `
   --pause-guardian $pauseGuardian `

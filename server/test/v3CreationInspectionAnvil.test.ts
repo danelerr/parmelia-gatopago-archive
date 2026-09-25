@@ -146,7 +146,7 @@ describe('Compiled Account V3 composition on an owned local EVM', () => {
 				bytecode: artifact('AccountV3Proxy').bytecode.object, args: [replacement.address] })) } } };
 		await expect(inspectCreationDeployment(test.client, await test.inspectionInput(modified))).rejects.toMatchObject({ code: 'COMPOSITION_MISMATCH' });
 	});
-	it('creates the real bootstrap Account V3 via EntryPoint, checks economic receipt and refuses repricing/replay', async () => {
+	it('creates the real single-passkey Account V3 via EntryPoint, checks economic receipt and refuses repricing/replay', async () => {
 		const input = { ...test.f.input, ...await test.inspectionInput() };
 		const now = Math.floor(Date.now() / 1000);
 		const initial = test.f.assertion(prepareInitialization(input).digest);
@@ -213,18 +213,18 @@ describe('Compiled Account V3 composition on an owned local EVM', () => {
 		const security = await inspectAccountSecurity(test.client, { document, expectedDigest: deploymentDocumentDigest(document),
 			initialSecurityCommitment: candidate.prepared.message.initialSecurityCommitment, userSaltCommitment: input.userSaltCommitment,
 			checkpoint: { block_hash: receipt.blockHash, block_number: receipt.blockNumber.toString() } });
-		expect(security).toMatchObject({ status: 'recognized', spend_readiness: 'not_assessed', security: { phase: 'bootstrap',
+		expect(security).toMatchObject({ status: 'recognized', spend_readiness: 'not_assessed', security: { phase: 'active_policy',
 			policy_hash: candidate.prepared.message.initialSecurityCommitment, policy: candidate.prepared.policy,
-			creation_valid_until: 0, pending: null, nonces: { spend: '0', admin: '0', recovery: '0' } } });
+			creation_valid_until: 0, pending: null, nonces: { spend: '0', admin: '0' } } });
 		expect(await test.client.readContract({ address: ep, abi, functionName: 'getNonce', args: [address, 0n] })).toBe(1n);
 		const deposit = await test.client.readContract({ address: ep, abi, functionName: 'balanceOf', args: [address] });
 		expect(await test.client.getBalance({ address }) + deposit + outcomes[0].args.actualGasCost).toBe(prefund);
 		const policy = await test.client.readContract({ address, abi: artifact('AccountV3').abi, functionName: 'securityPolicy' });
-		expect(policy).toMatchObject({ mode: 0, spendThreshold: 1, adminThreshold: 0, recoveryThreshold: 0 });
+		expect(policy).toMatchObject({ mode: 1, spendThreshold: 1, adminThreshold: 1 });
 		await expect(test.client.simulateContract({ address: ep, abi, functionName: 'handleOps', args: [[signed.packed], test.deployer],
 			account: test.deployer, gas: 10_000_000n })).rejects.toThrow();
 	}, 15000);
-	it.each([0, 3600])('activates after %i seconds with real signatures, then signs directly without the RP domain', async (delay) => {
+	it.each([0, 3600])('enrolls optional keys after %i seconds with real signatures, then signs directly without the RP domain', async (delay) => {
 		const snapshot = await test.control.snapshot();
 		try {
 		const f = activationFixture(), initialization = { ...f.input.initialization, ...await test.inspectionInput() };
@@ -262,7 +262,7 @@ describe('Compiled Account V3 composition on an owned local EVM', () => {
 			const balance = await test.client.getBalance({ address: initial.account });
 			await mined(await test.wallet.sendTransaction({ to: authorization.account, data: authorization.data, value: authorization.value, gas: 5_000_000n }));
 			const proposed = await security();
-			expect(proposed.result.security).toMatchObject({ phase: 'bootstrap', pending: { kind: 1, hash: p.digest }, nonces: { admin: '1' } });
+			expect(proposed.result.security).toMatchObject({ phase: 'active_policy', pending: { kind: 1, hash: p.digest }, nonces: { admin: '1' } });
 			expect(proposed.result.security_version).toBe('1');
 			expect(await test.client.getBalance({ address: initial.account })).toBe(balance);
 			await expect(test.client.call({ account: test.deployer, to: initial.account, data: authorization.data })).rejects.toThrow();
@@ -295,8 +295,8 @@ describe('Compiled Account V3 composition on an owned local EVM', () => {
 			expect(await test.client.getBalance({ address: recipient })).toBe(prior + 1n);
 			expect(await test.client.getBalance({ address: initial.account })).toBe(balance - 1n);
 			await expect(test.client.call({ account: test.deployer, to: initial.account, data: spend })).rejects.toThrow();
-			// Both domain-free factors can also satisfy the administrative quorum. A single
-			// address/backup signature is not evidence of this two-key path.
+			// Either explicitly enrolled direct key can administer this 1-of-N policy.
+			// An address alone is never authority: an exact typed signature is required.
 			const freeze = { accountId: initial.message.accountId, generation: 3, securityVersion: 2n,
 				previousManifestHash: p.expectedManifestHash, chainScopeHash: p.message.chainScopeHash,
 				nonce: 2n, validAfter: plan.validAfter, validUntil: plan.validUntil };
@@ -305,9 +305,9 @@ describe('Compiled Account V3 composition on an owned local EVM', () => {
 			for (const external of f.keys) votes.push({ signerIndex: nextPolicy.signers.findIndex((s) => s.key === external.address.toLowerCase()),
 				signature: await external.sign({ hash: freezeDigest }) });
 			await expect(test.client.simulateContract({ account: test.deployer, address: initial.account, abi: artifact('AccountV3').abi,
-				functionName: 'freeze', args: [freeze, initial.chains, votes.slice(0, 1)] })).rejects.toThrow();
+				functionName: 'freeze', args: [freeze, initial.chains, []] })).rejects.toThrow();
 			await mined(await test.wallet.writeContract({ address: initial.account, abi: artifact('AccountV3').abi,
-				functionName: 'freeze', args: [freeze, initial.chains, votes], gas: 1_000_000n }));
+				functionName: 'freeze', args: [freeze, initial.chains, votes.slice(0, 1)], gas: 1_000_000n }));
 			expect((await security()).result.security).toMatchObject({ upgrades_frozen: true, nonces: { admin: '3' } });
 		} finally { await test.control.revert({ id: snapshot }); }
 	}, 20000);

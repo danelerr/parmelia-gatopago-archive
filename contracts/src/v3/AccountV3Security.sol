@@ -15,7 +15,7 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 /// Authority is always loaded from storage. External verifiers only receive bounded STATICCALLs, before writes.
 /// Future asset execution must set Layout.executing for its entire call batch and use its own reentrancy guard.
 /// TimelockController schedules arbitrary calls under address roles; it cannot represent this typed,
-/// per-account policy/guardian protocol. This library never CALLs assets, DELEGATECALLs or writes ERC-1967.
+/// per-account administrative policy protocol. This library never CALLs assets, DELEGATECALLs or writes ERC-1967.
 /// Its public entrypoints run by compiler-generated DELEGATECALL in the account context. The account
 /// MUST pin/check this library's code and link address; there is no caller-selected module or dispatch.
 /// OZ Nonces/NoncesKeyed own address-keyed storage; V3 uses protocol-fixed uint256 purpose counters and
@@ -30,10 +30,9 @@ library AccountV3Security {
         uint48 readyAt,
         uint48 validUntil
     );
-    event ProposalSuperseded(bytes32 indexed previousProposalHash, bytes32 indexed nextProposalHash);
     event PolicyInstalled(bytes32 indexed proposalHash, bytes32 indexed manifestHash, uint64 securityVersion);
     event ProposalCommitted(bytes32 indexed proposalHash, bytes32 acknowledgementsHash);
-    event ProposalVetoed(bytes32 indexed proposalHash, bytes32 indexed signerId);
+    event ProposalCancelled(bytes32 indexed proposalHash, bytes32 indexed authorizationHash);
     event ProposalExpired(bytes32 indexed proposalHash);
     event UpgradesFrozen(bytes32 indexed authorizationHash, bytes32 cancelledUpgrade);
 
@@ -55,7 +54,6 @@ library AccountV3Security {
     error AccountV3Security__WrongProposal();
     error AccountV3Security__ProposalNotReady();
     error AccountV3Security__MissingAcknowledgements();
-    error AccountV3Security__NotCurrentMember();
     error AccountV3Security__AlreadyFrozen();
     error AccountV3Security__NotExpired();
     error AccountV3Security__SpendingDisabled();
@@ -100,39 +98,32 @@ library AccountV3Security {
                 || change.nextPolicyHash == T.hashPolicy(current)
         ) revert AccountV3Security__WrongPolicy();
 
-        bool bootstrap = kind == E.ChangeKind.Bootstrap;
-        bool recovery = kind == E.ChangeKind.Recovery;
         _checkConsentWindow(change.validAfter, change.validUntil);
         // The short acceptance consent must not cover the whole finality/timelock wait.
         // Both deadlines are signed. Bound lifetime from validAfter (not delivery time)
         // so relayers cannot prolong it by delaying acceptance.
         if (
             change.proposalValidUntil <= change.validUntil
-                || uint256(change.proposalValidUntil)
-                    > uint256(change.validAfter) + (recovery ? state.policy.recoveryDelaySeconds : 0)
-                        + T.MAX_PROPOSAL_COMPLETION
+                || uint256(change.proposalValidUntil) > uint256(change.validAfter) + T.MAX_PROPOSAL_COMPLETION
         ) revert AccountV3Security__InvalidProposalLifetime();
-        if (state.policy.mode != (bootstrap ? P.BOOTSTRAP : P.ACTIVE)) revert AccountV3Security__WrongMode();
+        if (state.policy.mode != P.ACTIVE) revert AccountV3Security__WrongMode();
         D.ProposalKind pendingKind = state.pending.kind;
-        if (pendingKind != D.ProposalKind.None && (!recovery || pendingKind == D.ProposalKind.Recovery)) {
+        if (pendingKind != D.ProposalKind.None) {
             revert AccountV3Security__PendingProposal();
         }
-        _nonce(change.nonce, recovery ? state.recoveryNonce : state.adminNonce);
-        // The old policy's wait starts at acceptance, never at the signer's backdated validAfter.
-        uint48 readyAt = SafeCast.toUint48(uint256(_now()) + (recovery ? state.policy.recoveryDelaySeconds : 0));
+        _nonce(change.nonce, state.adminNonce);
+        // Administrative policy proposals are ready at acceptance; upgrades keep a separate timelock.
+        uint48 readyAt = _now();
         if (readyAt >= change.proposalValidUntil) revert AccountV3Security__TimelockExceedsValidity();
         if (!E.verifyChange(current, next, kind, change, authorizations, enrollments)) {
             revert AccountV3Security__InvalidConsent();
         }
         proposalHash = _digest(E.hashChange(kind, change));
-        if (pendingKind != D.ProposalKind.None) emit ProposalSuperseded(state.pending.proposalHash, proposalHash);
-        if (recovery) ++state.recoveryNonce;
-        else ++state.adminNonce;
+        ++state.adminNonce;
         // Clear nested dynamic arrays and any old upgrade payload before installing a replacement.
         delete state.pending;
         D.PendingProposal storage pending = state.pending;
-        pending.kind =
-            bootstrap ? D.ProposalKind.Bootstrap : recovery ? D.ProposalKind.Recovery : D.ProposalKind.Security;
+        pending.kind = D.ProposalKind.Security;
         pending.securityVersion = state.securityVersion;
         pending.previousManifestHash = state.manifestHash;
         pending.proposalHash = proposalHash;
@@ -151,7 +142,7 @@ library AccountV3Security {
         );
     }
 
-    /// @dev Fresh authority from the OLD policy commits only Bootstrap/Security. No recovery or upgrade shortcut.
+    /// @dev Fresh authority from the OLD policy commits Security changes only. No upgrade shortcut.
     /// acknowledgementsHash is the signers' commitment, NOT proof of another chain's finality.
     function commitPolicy(T.CommitProposal memory message, S.Signature[] memory authorizations) public {
         D.Layout storage state = _state();
@@ -165,8 +156,7 @@ library AccountV3Security {
         );
         _predecessor(state, message.previousManifestHash);
         D.PendingProposal storage pending = state.pending;
-        bool bootstrap = pending.kind == D.ProposalKind.Bootstrap;
-        if (!bootstrap && pending.kind != D.ProposalKind.Security) revert AccountV3Security__WrongProposal();
+        if (pending.kind != D.ProposalKind.Security) revert AccountV3Security__WrongProposal();
         _pending(state, message.proposalHash);
         if (pending.chainScopeHash != message.chainScopeHash) revert AccountV3Security__WrongScope();
         _ready(pending);
@@ -176,27 +166,17 @@ library AccountV3Security {
         _nonce(message.nonce, state.adminNonce);
         bytes32 digest = _digest(T.hashCommit(message));
         T.SecurityPolicy memory current = PS.load(state.policy);
-        bool authorized = bootstrap
-            ? authorizations.length == 1 && authorizations[0].signerIndex == 0
-                && S.verifyBootstrap(current, digest, authorizations[0].signature)
-            : S.verifyQuorum(current, P.ADMIN, digest, authorizations);
+        bool authorized = S.verifyQuorum(current, P.ADMIN, digest, authorizations);
         if (!authorized) revert AccountV3Security__InvalidConsent();
         ++state.adminNonce;
         _install(state);
         emit ProposalCommitted(message.proposalHash, message.acknowledgementsHash);
     }
 
-    /// @notice Any relayer may activate an accepted recovery after its wait and before its expiry.
-    /// @dev No destination, value, calldata, implementation or migration argument exists here.
-    function activateRecovery(bytes32 proposalHash) public {
-        D.Layout storage state = _state();
-        if (state.pending.kind != D.ProposalKind.Recovery) revert AccountV3Security__WrongProposal();
-        _pending(state, proposalHash);
-        _ready(state.pending);
-        _install(state);
-    }
-
-    function veto(T.VetoProposal memory message, bytes memory signature) public {
+    /// @notice Cancel one exact proposal using current ADMIN authority, never a generic signer veto.
+    /// @dev Consumer ADMIN=1 intentionally lets any current consumer owner cancel. This is not
+    /// protection against a compromised administrator. Cancellation never rewinds a nonce/version.
+    function cancel(T.CancelProposal memory message, S.Signature[] memory signatures) public {
         D.Layout storage state = _state();
         _checkMessage(
             state,
@@ -207,24 +187,18 @@ library AccountV3Security {
             message.validUntil
         );
         _pending(state, message.proposalHash);
-        _nonce(message.nonce, state.vetoNonces[message.signerId]);
-        bool found;
-        for (uint256 i; i < state.policy.signers.length; ++i) {
-            T.SignerDescriptor memory member = PS.loadSigner(state.policy.signers[i]);
-            if (T.signerId(member) != message.signerId) continue;
-            found = true;
-            if (!S.verifySigner(member, _digest(T.hashVeto(message)), signature)) {
-                revert AccountV3Security__InvalidConsent();
-            }
-            break;
+        _checkConsentWindow(message.validAfter, message.validUntil);
+        _nonce(message.nonce, state.adminNonce);
+        bytes32 digest = _digest(T.hashCancel(message));
+        if (!S.verifyQuorum(PS.load(state.policy), P.ADMIN, digest, signatures)) {
+            revert AccountV3Security__InvalidConsent();
         }
-        if (!found) revert AccountV3Security__NotCurrentMember();
-        ++state.vetoNonces[message.signerId];
+        ++state.adminNonce;
         delete state.pending;
-        emit ProposalVetoed(message.proposalHash, message.signerId);
+        emit ProposalCancelled(message.proposalHash, digest);
     }
 
-    /// @dev Irreversible; does not reset recovery, alter signers or increment the manifest version.
+    /// @dev Irreversible; does not alter signers or increment the manifest version.
     function freezeUpgrades(
         T.FreezeUpgrades memory message,
         uint256[] calldata chains,
@@ -267,7 +241,7 @@ library AccountV3Security {
     }
 
     /// @notice Read the canonical signed policy without exposing its compact storage format.
-    /// @dev Read-only even while creation/recovery is pending; never constitutes spend approval.
+    /// @dev Read-only even while creation is pending; never constitutes spend approval.
     function readPolicy() public view returns (T.SecurityPolicy memory) {
         D.Layout storage state = D.layout();
         if (!state.initialized || state.generation != T.GENERATION) {
@@ -287,13 +261,10 @@ library AccountV3Security {
         D.Layout storage state = D.layout();
         if (!state.initialized || state.generation != T.GENERATION || state.executing) return false;
         T.SecurityPolicy memory current = PS.load(state.policy);
-        if (current.mode == P.BOOTSTRAP) {
-            return creation && state.creationValidUntil != 0 && signatures.length == 1 && signatures[0].signerIndex == 0
-                && S.verifyBootstrap(current, digest, signatures[0].signature);
-        }
-        return
-            state.pending.kind != D.ProposalKind.Recovery
-                && S.verifyValidatedQuorum(current, P.SPEND, digest, signatures);
+        // Creation-window consumption is enforced by EntryPoint/Validity. A creation-only
+        // operation is never reusable after that window has been consumed.
+        if (creation && state.creationValidUntil == 0) return false;
+        return S.verifyValidatedQuorum(current, P.SPEND, digest, signatures);
     }
 
     /// @notice ERC-1271 predicate in the account's storage/domain; never consumes a nonce or emits events.
@@ -309,9 +280,9 @@ library AccountV3Security {
         D.Layout storage state = D.layout();
         if (
             !state.initialized || state.generation != T.GENERATION || state.creationValidUntil != 0
-                || state.policy.mode != P.ACTIVE || state.pending.kind == D.ProposalKind.Recovery
-                || message.accountId != D.accountId(state) || message.generation != T.GENERATION
-                || message.securityVersion != state.securityVersion || message.applicationHash != applicationHash
+                || state.policy.mode != P.ACTIVE || message.accountId != D.accountId(state)
+                || message.generation != T.GENERATION || message.securityVersion != state.securityVersion
+                || message.applicationHash != applicationHash
                 || keccak256(envelope) != keccak256(abi.encode(message, signatures))
         ) return false;
         return S.verifyValidatedQuorum(
@@ -354,8 +325,6 @@ library AccountV3Security {
         target.mode = source.mode;
         target.spendThreshold = source.spendThreshold;
         target.adminThreshold = source.adminThreshold;
-        target.recoveryThreshold = source.recoveryThreshold;
-        target.recoveryDelaySeconds = source.recoveryDelaySeconds;
         target.upgradeDelaySeconds = source.upgradeDelaySeconds;
     }
 
@@ -364,10 +333,10 @@ library AccountV3Security {
     //////////////////////////////////////////////////////////////*/
 
     /// @dev Necessary guard, NOT spend authorization. The executor still needs signatures/nonces/limits.
-    /// Expired recovery remains blocked until anyone calls expire; merely waiting cannot install a policy.
+    /// An expired proposal never installs a policy; expire only clears its pending record.
     function requireSpendEnabled() internal view {
         D.Layout storage state = _state();
-        if (state.policy.mode != P.ACTIVE || state.pending.kind == D.ProposalKind.Recovery) {
+        if (state.policy.mode != P.ACTIVE) {
             revert AccountV3Security__SpendingDisabled();
         }
     }

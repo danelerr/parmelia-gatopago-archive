@@ -7,13 +7,13 @@ AccountV3Interop
 │   ├── missing/duplicate/non-SPEND/oversized/malformed votes: fail closed
 │   ├── application nonce/domain/deadline: consumer enforces them, not the wallet
 │   ├── callback during signed CALL: read-only approval remains usable
-│   ├── actual WebAuthn assertion: approve using active policy, no bootstrap bypass
+│   ├── actual WebAuthn assertion: approve using current active policy
 │   └── trace: no SSTORE/TSTORE/LOG/TIMESTAMP/BLOCKNUMBER, fixed library observed
-├── given implementation, creation pending or bootstrap: no application authority
+├── given implementation or creation pending: no application authority
 ├── given a policy transition
 │   ├── prepared: old policy remains authoritative
 │   ├── committed: old signatures invalid, even with updated envelope version
-│   └── recovery pending: invalid until explicit expiry or policy resolution
+│   └── empty/unreachable policy never becomes active
 ├── given linked library code drift: fail closed
 ├── native/ERC721/ERC1155 single and batch receipts
 │   └── authenticated direct CALL can transfer all received assets out

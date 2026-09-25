@@ -75,7 +75,7 @@ export async function verifyTransferQuorum(digest: Hex, inputPolicy: SecurityPol
   for (const proof of snapshot.proofs) {
     const member = policy.signers[proof.signerIndex];
     if (!Number.isInteger(proof.signerIndex) || proof.signerIndex < 0 || !member || seen.has(proof.signerIndex)
-      || member.assisted || (member.roles & Role.SPEND) === 0) throw new Error('TRANSFER_QUORUM_INVALID');
+      || (member.roles & Role.SPEND) === 0) throw new Error('TRANSFER_QUORUM_INVALID');
     seen.add(proof.signerIndex);
     signatures.push(await verifyTransferProof(snapshot.digest,policy,snapshot.scope,proof));
   }
@@ -89,7 +89,7 @@ export async function verifyTransferProof(digest: Hex, inputPolicy: SecurityPoli
     hashSecurityPolicy(snapshot.policy);
     const member = snapshot.policy.signers[proof.signerIndex];
     if (snapshot.policy.mode !== 'active' || !Number.isInteger(proof.signerIndex) || proof.signerIndex < 0 || !member
-      || member.assisted || (member.roles & Role.SPEND) === 0) throw new Error('TRANSFER_QUORUM_INVALID');
+      || (member.roles & Role.SPEND) === 0) throw new Error('TRANSFER_QUORUM_INVALID');
     let signature: Hex;
     if (member.kind === SignerKind.WEBAUTHN && proof.kind === 'webauthn') {
       signature = encodeWebAuthnAssertion({ scope: snapshot.scope, key: member.key, challenge: snapshot.digest, response: proof.assertion });

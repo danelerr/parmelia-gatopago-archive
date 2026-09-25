@@ -5,8 +5,8 @@ import {Test} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
-import {ParmeliaPaymentRouterV2} from "src/ParmeliaPaymentRouterV2.sol";
-import {ParmeliaCctpPaymentRouter} from "src/ParmeliaCctpPaymentRouter.sol";
+import {GatoPagoPaymentRouter} from "src/GatoPagoPaymentRouter.sol";
+import {GatoPagoCctpPaymentRouter} from "src/GatoPagoCctpPaymentRouter.sol";
 import {ITokenMessengerV2} from "src/interfaces/ITokenMessengerV2.sol";
 import {NetworkDeploymentConfig} from "script/NetworkDeploymentConfig.sol";
 
@@ -46,10 +46,10 @@ contract UniversalCheckoutForkTest is Test {
         assertTrue(config.isHomeChain);
 
         IForkUSDC usdc = IForkUSDC(config.usdc);
-        ParmeliaPaymentRouterV2 router = new ParmeliaPaymentRouterV2(
+        GatoPagoPaymentRouter router = new GatoPagoPaymentRouter(
             makeAddr("fork owner"), IERC20(config.usdc), treasury, authorizationSigner, makeAddr("fork guardian")
         );
-        ParmeliaPaymentRouterV2.PaymentAuthorization memory authorization = ParmeliaPaymentRouterV2.PaymentAuthorization({
+        GatoPagoPaymentRouter.PaymentAuthorization memory authorization = GatoPagoPaymentRouter.PaymentAuthorization({
             intentId: keccak256("fork-local-intent"),
             attemptId: keccak256("fork-local-attempt"),
             payer: payer,
@@ -95,7 +95,7 @@ contract UniversalCheckoutForkTest is Test {
         assertEq(config.cctpFastSupported, expectedFastCapability);
 
         IForkUSDC usdc = IForkUSDC(config.usdc);
-        ParmeliaCctpPaymentRouter router = new ParmeliaCctpPaymentRouter(
+        GatoPagoCctpPaymentRouter router = new GatoPagoCctpPaymentRouter(
             makeAddr(string.concat(seed, " owner")),
             IERC20(config.usdc),
             ITokenMessengerV2(config.tokenMessenger),
@@ -106,8 +106,8 @@ contract UniversalCheckoutForkTest is Test {
             config.cctpFastSupported,
             0
         );
-        ParmeliaCctpPaymentRouter.CctpPaymentAuthorization memory authorization =
-            ParmeliaCctpPaymentRouter.CctpPaymentAuthorization({
+        GatoPagoCctpPaymentRouter.CctpPaymentAuthorization memory authorization =
+            GatoPagoCctpPaymentRouter.CctpPaymentAuthorization({
                 intentId: keccak256(abi.encode(seed, " intent")),
                 attemptId: keccak256(abi.encode(seed, " attempt")),
                 payer: payer,

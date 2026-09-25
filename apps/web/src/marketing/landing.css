@@ -1,3 +1,5 @@
+@reference "../app/base.css";
+
 :root {
   --meli-cat-fire: #f85239;
   --meli-cat-shadow: #cf3433;
@@ -126,12 +128,12 @@ body:has(.meli-landing) {
 }
 
 .meli-container {
+  @apply mx-auto;
   width: min(calc(100% - 48px), var(--meli-container));
-  margin-inline: auto;
 }
 
 .meli-section {
-  position: relative;
+  @apply relative;
   padding-block: var(--meli-section-space);
 }
 
@@ -268,11 +270,7 @@ body:has(.meli-landing) {
 }
 
 .meli-brand {
-  display: inline-flex;
-  width: fit-content;
-  min-height: 44px;
-  align-items: center;
-  gap: 10px;
+  @apply inline-flex w-fit min-h-11 items-center gap-2.5;
 }
 
 .meli-brand__glyph {
@@ -304,8 +302,7 @@ body:has(.meli-landing) {
 }
 
 .meli-nav__links {
-  display: flex;
-  align-items: center;
+  @apply flex items-center;
   gap: clamp(20px, 2.3vw, 36px);
 }
 
@@ -417,18 +414,12 @@ body:has(.meli-landing) {
 
 /* Buttons */
 .meli-button {
+  @apply inline-flex min-h-12 items-center justify-center gap-2.5 rounded-none px-5 py-0;
   --button-bg: transparent;
   --button-color: currentColor;
   --button-border: currentColor;
   --button-shadow: var(--meli-cat-shadow);
-  display: inline-flex;
-  min-height: 48px;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 0 20px;
   border: 2px solid var(--button-border);
-  border-radius: 0;
   background: var(--button-bg);
   color: var(--button-color) !important;
   box-shadow: 4px 4px 0 var(--button-shadow);

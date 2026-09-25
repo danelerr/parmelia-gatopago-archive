@@ -25,7 +25,7 @@ describe('durable owned bootstrap activation consent', () => {
  it('reconstructs owned consent across requests without polling, renewal, signatures or readiness on GET', async () => {
   const f = await scenario(), request = f.request(), p = await f.repository().prepare(request, signal());
   expect(p).toMatchObject({ state: 'prepared', activation_assessment: 'not_assessed', receive_enabled: false, spend_enabled: false });
-  expect(p.input.observation.security.phase).toBe('bootstrap');
+  expect(p.input.observation.security.phase).toBe('active_policy');
   const before = await stored(request.id); f.fetch.mockClear();
   expect(await f.repository().read(request.id)).toEqual(p);
   expect(await f.repository().prepare(request, signal())).toEqual(p);
@@ -115,13 +115,12 @@ describe('durable owned bootstrap activation consent', () => {
   await expect(f.repository().authorize(r.id, f.f.assertion(fixtureHash('a')), proofs, signal())).rejects.toThrow();
   expect((await stored(r.id))?.authorization_json).toBeNull(); expect(f.fetch).not.toHaveBeenCalled();
  });
- it('persists and reverifies an explicit WebAuthn enrollment when the initial key gains roles', async () => {
+ it('rejects the retired recovery role instead of granting it to the initial key', async () => {
   const f = await scenario(), r = f.request();
   r.nextPolicy.signers.find((s) => s.kind === 1)!.roles = 7;
-  const p = await f.repository().prepare(r, signal()), proofs = await f.proofs(p.input);
-  expect(proofs.some((p) => p.kind === 'webauthn')).toBe(true);
-  await f.repository().authorize(r.id, f.f.assertion(p.proposal_hash), proofs, signal());
-  expect((await f.repository().read(r.id)).state).toBe('authorized');
+  f.fetch.mockClear();
+  await expect(f.repository().prepare(r, signal())).rejects.toThrow();
+  expect(f.fetch).not.toHaveBeenCalled(); expect(await count()).toBe(0);
  });
  it('does not renew expired consent, but can read an expired exact authorization as history', async () => {
   const f = await scenario(), first = f.request(), second = f.request();
@@ -187,7 +186,7 @@ describe('durable owned bootstrap activation consent', () => {
   const approvedDeadline = r.proposalValidUntil;
   const pending = f.repository().prepare(r, signal()); r.nextPolicy.adminThreshold = 16;
   r.proposalValidUntil += 1;
-  const p = await pending; expect(p.input.nextPolicy.adminThreshold).toBe(2); expect(p.proposal_valid_until).toBe(approvedDeadline);
+  const p = await pending; expect(p.input.nextPolicy.adminThreshold).toBe(1); expect(p.proposal_valid_until).toBe(approvedDeadline);
   const owner = f.f.assertion(p.proposal_hash), enrollments = await f.proofs(p.input);
   const authorization = f.repository().authorize(r.id, owner, enrollments, signal());
   owner.signatureDER.fill(0); enrollments.splice(0);

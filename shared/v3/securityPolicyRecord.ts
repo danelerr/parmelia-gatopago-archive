@@ -16,16 +16,16 @@ export function parseSecurityPolicyRecord(value: unknown): SecurityPolicy {
     return input as Hex;
   }
   const p = row(value);
-  if (!Array.isArray(p.signers) || p.signers.length > 16 || (p.mode !== 'bootstrap' && p.mode !== 'active')) throw new Error('Invalid activation policy');
+  if ('recoveryThreshold' in p || 'recoveryDelaySeconds' in p) throw new Error('Retired policy format');
+  if (!Array.isArray(p.signers) || p.signers.length > 16 || p.mode !== 'active') throw new Error('Invalid activation policy');
   const signers = p.signers.map((value: unknown): SignerDescriptor => {
     const s = row(value), kind = integer(s.kind);
     if (kind !== 0 && kind !== 1 && kind !== 2) throw new Error('Invalid activation signer');
-    if (typeof s.assisted !== 'boolean') throw new Error('Invalid activation boolean');
-    return { kind, verifier: hex(s.verifier), verifierCodeHash: hex(s.verifierCodeHash), key: hex(s.key), roles: integer(s.roles), assisted: s.assisted };
+    if ('assisted' in s) throw new Error('Retired signer format');
+    return { kind, verifier: hex(s.verifier), verifierCodeHash: hex(s.verifierCodeHash), key: hex(s.key), roles: integer(s.roles) };
   });
   const policy: SecurityPolicy = { mode: p.mode, signers,
-    spendThreshold: integer(p.spendThreshold), adminThreshold: integer(p.adminThreshold), recoveryThreshold: integer(p.recoveryThreshold),
-    recoveryDelaySeconds: integer(p.recoveryDelaySeconds), upgradeDelaySeconds: integer(p.upgradeDelaySeconds) };
+    spendThreshold: integer(p.spendThreshold), adminThreshold: integer(p.adminThreshold), upgradeDelaySeconds: integer(p.upgradeDelaySeconds) };
   validateSecurityPolicy(policy);
   return policy;
 }

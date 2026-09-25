@@ -23,7 +23,7 @@ describe('Bounded independent current-security observations', () => {
 		await inspectWalletSecurity(t.first.input, endpoints, new AbortController().signal);
 		expect(t.mock).toHaveBeenCalledTimes(64);
 	});
-	it.each(['adminNonce', 'spendNonce', 'recoveryNonce'] as const)('rejects provider disagreement about %s', async (key) => {
+	it.each(['adminNonce', 'spendNonce'] as const)('rejects provider disagreement about %s', async (key) => {
 		const t = mockProviders(); t.second.security[key] += 1n;
 		await expect(inspectWalletSecurity(t.first.input, endpoints, new AbortController().signal)).rejects.toThrow('SECURITY_OBSERVATIONS_DISAGREE');
 		expect(t.mock).toHaveBeenCalledTimes(32);

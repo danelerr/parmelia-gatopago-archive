@@ -35,7 +35,7 @@ contract AccountV3CreationInvariantTest is V3CreationFixture {
         bytes4[] memory selectors = new bytes4[](7);
         selectors[0] = handler.prepare.selector;
         selectors[1] = handler.commitOrActivate.selector;
-        selectors[2] = handler.veto.selector;
+        selectors[2] = handler.cancel.selector;
         selectors[3] = handler.expire.selector;
         selectors[4] = handler.advance.selector;
         selectors[5] = handler.freeze.selector;
@@ -69,21 +69,21 @@ contract AccountV3CreationInvariantTest is V3CreationFixture {
         assertEq(_fingerprint(account), before_);
     }
 
-    function test_realProxyHandlerExercisesRotationRecoveryVetoExpiryAndFreeze() public {
+    function test_realProxyHandlerExercisesRotationCancelExpiryAndFreeze() public {
         handler.prepare(0, false);
         handler.commitOrActivate();
         handler.prepare(1, true);
         handler.advance(72 hours);
         handler.commitOrActivate();
         handler.prepare(2, false);
-        handler.veto(0);
+        handler.cancel(0);
         handler.prepare(2, true);
         handler.advance(11 days);
         handler.expire();
         handler.freeze();
         handler.rejectCorruption(0);
         assertEq(handler.installed(), 2);
-        assertEq(handler.vetoed(), 1);
+        assertEq(handler.cancelled(), 1);
         assertEq(handler.expired(), 1);
         invariant_policyTransitionsPreserveCreationIdentityImplementationAndFunds();
         invariant_creationLookupCannotResetSecurityOrNonces();

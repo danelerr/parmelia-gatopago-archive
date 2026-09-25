@@ -21,15 +21,13 @@ contract V3SecurityInvariantToken is ERC20 {
 contract V3SecurityHandler is V3SecurityFixture {
     V3SecurityHarness public immutable account;
     uint256 public adminAccepted;
-    uint256 public recoveryAccepted;
     uint256 public installed;
-    uint256 public vetoed;
+    uint256 public cancelled;
     uint256 public expired;
     uint256 public rejected;
     bool public frozen;
     bytes32 public expectedPolicy;
     bytes32 public expectedManifest;
-    mapping(bytes32 member => uint256 count) public expectedVetoNonces;
 
     constructor(V3SecurityHarness initializedAccount) {
         _setupKeys();
@@ -42,29 +40,25 @@ contract V3SecurityHandler is V3SecurityFixture {
         assertState();
     }
 
-    function prepare(uint256 seed, bool recovery) external {
+    function prepare(uint256 seed, bool) external {
         V3SecurityHarness.Snapshot memory before_ = account.snapshot();
-        if (
-            before_.pending.kind != D.ProposalKind.None
-                && (!recovery || before_.pending.kind == D.ProposalKind.Recovery)
-        ) return;
+        if (before_.pending.kind != D.ProposalKind.None) return;
         T.SecurityPolicy memory next;
         if (seed % 3 == 0) next = _policy(alice, carol);
         else if (seed % 3 == 1) next = _policy(bob, dave);
         else next = _policy(alice, bob);
         if (T.hashPolicy(next) == expectedPolicy) next.spendThreshold = before_.policy.spendThreshold == 1 ? 2 : 1;
-        E.ChangeKind kind = recovery ? E.ChangeKind.Recovery : E.ChangeKind.Security;
+        E.ChangeKind kind = E.ChangeKind.Security;
         T.SecurityChange memory message = _change(account, next, kind);
         bytes32 expectedHash = _context(account, message, kind);
         bytes32 proposal = _prepare(account, next, kind);
-        if (recovery) ++recoveryAccepted;
-        else ++adminAccepted;
+        ++adminAccepted;
         V3SecurityHarness.Snapshot memory state = account.snapshot();
         assertEq(proposal, expectedHash);
         assertEq(state.pending.proposalHash, expectedHash);
         assertEq(state.pending.securityVersion, before_.version);
         assertEq(state.pending.previousManifestHash, before_.manifest);
-        assertEq(state.pending.readyAt, block.timestamp + (recovery ? before_.policy.recoveryDelaySeconds : 0));
+        assertEq(state.pending.readyAt, block.timestamp);
         assertEq(state.pending.validUntil, message.proposalValidUntil);
         assertEq(T.hashPolicy(state.pending.nextPolicy), T.hashPolicy(next));
         assertState();
@@ -86,24 +80,19 @@ contract V3SecurityHandler is V3SecurityFixture {
                 before_.id, 3, before_.version + 1, before_.manifest, expectedPolicy, pending.chainScopeHash
             )
         );
-        if (pending.kind == D.ProposalKind.Recovery) {
-            account.activate(pending.proposalHash);
-        } else {
-            _commit(account);
-            ++adminAccepted;
-        }
+        _commit(account);
+        ++adminAccepted;
         ++installed;
         assertEq(uint8(account.snapshot().pending.kind), uint8(D.ProposalKind.None));
         assertState();
     }
 
-    function veto(uint256 seed) external {
+    function cancel(uint256) external {
         V3SecurityHarness.Snapshot memory state = account.snapshot();
         if (state.pending.kind == D.ProposalKind.None) return;
-        T.SignerDescriptor memory member = state.policy.signers[seed % state.policy.signers.length];
-        _veto(account, member);
-        ++expectedVetoNonces[T.signerId(member)];
-        ++vetoed;
+        _cancel(account);
+        ++adminAccepted;
+        ++cancelled;
         assertState();
     }
 
@@ -127,7 +116,7 @@ contract V3SecurityHandler is V3SecurityFixture {
         _freeze(account);
         frozen = true;
         ++adminAccepted;
-        if (pending.kind == D.ProposalKind.Recovery) {
+        if (pending.kind == D.ProposalKind.Security) {
             assertEq(account.snapshot().pending.proposalHash, pending.proposalHash);
             assertEq(account.snapshot().pending.readyAt, pending.readyAt);
         }
@@ -167,18 +156,12 @@ contract V3SecurityHandler is V3SecurityFixture {
     function assertState() public view {
         V3SecurityHarness.Snapshot memory state = account.snapshot();
         assertEq(state.admin, adminAccepted);
-        assertEq(state.recovery, recoveryAccepted);
         assertEq(state.spend, 0);
         assertEq(state.version, 1 + installed);
         assertEq(T.hashPolicy(state.policy), expectedPolicy);
         assertEq(state.manifest, expectedManifest);
         assertEq(state.frozen, frozen);
         assertEq(state.scope, keccak256(abi.encode(_chains())));
-        address[4] memory members = [alice, bob, carol, dave];
-        for (uint256 i; i < members.length; ++i) {
-            bytes32 id = T.signerId(_ecdsa(members[i]));
-            assertEq(account.vetoNonce(id), expectedVetoNonces[id]);
-        }
         if (state.pending.kind != D.ProposalKind.None) {
             assertEq(state.pending.securityVersion, state.version);
             assertEq(state.pending.previousManifestHash, state.manifest);
@@ -190,7 +173,7 @@ contract V3SecurityHandler is V3SecurityFixture {
             assertEq(state.pending.nextPolicy.signers.length, 0);
         }
         (bool spending,) = address(account).staticcall(abi.encodeCall(account.spendEnabled, ()));
-        assertEq(spending, state.pending.kind != D.ProposalKind.Recovery);
+        assertTrue(spending);
     }
 }
 
@@ -214,7 +197,7 @@ contract AccountV3SecurityInvariantTest is Test {
         bytes4[] memory selectors = new bytes4[](7);
         selectors[0] = handler.prepare.selector;
         selectors[1] = handler.commitOrActivate.selector;
-        selectors[2] = handler.veto.selector;
+        selectors[2] = handler.cancel.selector;
         selectors[3] = handler.expire.selector;
         selectors[4] = handler.advance.selector;
         selectors[5] = handler.freeze.selector;
@@ -240,14 +223,14 @@ contract AccountV3SecurityInvariantTest is Test {
         handler.advance(72 hours);
         handler.commitOrActivate();
         handler.prepare(2, false);
-        handler.veto(0);
+        handler.cancel(0);
         handler.prepare(2, true);
         handler.advance(11 days);
         handler.expire();
         handler.freeze();
         handler.rejectCorruption(0);
         assertEq(handler.installed(), 2);
-        assertEq(handler.vetoed(), 1);
+        assertEq(handler.cancelled(), 1);
         assertEq(handler.expired(), 1);
         assertEq(handler.rejected(), 1);
         assertTrue(handler.frozen());

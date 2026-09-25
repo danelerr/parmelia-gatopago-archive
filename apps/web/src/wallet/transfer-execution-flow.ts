@@ -26,6 +26,7 @@ export class TransferExecutionFlow {
   private session: Session | null = null;
   private active: AbortController | null = null;
   private confirmationAttempted = false;
+  private lastSubmittedProofs: TransferProofs | null = null;
   private readonly listeners = new Set<() => void>();
   constructor(private readonly capture: () => Session, selected: TransferSelection, request: TransferRequest, review: TransferReview,
     private readonly environment: EnabledAuthConfig['environment']) {
@@ -40,7 +41,7 @@ export class TransferExecutionFlow {
     this.session ??= this.capture(); this.session.commands.assertCurrent(); this.session.transfers.assertCurrent(); return this.session;
   }
   invalidate() {
-    this.active?.abort(); this.active = null; this.session = null;
+    this.active?.abort(); this.active = null; this.session = null; this.lastSubmittedProofs = null;
     this.set({ phase:'closed',confirmation:null,delivery:null,status:null,error:false });
   }
   dispose() { this.invalidate(); }
@@ -67,6 +68,7 @@ export class TransferExecutionFlow {
       try { this.currentReview(); } catch { this.set({ phase:'expired',error:true }); return; }
       this.set({ phase:'confirming',error:false });
       this.confirmationAttempted = true;
+      this.lastSubmittedProofs = snapshot;
       const result = await session.commands.confirm(this.selected,this.request,this.review,snapshot,controller.signal);
       if (!this.alive(controller)) return; this.currentSession();
       const confirmation = parseTransferConfirmationReceipt(result,this.initial);
@@ -90,11 +92,21 @@ export class TransferExecutionFlow {
     finally { if (this.active === controller) this.active = null; release(); }
   }
   async readStatus() {
-    if (this.active || this.view.phase === 'closed' || !this.view.confirmation) return;
-    const controller = new AbortController(), previous = this.view.phase, id = this.view.confirmation.id; this.active = controller;
+    if (this.active || this.view.phase === 'closed') return;
+    if (!this.view.confirmation && !this.lastSubmittedProofs) return;
+    const controller = new AbortController(), previous = this.view.phase; this.active = controller;
     this.set({ phase:'observing',status:null,error:false });
     try {
       const session = this.currentSession();
+      let confirmation = this.view.confirmation;
+      if (!confirmation && this.lastSubmittedProofs) {
+        const result = await session.commands.confirm(this.selected,this.request,this.review,this.lastSubmittedProofs,controller.signal);
+        if (!this.alive(controller)) return; this.currentSession();
+        confirmation = parseTransferConfirmationReceipt(result,this.initial);
+        this.set({ confirmation });
+      }
+      if (!confirmation) { this.failed(controller,previous); return; }
+      const id = confirmation.id;
       const locator = { wallet_id:this.selected.wallet_id,wallet_account_id:this.selected.wallet_account_id,
         operation_id:id,network_id:this.selected.network_id };
       const response = await session.transfers.status(locator,controller.signal);
@@ -102,7 +114,7 @@ export class TransferExecutionFlow {
       const status = parseTransferStatus(response,locator);
       if (status.userop_hash !== this.initial.candidate.userOpHash) throw new Error('Mismatched operation');
       // Reading even a held state never re-enables delivery after an ambiguous send.
-      this.set({ phase:previous === 'reserved' && status.status === 'held' ? 'reserved' : 'observed',status,error:false });
+      this.set({ phase:previous === 'reserved' && status.status === 'held' ? 'reserved' : 'observed',status,confirmation,error:false });
     } catch { this.failed(controller,previous); }
     finally { if (this.active === controller) this.active = null; }
   }

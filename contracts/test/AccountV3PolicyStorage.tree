@@ -1,6 +1,6 @@
 AccountV3PolicyStorage
 ├── given a canonical policy
-│   ├── when bootstrap or two to sixteen mixed signers are stored
+│   ├── when one to sixteen active mixed signers are stored
 │   │   └── it should preserve ABI bytes, signer IDs, roles, delays and policy hash
 │   ├── when address keys use their highest bits
 │   │   └── it should reconstruct all twenty bytes without duplicating storage

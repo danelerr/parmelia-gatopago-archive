@@ -20,7 +20,7 @@ library AccountV3Signatures {
     }
 
     /// @notice Malformed policies revert. A missing/invalid signature or wrong authority returns false.
-    /// @dev Only active policies: a bootstrap spend threshold MUST NOT enable spending.
+    /// @dev Only active policies with reachable SPEND and ADMIN authority are accepted.
     function verifyQuorum(T.SecurityPolicy memory policy, uint8 role, bytes32 digest, Signature[] memory signatures)
         internal
         view
@@ -43,7 +43,6 @@ library AccountV3Signatures {
         uint256 threshold;
         if (role == Policy.SPEND) threshold = policy.spendThreshold;
         else if (role == Policy.ADMIN) threshold = policy.adminThreshold;
-        else if (role == Policy.RECOVERY) threshold = policy.recoveryThreshold;
         else return false;
         if (threshold == 0 || signatures.length < threshold || signatures.length > policy.signers.length) return false;
         uint256 seen;
@@ -61,17 +60,7 @@ library AccountV3Signatures {
         return true;
     }
 
-    /// @dev Initialization/promotion proof only. Never use this predicate for spending or administration.
-    function verifyBootstrap(T.SecurityPolicy memory policy, bytes32 digest, bytes memory signature)
-        internal
-        view
-        returns (bool)
-    {
-        Policy.validate(policy);
-        return policy.mode == Policy.BOOTSTRAP && verifyValidatedSigner(policy.signers[0], digest, signature);
-    }
-
-    /// @dev Primitive for enrollment/veto after the account has selected the expected descriptor and digest.
+    /// @dev Primitive for enrollment after the account has selected the expected descriptor and digest.
     function verifySigner(T.SignerDescriptor memory signer, bytes32 digest, bytes memory signature)
         internal
         view

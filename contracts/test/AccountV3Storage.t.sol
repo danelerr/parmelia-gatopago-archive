@@ -25,30 +25,24 @@ contract AccountV3StorageHarness {
         state.policy.mode = 1;
         state.policy.spendThreshold = 1;
         state.policy.adminThreshold = 2;
-        state.policy.recoveryThreshold = 2;
-        state.policy.recoveryDelaySeconds = T.MIN_RECOVERY_DELAY;
         state.policy.upgradeDelaySeconds = T.MIN_UPGRADE_DELAY;
         // Raw layout fixture, not a valid quorum or an authorization entrypoint.
-        state.policy.signers.push(S.StoredSigner(0, 7, false, address(0x1234), bytes32(0), hex""));
+        state.policy.signers.push(S.StoredSigner(0, 3, address(0x1234), bytes32(0), hex""));
     }
 
-    function setNonces(uint256 spend, uint256 admin, uint256 recovery, bytes32 member, uint256 veto) external {
-        S.Layout storage state = S.layout();
-        state.spendNonce = spend;
-        state.adminNonce = admin;
-        state.recoveryNonce = recovery;
-        state.vetoNonces[member] = veto;
+    function setNonces(uint256 spend, uint256 admin) external {
+        S.layout().spendNonce = spend;
+        S.layout().adminNonce = admin;
     }
 
-    function getNonces(bytes32 member) external view returns (uint256, uint256, uint256, uint256) {
-        S.Layout storage state = S.layout();
-        return (state.spendNonce, state.adminNonce, state.recoveryNonce, state.vetoNonces[member]);
+    function getNonces() external view returns (uint256, uint256) {
+        return (S.layout().spendNonce, S.layout().adminNonce);
     }
 
     function replaceAndClearPending() external {
         S.Layout storage state = S.layout();
-        state.pending.kind = S.ProposalKind.Recovery;
-        state.pending.nextPolicy.signers.push(T.SignerDescriptor(0, address(0), bytes32(0), hex"abcdef", 7, false));
+        state.pending.kind = S.ProposalKind.Security;
+        state.pending.nextPolicy.signers.push(T.SignerDescriptor(0, address(0), bytes32(0), hex"abcdef", 3));
         state.pending.upgrade.runtimeCodeHash = keccak256("must-clear");
         delete state.pending;
     }
@@ -92,37 +86,25 @@ contract AccountV3StorageTest is Test {
     }
 
     function test_pendingDeletionDoesNotErasePolicyFreezeOrNonces() public {
-        bytes32 member = keccak256("member");
-        harness.setNonces(1, 2, 3, member, 4);
+        harness.setNonces(1, 2);
         bytes32 header = vm.load(address(harness), S.STORAGE_LOCATION);
         bytes32 policyHash = harness.currentPolicyHash();
         harness.replaceAndClearPending();
         assertTrue(harness.pendingEmpty());
         assertEq(vm.load(address(harness), S.STORAGE_LOCATION), header);
         assertEq(harness.currentPolicyHash(), policyHash);
-        (uint256 spend, uint256 admin, uint256 recovery, uint256 veto) = harness.getNonces(member);
+        (uint256 spend, uint256 admin) = harness.getNonces();
         assertEq(spend, 1);
         assertEq(admin, 2);
-        assertEq(recovery, 3);
-        assertEq(veto, 4);
     }
 
-    function testFuzz_nonceDomainsDoNotAlias(
-        uint256 spend,
-        uint256 admin,
-        uint256 recovery,
-        uint256 veto,
-        bytes32 member
-    ) public {
+    function testFuzz_nonceDomainsDoNotAlias(uint256 spend, uint256 admin) public {
         bytes32 policyHash = harness.currentPolicyHash();
         bytes32 header = vm.load(address(harness), S.STORAGE_LOCATION);
-        harness.setNonces(spend, admin, recovery, member, veto);
-        (uint256 storedSpend, uint256 storedAdmin, uint256 storedRecovery, uint256 storedVeto) =
-            harness.getNonces(member);
+        harness.setNonces(spend, admin);
+        (uint256 storedSpend, uint256 storedAdmin) = harness.getNonces();
         assertEq(storedSpend, spend);
         assertEq(storedAdmin, admin);
-        assertEq(storedRecovery, recovery);
-        assertEq(storedVeto, veto);
         assertEq(harness.currentPolicyHash(), policyHash);
         assertEq(vm.load(address(harness), S.STORAGE_LOCATION), header);
         assertEq(vm.load(address(harness), IMPLEMENTATION_SLOT), bytes32(0));

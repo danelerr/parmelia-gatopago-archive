@@ -2,19 +2,19 @@
 
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import dynamic from 'next/dynamic';
 import type { WebAuthConfig, EnabledAuthConfig } from './config';
 import type { BrowserAuth, Identity } from './browser';
 import { forgetEmail, normalizeEmail, parseEmailLanding, readPendingEmail, rememberEmail, type EmailLanding } from './email-link';
 import { Turnstile } from './Turnstile';
 import type { ChallengeState } from './turnstile-lifecycle';
 import './auth.css';
-import { PwaControls } from '../pwa/PwaControls';
 import { reloadPage } from '../pwa/reload-guard';
 import { isClientUpdateError } from '@gatopago/shared/v3/client-release';
-import { WalletOverview } from '../wallet/WalletOverview';
+import { ConsumerFrame } from '../consumer/ConsumerFrame';
+import { ConsumerContent } from '../consumer/ConsumerContent';
+import type { ConsumerView } from '../consumer/routes';
+import { IntegrationNotice } from '../consumer/Primitives';
 
-const SecurityEnrollment = dynamic(() => import('../wallet/SecurityEnrollment'), { ssr: false });
 
 function browserStorage(): Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> {
   try { return window.localStorage; }
@@ -32,21 +32,21 @@ function messageFor(error: unknown, en: boolean): string {
 }
 
 export function AuthScreen({ config, view, art, english = false }: {
-  config: WebAuthConfig; view: 'login' | 'account' | 'security'; art: ReactNode; english?: boolean;
+  config: WebAuthConfig; view: ConsumerView; art: ReactNode; english?: boolean;
 }) {
-  if (config.mode === 'disabled') return <main className="auth-shell" lang={english ? 'en' : 'es'}>
-    <header className="auth-header"><a className="auth-brand" href={english ? '/en' : '/'}>GatoPago</a><PwaControls english={english} /></header>
+  if (config.mode === 'disabled' && view !== 'login') return <ConsumerFrame english={english} navigation><div className="auth-content"><IntegrationNotice english={english} identityOnly /><ConsumerContent view={view} english={english} /></div></ConsumerFrame>;
+  if (config.mode === 'disabled') return <ConsumerFrame english={english}><div className="auth-content">
     {art ? <div className="auth-art">{art}</div> : null}
     <h1>{english ? 'V3 sign-in is not enabled yet' : 'El acceso V3 todavía no está habilitado'}</h1>
     <p>{english ? 'This environment has no provisioned identity service. No account or key has been created.' : 'Este ambiente aún no tiene su servicio de identidad configurado. No se creó ninguna cuenta ni llave.'}</p>
     <p>{english ? 'Do not send funds to test this version.' : 'No envíes fondos para probar esta versión.'}</p>
     <a className="auth-secondary" href={english ? '/en' : '/'}>{english ? 'Back to GatoPago' : 'Volver a GatoPago'}</a>
-  </main>;
+  </div></ConsumerFrame>;
   return <EnabledAuthScreen config={config} view={view} art={art} english={english} />;
 }
 
 function EnabledAuthScreen({ config, view, art, english: en }: {
-  config: EnabledAuthConfig; view: 'login' | 'account' | 'security'; art: ReactNode; english: boolean;
+  config: EnabledAuthConfig; view: ConsumerView; art: ReactNode; english: boolean;
 }) {
   const router = useRouter();
   const [runtime, setRuntime] = useState<BrowserAuth | null>(null);
@@ -178,13 +178,11 @@ function EnabledAuthScreen({ config, view, art, english: en }: {
   const seconds = Math.max(0, Math.ceil((resendAt - clock) / 1000));
   const formReady = config.mode === 'emulator' || challenge.status === 'verified';
 
-  return <main className="auth-shell" lang={en ? 'en' : 'es'}>
-    <header className="auth-header"><a className="auth-brand" href={en ? '/en' : '/'}>GatoPago</a><PwaControls english={en} /></header>
+  return <ConsumerFrame english={en} navigation={ready && !!user && view !== 'login'}><div className="auth-content">
     {config.mode === 'emulator' ? <p className="auth-local" role="note">{en ? 'Local emulator · no real emails or funds' : 'Emulador local · sin correos ni fondos reales'}</p> : null}
-    {art ? <div className="auth-art">{art}</div> : null}
-    <h1>{view === 'security' ? (en ? 'Your security center' : 'Tu centro de seguridad') : view === 'account' ? (en ? 'Your GatoPago account' : 'Tu cuenta GatoPago') : (en ? 'Sign in to GatoPago' : 'Entrar a GatoPago')}</h1>
-    {view === 'security' ? <a className="auth-secondary" href={`/app${suffix}`}>{en ? 'Back to my account' : 'Volver a mi cuenta'}</a> : null}
-    <p className="auth-description">{en ? 'Google or your email confirms who you are. Your keys authorize payments separately.' : 'Google o tu correo confirman quién eres. Tus llaves autorizan los pagos por separado.'}</p>
+    {art && view === 'login' ? <div className="auth-art">{art}</div> : null}
+    {view === 'login' ? <h1>{en ? 'Sign in to GatoPago' : 'Entrar a GatoPago'}</h1> : null}
+    {view === 'login' ? <p className="auth-description">{en ? 'Google or your email confirms who you are. Your keys authorize payments separately.' : 'Google o tu correo confirman quién eres. Tus llaves autorizan los pagos por separado.'}</p> : null}
     {initError ? <div className="auth-error" role="alert"><p>{en ? 'Sign-in could not start. Check your connection or reload.' : 'No se pudo iniciar el acceso. Revisa tu conexión o recarga.'}</p>
       <button type="button" onClick={() => window.location.reload()}>{en ? 'Reload' : 'Recargar'}</button></div> : !ready ? <p role="status">{en ? 'Loading sign-in…' : 'Cargando acceso…'}</p> : null}
     {error ? <p className="auth-error" role="alert">{error}</p> : null}
@@ -194,18 +192,13 @@ function EnabledAuthScreen({ config, view, art, english: en }: {
       <button type="button" disabled={busy} onClick={() => reloadPage()}>{en ? 'Reload' : 'Recargar'}</button>
       <p>{en ? 'If this message remains, close all GatoPago windows, including the installed app, and reopen it to activate the waiting update.' : 'Si el mensaje continúa, cierra todas las ventanas de GatoPago, incluida la app instalada, y vuelve a abrirla para activar la actualización pendiente.'}</p>
     </section> : null}
-    {ready && user ? <section className="auth-panel">
-      <h2>{en ? 'Identity confirmed' : 'Identidad confirmada'}</h2>
-      <p className="auth-email">{user.email ?? user.displayName ?? (en ? 'Signed-in user' : 'Usuario autenticado')}</p>
+    {ready && user ? <section className={view === 'login' ? 'auth-panel' : 'mt-2'}>
+      {view === 'login' ? <><h2>{en ? 'Identity confirmed' : 'Identidad confirmada'}</h2>
+      <p className="auth-email">{user.email ?? user.displayName ?? (en ? 'Signed-in user' : 'Usuario autenticado')}</p></> : null}
       {link.kind === 'signin' ? <p>{en ? 'You already have a session. Sign out first to use another account’s link.' : 'Ya tienes una sesión. Para usar el enlace de otra cuenta, cierra esta sesión primero.'}</p> : null}
-      {view === 'account' ? <a className="auth-secondary" href={`/settings/security${suffix}`}>{en ? 'Your security center' : 'Tu centro de seguridad'}</a> : null}
-      {view === 'login' ? <a className="auth-primary" href={`/app${suffix}`}>{en ? 'Continue to my account' : 'Continuar a mi cuenta'}</a> : runtime && config.mode === 'firebase' ? (view === 'security'
-        ? <SecurityEnrollment key={user.uid} runtime={runtime} uid={user.uid} english={en} />
-        : <WalletOverview key={user.uid} runtime={runtime} uid={user.uid} english={en} />) : <>
-        <p>{en ? 'Wallet Core V3 is still being integrated. This session has not created a smart account, registered a key, or started recovery.' : 'Wallet Core V3 sigue en integración. Esta sesión no creó una smart account, registró una llave ni inició una recuperación.'}</p>
-        <p>{en ? 'Receiving and payments are not enabled in this candidate yet.' : 'Recibir y pagar todavía no están habilitados en este candidato.'}</p>
-      </>}
-      <button type="button" className="auth-secondary" disabled={busy} onClick={logout}>{en ? 'Sign out' : 'Cerrar sesión'}</button>
+      {view === 'login' ? <a className="auth-primary" href={`/app${suffix}`}>{en ? 'Continue to my account' : 'Continuar a mi cuenta'}</a>
+        : <ConsumerContent key={`${user.uid}:${view}`} view={view} english={en} identity={user} runtime={runtime && config.mode === 'firebase' ? runtime : undefined} />}
+      {view === 'settings' || view === 'login' ? <button type="button" className="btn btn-danger btn-block mt-6" disabled={busy} onClick={logout}>{en ? 'Sign out' : 'Cerrar sesión'}</button> : null}
     </section> : null}
     {ready && !user && view !== 'login' ? <section className="auth-panel"><p>{en ? 'Sign in to see your account. No private information is available without a session.' : 'Entra para ver tu cuenta. Sin sesión no se muestra información privada.'}</p>
       <a className="auth-primary" href={`/login${suffix}`}>{en ? 'Sign in' : 'Entrar'}</a></section> : null}
@@ -234,5 +227,5 @@ function EnabledAuthScreen({ config, view, art, english: en }: {
     {slow ? <div className="auth-error" role="alert"><p>{en ? 'This is taking longer than expected. Reload to check the session before trying again.' : 'Está tardando más de lo esperado. Recarga para comprobar la sesión antes de intentarlo otra vez.'}</p>
       <button type="button" onClick={() => window.location.reload()}>{en ? 'Reload and check' : 'Recargar y comprobar'}</button></div> : null}
     <footer><a href={en ? '/en' : '/'}>{en ? 'Back to GatoPago' : 'Volver a GatoPago'}</a></footer>
-  </main>;
+  </div></ConsumerFrame>;
 }

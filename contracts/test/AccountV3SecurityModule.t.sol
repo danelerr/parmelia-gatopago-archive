@@ -77,7 +77,7 @@ contract AccountV3SecurityModuleTest is V3CreationFixture {
         assertEq(bytes32(seen[2]), expected.manifest);
         assertEq(bytes32(seen[3]), expected.scope);
         assertEq(seen[7], expected.admin);
-        assertEq(seen[8], expected.recovery);
+        assertEq(seen[8], 1);
         assertEq(seen[6], expected.spend);
         assertEq(seen[4], 0);
         assertEq(seen[5], 0);
@@ -92,31 +92,31 @@ contract AccountV3SecurityModuleTest is V3CreationFixture {
         assertEq(seen[1], 0);
     }
 
-    function test_snapshotRetainsRecoveryAndFreezeEvenAfterProposalExpiry() public {
+    function test_snapshotRetainsSecurityProposalAndFreezeEvenAfterProposalExpiry() public {
         _freeze(account);
         T.SecurityPolicy memory next = _policy(carol, dave);
-        T.SecurityChange memory change = _change(account, next, E.ChangeKind.Recovery);
+        T.SecurityChange memory change = _change(account, next, E.ChangeKind.Security);
         account.prepare(
-            E.ChangeKind.Recovery,
+            E.ChangeKind.Security,
             change,
             next,
             _chains(),
-            _votes(policy, T.digest(block.chainid, address(account), T.hashRecovery(change)), P.RECOVERY),
-            _proofs(account, next, change, E.ChangeKind.Recovery)
+            _votes(policy, T.digest(block.chainid, address(account), T.hashSecurity(change)), P.ADMIN),
+            _proofs(account, next, change, E.ChangeKind.Security)
         );
         V3SecurityHarness.Snapshot memory expected = account.snapshot();
         vm.warp(expected.pending.validUntil + 1);
         bytes32 before_ = _fingerprint(account);
         uint256[16] memory seen = moduleAccount.securitySnapshot();
         assertEq(seen[0], 3);
-        assertEq(seen[9], uint8(D.ProposalKind.Recovery));
+        assertEq(seen[9], uint8(D.ProposalKind.Security));
         assertEq(bytes32(seen[10]), expected.pending.proposalHash);
         assertEq(seen[11], expected.version);
         assertEq(bytes32(seen[12]), expected.manifest);
         assertEq(bytes32(seen[13]), expected.pending.chainScopeHash);
         assertEq(seen[14], expected.pending.readyAt);
         assertEq(seen[15], expected.pending.validUntil);
-        assertEq(seen[7], 1);
+        assertEq(seen[7], 2);
         assertEq(seen[8], 1);
         assertEq(_fingerprint(account), before_);
         account.expire(bytes32(seen[10]));
@@ -256,15 +256,16 @@ contract AccountV3SecurityModuleTest is V3CreationFixture {
         }
         if (action == 2) {
             return abi.encodeWithSelector(
-                librarySelector ? Security.activateRecovery.selector : Module.activate.selector, bytes32(uint256(1))
+                librarySelector ? Security.cancel.selector : Module.cancel.selector,
+                T.CancelProposal(bytes32(0), 3, 1, bytes32(uint256(1)), 0, 1, 2),
+                noSignatures
             );
         }
         if (action == 3) {
-            T.VetoProposal memory message;
-            return
-                abi.encodeWithSelector(
-                    librarySelector ? Security.veto.selector : Module.veto.selector, message, bytes("")
-                );
+            T.CancelProposal memory message;
+            return abi.encodeWithSelector(
+                librarySelector ? Security.cancel.selector : Module.cancel.selector, message, noSignatures
+            );
         }
         if (action == 4) {
             return abi.encodeWithSelector(

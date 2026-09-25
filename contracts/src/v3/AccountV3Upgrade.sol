@@ -197,7 +197,6 @@ library AccountV3Upgrade {
                 state.chainScopeHash,
                 state.spendNonce,
                 state.adminNonce,
-                state.recoveryNonce,
                 T.hashPolicy(PS.load(state.policy)),
                 state.pending,
                 address(this).balance
