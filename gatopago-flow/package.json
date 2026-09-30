@@ -1,0 +1,35 @@
+{
+  "name": "gatopago-flow",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "node ../scripts/assert-reproducible-deploy-source.mjs gatopago-flow && node ../scripts/assert-flow-deploy-config.mjs && wrangler deploy --config wrangler.remote.jsonc --env-file .dev.vars.example --minify",
+    "deploy:dry-run": "node ../scripts/assert-flow-deploy-config.mjs && wrangler deploy --config wrangler.remote.jsonc --env-file .dev.vars.example --minify --dry-run",
+    "cf-typegen": "wrangler types --env-interface CloudflareBindings --env-file .dev.vars.example",
+    "cf-typegen:check": "wrangler types --env-interface CloudflareBindings --env-file .dev.vars.example --check",
+    "lint": "eslint . --max-warnings 0",
+    "test": "pnpm test:unit && pnpm test:worker-runtime",
+    "test:unit": "vitest run --config vitest.config.ts",
+    "test:worker-runtime": "vitest run --config vitest.worker.config.ts",
+    "typecheck:worker-runtime": "tsc --noEmit --project test-worker/tsconfig.json",
+    "build": "wrangler deploy --dry-run --env-file .dev.vars.example --outdir .wrangler/build"
+  },
+  "dependencies": {
+    "@gatopago/shared": "workspace:*",
+    "hono": "4.13.5",
+    "viem": "^2.55.19"
+  },
+  "devDependencies": {
+    "@gatopago/environment": "workspace:*",
+    "@cloudflare/vitest-pool-workers": "0.22.0",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.13.3",
+    "eslint": "^10.9.0",
+    "globals": "^17.11.0",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.67.0",
+    "vitest": "^4.1.11",
+    "wrangler": "4.125.0"
+  }
+}
