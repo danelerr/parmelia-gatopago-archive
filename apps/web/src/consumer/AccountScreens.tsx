@@ -1,28 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import type { Identity } from '../auth/browser';
-import { ActionCard, BackHeader, Field, IntegrationNotice, Panel, UnavailableAction } from './Primitives';
+import type { BrowserAuth } from '../auth/browser';
+import { ProfileEditor } from './ProfileEditor';
+import { BackHeader, Field, IntegrationNotice, Panel, UnavailableAction } from './Primitives';
 import { NavigationLink } from './NavigationLink';
 import { localizedPath } from './routes';
 
 const field = 'meli-field h-12 w-full px-3 text-[14px]';
 
-export function ProfileScreen({ english: en, identity }: { english: boolean; identity?: Identity }) {
-  const [name, setName] = useState(identity?.displayName ?? '');
-  const [username, setUsername] = useState(''), [social, setSocial] = useState('');
+export function ProfileScreen({ english: en, runtime, uid }: { english: boolean; runtime?: BrowserAuth; uid?: string }) {
   return <><BackHeader title={en ? 'My profile' : 'Mi perfil'} english={en} to="/settings" />
-    <div className="mb-7 flex items-center gap-4"><div className="flex h-16 w-16 items-center justify-center border-2 border-text bg-cat-500 font-display text-2xl shadow-[5px_5px_0_var(--color-cat-700)]" aria-hidden="true">{(identity?.displayName || identity?.email || '?').slice(0, 1).toUpperCase()}</div><div className="min-w-0"><p className="truncate font-display text-xl">{identity?.displayName ?? (en ? 'Your profile' : 'Tu perfil')}</p><p className="truncate text-sm text-text-muted">{identity?.email ?? '—'}</p></div></div>
-    <IntegrationNotice english={en} /><form onSubmit={event => event.preventDefault()}>
-      <Panel><h2 className="mb-4 font-display text-lg">{en ? 'Public profile' : 'Perfil público'}</h2>
-        <Field label={en ? 'Display name' : 'Nombre visible'}>{id => <input id={id} autoComplete="name" value={name} onChange={event => setName(event.target.value)} maxLength={40} className={field} />}</Field>
-        <Field label={en ? 'Social link' : 'Enlace social'}>{id => <input id={id} type="url" inputMode="url" autoComplete="off" value={social} onChange={event => setSocial(event.target.value)} maxLength={120} className={field} />}</Field>
-        <UnavailableAction>{en ? 'Save profile' : 'Guardar perfil'}</UnavailableAction>
-      </Panel><Panel><h2 className="mb-4 font-display text-lg">{en ? 'Username' : 'Nombre de usuario'}</h2>
-        <Field label={en ? 'Public username' : 'Nombre de usuario público'}>{id => <div className="flex items-center gap-2 border-2 border-text px-3"><span aria-hidden="true">@</span><input id={id} autoComplete="off" value={username} onChange={event => setUsername(event.target.value.replace(/[^a-z0-9_-]/gi, '').toLowerCase())} maxLength={30} className="h-12 min-w-0 flex-1 bg-transparent" /></div>}</Field>
-        <UnavailableAction>{en ? 'Save username' : 'Guardar nombre de usuario'}</UnavailableAction>
-      </Panel></form>
-    <ActionCard href="/receive" english={en} title={en ? 'Account addresses' : 'Direcciones de la cuenta'} description={en ? 'Only verified V3 receiving addresses.' : 'Sólo direcciones de recepción V3 verificadas.'} />
+    {runtime && uid ? <ProfileEditor key={uid} runtime={runtime} uid={uid} english={en} />
+      : <Panel><IntegrationNotice english={en} /><UnavailableAction>{en ? 'Save profile' : 'Guardar perfil'}</UnavailableAction></Panel>}
   </>;
 }
 

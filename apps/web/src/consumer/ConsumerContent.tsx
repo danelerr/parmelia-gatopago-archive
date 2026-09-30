@@ -35,11 +35,11 @@ export function ConsumerContent({ view, english: en, runtime, identity }: {
     case 'settings': return <AccountSettings english={en} />;
     case 'move': return <MoveMenu english={en} />;
     case 'charge': return <Charge english={en} />;
-    case 'receive': return <Receive english={en} />;
+    case 'receive': return <Receive english={en} runtime={runtime} uid={identity?.uid} />;
     case 'swap': return <Swap english={en} />;
     case 'crosschain': return <Crosschain english={en} />;
     case 'earn': return <Earn english={en} />;
-    case 'profile': return <Profile key={identity?.uid ?? 'unconfigured'} english={en} identity={identity} />;
+    case 'profile': return <Profile key={identity?.uid ?? 'unconfigured'} english={en} runtime={runtime} uid={identity?.uid} />;
     case 'contacts': return <Contacts english={en} />;
     case 'recovery': return <Recovery english={en} />;
     case 'onboarding': return <Onboarding english={en} />;

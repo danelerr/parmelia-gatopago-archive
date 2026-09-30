@@ -60,7 +60,7 @@ describe('Read-only credential inventory contract', () => {
   });
   it('does not fetch a foreign API or an emulator-backed fake inventory', async () => {
     const getToken = vi.fn(token); vi.stubGlobal('fetch', vi.fn());
-    for (const candidate of [{ ...config, emailRequestUrl: 'https://other.test/app/v1/auth/email-link/request' }, { ...config, mode: 'emulator' as const }]) {
+    for (const candidate of [{ ...config, apiOrigin: 'https://other.test' }, { ...config, mode: 'emulator' as const }]) {
       await expect(loadCredentialInventory(candidate, getToken, signal())).rejects.toThrow();
     }
     expect(getToken).not.toHaveBeenCalled(); expect(fetch).not.toHaveBeenCalled();

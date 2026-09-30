@@ -1,5 +1,4 @@
 import { parseCredentialInventory } from '@gatopago/shared/v3/credential-inventory';
-import environments from '@gatopago/environment/environments.json';
 import type { EnabledAuthConfig } from '../auth/config';
 import { record, WalletCoreError, walletTransport } from './http';
 
@@ -15,7 +14,7 @@ export async function loadCredentialInventory(config: EnabledAuthConfig, token: 
       throw new CredentialInventoryError('credentials/profile-required');
     }
     if (result.status !== 200) throw new CredentialInventoryError('credentials/unavailable');
-    const env = environments[config.environment];
+    const env = config.deployment;
     return parseCredentialInventory(result.value, { rpId: env.webauthn_rp_id, origin: env.web_origin });
   } catch (error) {
     signal.throwIfAborted();

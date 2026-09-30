@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { encodeWebAuthnAssertion, webAuthnKeyFromSpki } from '@gatopago/shared/v3/webauthn';
-import { PasskeyRequestError, requestPasskeyAssertion, requestPasskeyProof, requestPasskeyRegistration } from '../src/wallet/passkeys';
+import { PasskeyRequestError, requestPasskeyLogin, requestPasskeyAssertion, requestPasskeyProof, requestPasskeyRegistration } from '../src/wallet/passkeys';
 import { isReloadBlocked } from '../src/pwa/reload-guard';
 
-const captured = JSON.parse(readFileSync(new URL('../../../shared/fixtures/v3-webauthn-chromium.json', import.meta.url), 'utf8')) as {
+const captured = JSON.parse(readFileSync(new URL(import.meta.resolve('@gatopago/shared/fixtures/v3-webauthn-chromium.json')), 'utf8')) as {
   challenge: `0x${string}`; rpId: string; origin: string; spki: string;
   authenticatorData: string; clientDataJSON: string; signatureDER: string;
 };
@@ -208,5 +208,39 @@ describe('V3 explicit passkey ceremony (browser API mocked; cryptographic verifi
     get.mockImplementation(() => { throw new Error('Browser failure'); });
     await expect(requestPasskeyAssertion(request())).rejects.toThrow('Browser failure');
     expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+
+describe('Discoverable session login, distinct from transaction approval', () => {
+  it('opens get synchronously without an allowlist and returns the user handle', async () => {
+    const credential = new Credential(); Object.assign(credential.response, { userHandle: new Uint8Array(32).fill(3).buffer });
+    get.mockResolvedValue(credential);
+    const pending = requestPasskeyLogin(request());
+    expect(get).toHaveBeenCalledOnce(); expect(isReloadBlocked()).toBe(true);
+    const options = get.mock.calls[0][0] as CredentialRequestOptions;
+    expect(options.publicKey?.allowCredentials).toBeUndefined(); expect(options.publicKey?.userVerification).toBe('required');
+    expect(await pending).toMatchObject({ credential_id: 'AQID', user_handle: Buffer.alloc(32, 3).toString('base64url') });
+    expect(isReloadBlocked()).toBe(false);
+  });
+  it('rejects missing handles, unverified users and wrong client challenges', async () => {
+    for (const variant of ['handle', 'uv', 'challenge']) {
+      const credential = new Credential(); Object.assign(credential.response, { userHandle: new Uint8Array(32).buffer });
+      if (variant === 'handle') Object.assign(credential.response, { userHandle: null });
+      if (variant === 'uv') new Uint8Array(credential.response.authenticatorData)[32] = 1;
+      if (variant === 'challenge') credential.response.clientDataJSON = new TextEncoder().encode(JSON.stringify({ type: 'webauthn.get', origin: scope.origin, challenge: 'wrong', crossOrigin: false })).buffer;
+      get.mockResolvedValue(credential);
+      await expect(requestPasskeyLogin(request())).rejects.toMatchObject({ code: 'invalid-response' });
+    }
+  });
+  it('shares the ceremony guard and cancels even when the authenticator ignores abort', async () => {
+    get.mockImplementation(() => new Promise(() => {}));
+    const controller = new AbortController(); const pending = requestPasskeyLogin({ ...request(), signal: controller.signal });
+    await expect(requestPasskeyRegistration(registrationRequest())).rejects.toMatchObject({ code: 'busy' });
+    controller.abort(); await expect(pending).rejects.toMatchObject({ code: 'cancelled' }); expect(isReloadBlocked()).toBe(false);
+  });
+  it('uses the chosen username and display name for a new account', async () => {
+    await requestPasskeyRegistration({ ...registrationRequest(), userName: 'daniel', displayName: 'Daniel' });
+    expect(create.mock.calls[0][0].publicKey.user).toMatchObject({ name: 'daniel', displayName: 'Daniel' });
   });
 });

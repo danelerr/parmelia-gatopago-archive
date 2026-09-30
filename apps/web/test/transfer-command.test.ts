@@ -5,7 +5,7 @@ import { writeTransferDraft, readTransferDraft } from '@gatopago/shared/v3/trans
 import { parseTransferConfirmation, serializeTransferConfirmation } from '@gatopago/shared/v3/transfer-wire';
 import { parseEnvironment } from '@gatopago/environment';
 import environments from '@gatopago/environment/environments.json';
-import { transferFixture } from '../../../server/test/fixtures/v3Transfer';
+import { transferFixture } from '@gatopago/test-fixtures/v3-transfer';
 import { buildAuthConfig, type EnabledAuthConfig } from '../src/auth/config';
 import { parseTransferPreparation } from '../src/wallet/transfer-preparation';
 import { parseTransferConfirmationReceipt, parseTransferDeliveryReceipt, transferCommandClient } from '../src/wallet/transfer-command';
@@ -32,7 +32,7 @@ function fixture(native = true, max = false) {
     expires_at: candidate.plan.validUntil, send_enabled: false };
   const config = buildAuthConfig(parseEnvironment({ ...environments.staging, status: 'provisioned', firebase_project_id: 'v3-runtime-test' }), {
     apiKey: `AIza${'a'.repeat(35)}`, appId: '1:123:web:abcdef', turnstileSiteKey: `0x${'a'.repeat(22)}` }) as EnabledAuthConfig;
-  const review = { wire }, preparation = parseTransferPreparation(wire,selected,request,'staging',f.now);
+  const review = { wire }, preparation = parseTransferPreparation(wire,selected,request,parseEnvironment(environments.staging),f.now);
   const confirmation = { id: createResourceId('operation'),state:'held' as const,expires_at:wire.expires_at,
     send_enabled:false,preparation_id:wire.preparation_id,consent_digest:candidate.digest };
   const delivery = { operation_id:confirmation.id,userop_hash:candidate.userOpHash,delivery:'accepted',settlement:'unconfirmed' };
@@ -143,7 +143,7 @@ function flowFixture() {
     funds_reserved:true,settlement:'not_assessed',send_enabled:false },locator,x.f.now);
   const transfers = { assertCurrent:vi.fn(),status:vi.fn(async () => status) };
   const capture = vi.fn(() => ({ commands,transfers }));
-  const flow = new TransferExecutionFlow(capture,x.selected,x.request,x.review,'staging');
+  const flow = new TransferExecutionFlow(capture,x.selected,x.request,x.review,parseEnvironment(environments.staging));
   return { ...x,commands,transfers,capture,flow,status };
 }
 function deferred<T>() { let resolve!: (value:T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise,resolve }; }
@@ -303,11 +303,23 @@ describe('Transfer explicit proof collection', () => {
     x.assertCurrent.mockImplementation(() => { throw new Error('Session changed'); });
     await expect(x.signing.confirmationProofs()).rejects.toThrow(); x.signing.dispose(); expect(x.signing.signedIndices()).toEqual([]);
   });
+  it('binds the displayed username to the exact reviewed destination without resolving or signing on render', () => {
+    const x = signingFixture(), commands = { assertCurrent:vi.fn(),confirm:vi.fn(),deliver:vi.fn() };
+    const runtime = { transferCommands:vi.fn(() => commands),transfers:vi.fn(() => ({ assertCurrent:vi.fn(),status:vi.fn() })),subscribe:vi.fn() };
+    const recipient = { username:'daniel',display_name:'Daniel',network_id:x.request.network_id,address:x.request.destination.address,
+      verified_at:x.f.now,expires_at:x.f.now+30 };
+    const props = { runtime,uid:'synthetic',selected:x.selected,request:x.request,review:x.review,environment:parseEnvironment(environments.staging),
+      credentials:[x.credential],metadata:[{ asset_id:x.request.asset_id,decimals:18,symbol:'ETH' }],english:false,recipient };
+    const html = renderToStaticMarkup(createElement(TransferReview,props));
+    expect(html).toContain('@daniel'); expect(html).toContain(x.request.destination.address);
+    expect(() => renderToStaticMarkup(createElement(TransferReview,{ ...props,recipient:{ ...recipient,address:`0x${'ab'.repeat(20)}` } }))).toThrow('Recipient');
+    expect(commands.confirm).not.toHaveBeenCalled(); expect(commands.deliver).not.toHaveBeenCalled(); expect(x.prove).not.toHaveBeenCalled(); x.signing.dispose();
+  });
   it.each([false,true])('renders the review and explicit controls without signing (English=%s)', english => {
     const x = signingFixture(), commands = { assertCurrent:vi.fn(),confirm:vi.fn(),deliver:vi.fn() };
     const runtime = { transferCommands:vi.fn(() => commands),transfers:vi.fn(() => ({ assertCurrent:vi.fn(),status:vi.fn() })),subscribe:vi.fn() };
     const markup = renderToStaticMarkup(createElement(TransferReview,{ runtime,uid:'synthetic',selected:x.selected,request:x.request,
-      review:x.review,environment:'staging',credentials:[x.credential],metadata:[{ asset_id:x.request.asset_id,decimals:18,symbol:'ETH' }],english }));
+      review:x.review,environment:parseEnvironment(environments.staging),credentials:[x.credential],metadata:[{ asset_id:x.request.asset_id,decimals:18,symbol:'ETH' }],english }));
     expect(markup).toContain(english ? 'Review transfer' : 'Revisar envío');
     expect(markup).toContain(x.request.destination.address); expect(markup).toContain(x.candidate.digest);
     expect(markup).toContain(english ? 'Sign with passkey' : 'Firmar con passkey');

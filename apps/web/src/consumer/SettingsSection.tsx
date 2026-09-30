@@ -1,6 +1,5 @@
 // Presentation preserved from client/src/components/SettingsSection.tsx.
 import type { ReactNode } from "react";
-import { Skeleton } from "./Skeleton";
 
 /** Reusable organism for settings groups. It keeps heading, accent, spacing and
  * card semantics identical while each page owns only its domain controls. */
@@ -45,33 +44,3 @@ export function SettingsSection({
 		</section>
 	);
 }
-
-/** Layout-matching placeholder: users see the final hierarchy immediately,
- * without a spinner or a large layout jump while auxiliary settings load. */
-export function SettingsPageSkeleton() {
-	return (
-		<div aria-hidden="true">
-			<div className="mb-7 flex items-center gap-4 border-2 border-text bg-surface p-4 shadow-[5px_5px_0_var(--color-cat-700)]">
-				<Skeleton className="skeleton-accent h-14 w-14 shrink-0" />
-				<div className="flex-1 flex flex-col gap-2">
-					<Skeleton className="h-4 w-32" />
-					<Skeleton className="h-3 w-44 max-w-full" />
-				</div>
-			</div>
-			{[104, 88, 144].map((height) => (
-				<div key={height} className="mb-6">
-					<div className="mb-2.5 flex items-center gap-2 px-1">
-						<Skeleton className="h-7 w-7" />
-						<Skeleton className="h-3 w-24" />
-					</div>
-					<div className="meli-paper-card meli-paper-card--strong p-4" style={{ minHeight: height }}>
-						<Skeleton className="mb-3 h-3.5 w-[42%]" />
-						<Skeleton className="mb-2 h-3 w-[86%]" />
-						<Skeleton className="h-3 w-[62%]" />
-					</div>
-				</div>
-			))}
-		</div>
-	);
-}
-

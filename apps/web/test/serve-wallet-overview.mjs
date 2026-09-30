@@ -25,7 +25,7 @@ const runtime = { async wallets(uid, signal, after) {
   signal.throwIfAborted();
   if (fail) throw new WalletCoreError('wallet/unavailable');
   if (uid === 'b') return { data: [], next_cursor: null };
-  return { data: [{ id: after ? 'wallet-second' : 'wallet-first', owner_party_id: 'owner-a', status: after ? 'archived' : 'active' }], next_cursor: after ? null : 'next' };
+  return { data: [{ id: after ? 'wallet-second' : 'wallet-first', user_id: 'owner-a', status: after ? 'archived' : 'active' }], next_cursor: after ? null : 'next' };
 } };
 function Harness() {
   const [uid, setUid] = useState('a');

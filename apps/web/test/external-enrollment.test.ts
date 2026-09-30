@@ -1,16 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { hashTypedData } from 'viem';
 import { externalEnrollmentRequest, importExternalEnrollment } from '@gatopago/shared/v3/external-enrollment';
-import { authorizeBootstrapActivation, prepareBootstrapActivation } from '@gatopago/shared/v3/bootstrap-activation';
-import { activationWireFixture } from './activation.fixture';
+import { authorizeBackupEnrollment, prepareBackupEnrollment } from '@gatopago/shared/v3/backup-enrollment';
+import { backupWireFixture } from './backup.fixture';
 
 function fixture() {
-  const t = activationWireFixture(), index = t.compiled.enrollments.find((p) => t.compiled.nextPolicy.signers[p.signerIndex].kind === 0)!.signerIndex;
+  const t = backupWireFixture(), index = t.compiled.enrollments.find((p) => t.compiled.nextPolicy.signers[p.signerIndex].kind === 0)!.signerIndex;
   const key = t.f.keys.find((key) => key.address.toLowerCase() === t.compiled.nextPolicy.signers[index].key)!;
   const now = t.f.input.validAfter, request = externalEnrollmentRequest(t.choice, t.wire, index, now);
   const typedData = request.typedData;
   const response = (signature: string) => JSON.stringify({ schema_version: 1, purpose: 'gatopago-v3-enrollment-proof',
-    activation_id: t.choice.activationId, signer_index: index, digest: request.summary.digest, signature });
+    backup_id: t.choice.backupId, signer_index: index, digest: request.summary.digest, signature });
   return { ...t, index, key, now, request, typedData, response };
 }
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
@@ -19,7 +19,7 @@ describe('Public EIP-712 external enrollment transport', () => {
   it('uses exactly the contract enrollment digest, with no tokens, credential IDs, keys or external I/O', () => {
     const fetchMock = vi.fn(); vi.stubGlobal('fetch', fetchMock); const t = fixture(), encoded = JSON.parse(t.request.json);
     expect(hashTypedData(t.typedData)).toBe(t.request.summary.digest);
-    expect(encoded).toMatchObject({ schema_version: 1, activation_id: t.choice.activationId, signer_index: t.index,
+    expect(encoded).toMatchObject({ schema_version: 1, backup_id: t.choice.backupId, signer_index: t.index,
       signer_address: t.key.address.toLowerCase(), proposal_hash: t.compiled.digest, policy: t.compiled.nextPolicy,
       typed_data: { primaryType: 'EnrollmentProof', domain: { name: 'GatoPago Account', version: '3.0-consumer', chainId: t.f.initial.chainId.toString(), verifyingContract: t.f.initial.account },
         message: { nonce: t.compiled.message.nonce.toString(), securityVersion: '1', nextPolicyHash: t.compiled.message.nextPolicyHash, contextHash: t.compiled.digest } } });
@@ -34,14 +34,14 @@ describe('Public EIP-712 external enrollment transport', () => {
     const proof = await importExternalEnrollment(t.choice, t.wire, t.index, t.response(signature), t.now);
     expect(proof).toEqual({ kind: 'ecdsa', signerIndex: t.index, signature }); expect(Object.isFrozen(proof)).toBe(true);
     const proofs = (await t.f.proofs()).map((p) => p.signerIndex === t.index ? proof : p);
-    const authorization = await authorizeBootstrapActivation(t.f.input, t.f.assertion(t.compiled.digest), proofs, t.now);
+    const authorization = await authorizeBackupEnrollment(t.f.input, t.f.assertion(t.compiled.digest), proofs, t.now);
     expect(authorization.proposalHash).toBe(t.request.summary.proposal_hash);
     expect(authorization.account_readiness).toBe('not_assessed');
   });
   it('preserves EIP-712 semantics through JSON stringification without rounding nonce/securityVersion', () => {
     const t = fixture(), input = structuredClone(t.f.input), nonce = ((1n << 180n) + 73n).toString();
     input.observation.security.nonces.admin = nonce;
-    const compiled = prepareBootstrapActivation(input, t.now), wire = { ...t.wire, input, proposal_hash: compiled.digest };
+    const compiled = prepareBackupEnrollment(input, t.now), wire = { ...t.wire, input, proposal_hash: compiled.digest };
     const request = externalEnrollmentRequest(t.choice, wire, t.index, t.now), encoded = JSON.parse(request.json);
     expect(encoded.typed_data.message.nonce).toBe(nonce); expect(encoded.typed_data.message.securityVersion).toBe('1');
     expect(hashTypedData(encoded.typed_data)).toBe(request.summary.digest);
@@ -81,11 +81,11 @@ describe('Public EIP-712 external enrollment transport', () => {
     if (change === 'uppercase') signature = `0x${signature.slice(2).toUpperCase()}`;
     await expect(importExternalEnrollment(t.choice, t.wire, t.index, t.response(signature), t.now)).rejects.toThrow();
   });
-  it.each(['digest', 'index', 'activation', 'version', 'purpose', 'extra-key', 'missing', 'array', 'invalid-json', 'oversize'])('rejects %s proof envelopes', async (change) => {
+  it.each(['digest', 'index', 'backup', 'version', 'purpose', 'extra-key', 'missing', 'array', 'invalid-json', 'oversize'])('rejects %s proof envelopes', async (change) => {
     const t = fixture(), raw = JSON.parse(t.response(await t.key.signTypedData(t.typedData)));
     if (change === 'digest') raw.digest = `0x${'0'.repeat(64)}`;
     if (change === 'index') raw.signer_index++;
-    if (change === 'activation') raw.activation_id = activationWireFixture().choice.activationId;
+    if (change === 'backup') raw.backup_id = backupWireFixture().choice.backupId;
     if (change === 'version') raw.schema_version = 2;
     if (change === 'purpose') raw.purpose = 'pay';
     if (change === 'extra-key') raw.private_key = 'do-not-import';

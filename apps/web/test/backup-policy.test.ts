@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createResourceId } from '@gatopago/shared/v3/primitives';
 import { hashSecurityPolicy, Role, signerId } from '@gatopago/shared/v3/security-policy';
-import { prepareBootstrapActivation } from '@gatopago/shared/v3/bootstrap-activation';
-import { policySelection, passkeyPolicyDraft } from '../src/wallet/activation-policy';
-import { ActivationPolicyStore } from '../src/wallet/activation-policy-store';
-import { policyReviewFixture } from './activation-policy.fixture';
+import { prepareBackupEnrollment } from '@gatopago/shared/v3/backup-enrollment';
+import { policySelection, passkeyPolicyDraft } from '../src/wallet/backup-policy';
+import { BackupPolicyStore } from '../src/wallet/backup-policy-store';
+import { policyReviewFixture } from './backup-policy.fixture';
 
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
-describe('Passkey policy review, not activation or independent exit', () => {
+describe('Passkey policy review, not backup or independent exit', () => {
   it.each([2, 3, 16])('constructs a sorted %s-key draft with explicit spend/admin thresholds and no readiness claim', (count) => {
     const f = policyReviewFixture(count), selected = policySelection(f.consent, f.inventory, f.references, f.pin);
     const draft = passkeyPolicyDraft(selected, f.material);
@@ -15,10 +15,10 @@ describe('Passkey policy review, not activation or independent exit', () => {
     expect(draft.hash).toBe(hashSecurityPolicy(draft.policy));
     const ids = draft.factors.map((factor) => signerId(factor.descriptor)); expect(ids).toEqual([...ids].sort());
     expect(draft.policy.signers.every((row) => row.roles === (Role.SPEND | Role.ADMIN))).toBe(true);
-    expect(draft).toMatchObject({ activationReady: false, independentExit: 'not_configured', possession: 'not_assessed',
+    expect(draft).toMatchObject({ backupReady: false, independentExit: 'not_configured', possession: 'not_assessed',
       onchainAuthority: 'not_assessed', recoverableLostKeys: count - 1 });
     expect(Object.isFrozen(draft.policy.signers)).toBe(true); expect(Object.isFrozen(draft.factors[0].descriptor)).toBe(true);
-    const compiled = prepareBootstrapActivation({ ...f.t.f.input, nextPolicy: draft.policy }, f.t.f.input.validAfter);
+    const compiled = prepareBackupEnrollment({ ...f.t.f.input, nextPolicy: draft.policy }, f.t.f.input.validAfter);
     // Initial authority is unchanged; only additional keys prove new possession.
     expect(compiled.enrollments).toHaveLength(count - 1);
   });
@@ -52,7 +52,7 @@ function setup() {
     signal.throwIfAborted(); const result = f.material.find((row) => row.credential_ref === id);
     if (!result) throw new Error('Missing synthetic credential'); return result;
   });
-  const capture = vi.fn(() => ({ assertCurrent, detail })), store = new ActivationPolicyStore(capture);
+  const capture = vi.fn(() => ({ assertCurrent, detail })), store = new BackupPolicyStore(capture);
   const review = () => store.review(f.consent, f.inventory, f.references, f.pin);
   return { ...f, store, review, capture, detail, assertCurrent };
 }
@@ -65,7 +65,7 @@ describe('Component-owned credential policy review', () => {
   });
   it('validates references and release before token acquisition or detail requests', async () => {
     const f = setup(); await f.store.review(f.consent, f.inventory, [createResourceId('operation')], f.pin);
-    expect(f.store.snapshot()).toMatchObject({ phase: 'error', code: 'activation/invalid-selection', draft: null });
+    expect(f.store.snapshot()).toMatchObject({ phase: 'error', code: 'backup/invalid-selection', draft: null });
     expect(f.capture).not.toHaveBeenCalled(); expect(f.detail).not.toHaveBeenCalled();
   });
   it('captures the selection before asynchronous work and does not accept caller mutations', async () => {

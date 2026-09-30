@@ -3,7 +3,6 @@ import { parseInitializationCursor, parseInitializationHistory, parseInitializat
   parseInitializationRestoration, type InitializationHistoryItem } from '@gatopago/shared/v3/initialization-wire';
 import type { AccountReleaseContext } from '@gatopago/shared/v3/client-release';
 import { encodeWebAuthnAssertion } from '@gatopago/shared/v3/webauthn';
-import environments from '@gatopago/environment/environments.json';
 import type { EnabledAuthConfig } from '../auth/config';
 import { walletTransport, WalletCoreError } from './http';
 
@@ -32,7 +31,7 @@ function requireSuccess(result: { status: number; value: unknown }) {
 export function initializationClient(config: EnabledAuthConfig, getToken: () => Promise<string>, pin: Pin) {
   const trusted = Object.freeze({ ...pin });
   const profile = loadPinnedCreationProfile(trusted.document, trusted.digest);
-  const environment = environments[config.environment];
+  const environment = config.deployment;
   if (config.mode !== 'firebase' || config.webOrigin !== environment.web_origin) throw new WalletCoreError('wallet/unavailable');
   const scope = Object.freeze({ rpId: environment.webauthn_rp_id, origin: environment.web_origin });
   const account: AccountReleaseContext = Object.freeze({ generation: String(profile.deployment.generation), contract_manifest_version: profile.deployment.manifest_id });

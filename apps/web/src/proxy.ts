@@ -7,12 +7,6 @@ import { NONCE_HEADER } from './security/nonce';
 
 export function proxy(request: NextRequest) {
   const auth = webAuthConfig();
-  if (auth.mode === 'firebase' && (request.nextUrl.pathname.startsWith('/__/auth/') ||
-      request.nextUrl.pathname.startsWith('/__/firebase/'))) {
-    // Exact Firebase project rewrite owns these documents. Preserve upstream policy;
-    // do not attach a nonce which its HTML cannot contain. Remote helper CSP is a release gate.
-    return NextResponse.next();
-  }
   const nonce = randomBytes(32).toString('base64');
   const csp = documentCsp({ nonce, environment, auth,
     development: process.env.NODE_ENV === 'development', secure: request.nextUrl.protocol === 'https:' });

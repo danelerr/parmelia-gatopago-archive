@@ -2,7 +2,7 @@ import { afterEach,describe,expect,it,vi } from 'vitest';
 import { createResourceId } from '@gatopago/shared/v3/primitives';
 import environments from '@gatopago/environment/environments.json';
 import { parseEnvironment } from '@gatopago/environment';
-import { transferFixture } from '../../../server/test/fixtures/v3Transfer';
+import { transferFixture } from '@gatopago/test-fixtures/v3-transfer';
 import { buildAuthConfig,type EnabledAuthConfig } from '../src/auth/config';
 import { accountContextClient,parseAccountContext } from '../src/wallet/account-context';
 

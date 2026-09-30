@@ -11,7 +11,7 @@ import type { requestPasskeyProof } from './passkeys';
 type Session = Awaited<ReturnType<BrowserAuth['creationOperation']>>;
 type Proof = Awaited<ReturnType<typeof requestPasskeyProof>>;
 type Receipt = ReturnType<typeof parseCreationReceipt>;
-type Review = Readonly<{ network: string; address: string; cap: bigint; maximumCharge: bigint; digest: string; userOpHash: string; expiresAt: number }>;
+type Review = Readonly<{ network: string; address: string; cap: bigint; maximumCharge: bigint; sponsored: boolean; digest: string; userOpHash: string; expiresAt: number }>;
 type Phase = 'idle' | 'loading' | 'absent' | 'prepare-retry' | 'preparing' | 'ready' | 'proving' | 'submitting' | 'uncertain' | 'authorized' | 'expired' | 'closed';
 type Lifecycle = ReturnType<typeof parseCreationPreview>['lifecycle'];
 type View = Readonly<{ phase: Phase; error: string | null; review: Review | null; receipt: Receipt | null;
@@ -127,7 +127,7 @@ export class CreationFlow {
     const { candidate, receipt, terms } = preview;
     if (receipt.state === 'authorized') this.proof = null;
     const review = Object.freeze({ network: this.view.network, address: candidate.prepared.account,
-      cap: terms.maximumGasCharge, maximumCharge: candidate.maximumEntryPointCharge,
+      cap: terms.maximumGasCharge, maximumCharge: candidate.maximumEntryPointCharge, sponsored: !!terms.sponsorship,
       digest: candidate.digest, userOpHash: candidate.userOpHash, expiresAt: receipt.expires_at });
     const expired = receipt.authorization_expired || Date.now() >= receipt.expires_at * 1000 || Date.now() < this.consent.preparation.valid_after * 1000;
     this.set(receipt.state === 'authorized' ? 'authorized' : expired ? 'expired' : 'ready', null,

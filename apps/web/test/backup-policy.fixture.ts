@@ -1,12 +1,12 @@
 import { createResourceId } from '@gatopago/shared/v3/primitives';
 import { parseCredentialInventory } from '@gatopago/shared/v3/credential-inventory';
 import { parseCredentialDetail } from '@gatopago/shared/v3/credential-detail';
-import { initializationFixture } from '../../../server/test/fixtures/v3Initialization';
-import { activationWireFixture } from './activation.fixture';
+import { initializationFixture } from '@gatopago/test-fixtures/v3-initialization';
+import { backupWireFixture } from './backup.fixture';
 
 /** Public, synthetic material only. No credential creation, external I/O or funded accounts. */
 export function policyReviewFixture(count = 3) {
-  const t = activationWireFixture(), consent = t.choice.consent, p = consent.preparation, scope = consent.expected.scope;
+  const t = backupWireFixture(), consent = t.choice.consent, p = consent.preparation, scope = consent.expected.scope;
   const material = Array.from({ length: count }, (_, index) => {
     const id = index === 0 ? p.credential_ref : createResourceId('operation');
     return parseCredentialDetail({ scope, credential_ref: id,

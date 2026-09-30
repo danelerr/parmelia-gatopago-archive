@@ -1,28 +1,23 @@
+import { profileClient, resolveUsername } from '../wallet/profile';
 import { getApps, initializeApp } from 'firebase/app';
 import {
-  initializeAuth, browserLocalPersistence, browserPopupRedirectResolver, connectAuthEmulator,
-  GoogleAuthProvider, getRedirectResult, onIdTokenChanged, signInWithPopup, signInWithRedirect,
-  sendSignInLinkToEmail, signInWithEmailLink, signOut, type User,
+  initializeAuth, browserLocalPersistence, connectAuthEmulator, onIdTokenChanged, signInWithCustomToken, signOut, type User,
 } from 'firebase/auth';
 import { assertBrowserOrigin, LOCAL_AUTH_ORIGIN, type EnabledAuthConfig } from './config';
-import { emailRequestBody, normalizeEmail, parseEmailLanding, parseSentResponse } from './email-link';
+import { passkeyClient, AccessError } from './passkey-client';
 import { holdPageReload } from '../pwa/reload-guard';
-import { CLIENT_STATUS_HEADER, clientMutationHeaders } from '@gatopago/shared/v3/client-release';
 import { loadWalletPage, WalletCoreError } from '../wallet/core';
 import { prepareEnrollment, completeEnrollment, type EnrollmentSubmission } from '../wallet/enrollment';
 import { loadCredentialInventory } from '../wallet/credentials';
 import type { initializationClient } from '../wallet/initialization';
 import type { creationOperationClient } from '../wallet/creation-operation';
-import type { activationClient } from '../wallet/activation';
+import type { backupClient } from '../wallet/backup';
 import { creationProfileForRelease } from '../wallet/creation-release';
 import { accountPinsForRelease } from '../wallet/account-release';
 
-export type Identity = { uid: string; email: string | null; displayName: string | null; emailVerified: boolean };
+export type Identity = { uid: string };
 export type BrowserAuth = ReturnType<typeof createBrowserAuth>;
-const identity = (user: User | null): Identity | null => user ? {
-  uid: user.uid, email: user.email, displayName: user.displayName, emailVerified: user.emailVerified,
-} : null;
-const REDIRECT_FALLBACKS = new Set(['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment']);
+const identity = (user: User | null): Identity | null => user ? { uid: user.uid } : null;
 
 // Browser lifetime only, initialized from an effect. Never holds an SSR request/user.
 let instance: { key: string; runtime: BrowserAuth } | undefined;
@@ -41,18 +36,17 @@ function createBrowserAuth(config: EnabledAuthConfig) {
   if (getApps().some((app) => app.name === 'gatopago-v3')) throw new Error('Reload the auth page');
   const app = initializeApp(config.firebase, 'gatopago-v3');
   const auth = initializeAuth(app, {
-    persistence: browserLocalPersistence, popupRedirectResolver: browserPopupRedirectResolver,
+    persistence: browserLocalPersistence,
   });
   if (config.mode === 'emulator') connectAuthEmulator(auth, LOCAL_AUTH_ORIGIN);
   const releaseReady = holdPageReload();
   const ready = (async () => {
-    await getRedirectResult(auth);
     await auth.authStateReady();
   })().finally(releaseReady);
   // Observe immediately to prevent an unhandled rejection while the component mounts.
   void ready.catch(() => undefined);
   let inFlight: Promise<unknown> | null = null;
-  let updateRequired = false;
+  const access = passkeyClient(config);
   function exclusive<T>(operation: () => Promise<T>): Promise<T> {
     if (inFlight) return Promise.reject(Object.assign(new Error('Auth operation pending'), { code: 'auth/busy' }));
     const release = holdPageReload();
@@ -62,6 +56,15 @@ function createBrowserAuth(config: EnabledAuthConfig) {
     inFlight = result;
     void result.finally(() => { if (inFlight === result) inFlight = null; release(); }).catch(() => undefined);
     return result;
+  }
+  function assertSignedOut() {
+    if (auth.currentUser) throw new AccessError('auth/session-changed');
+  }
+  async function startSession(token: string, signal: AbortSignal) {
+    signal.throwIfAborted(); assertSignedOut();
+    // Firebase exchange is not abortable. Once started, settle it and let the
+    // auth observer reflect the result; never automatically repeat an admission.
+    await signInWithCustomToken(auth, token);
   }
   function captureSession(expectedUid: string) {
     const user = auth.currentUser;
@@ -80,12 +83,27 @@ function createBrowserAuth(config: EnabledAuthConfig) {
     ready,
     current: () => identity(auth.currentUser),
     subscribe: (callback: (user: Identity | null) => void) => onIdTokenChanged(auth, (user) => callback(identity(user))),
-    initializationProfile: () => config.mode === 'firebase' ? creationProfileForRelease(config.environment) : null,
+    profile: (expectedUid: string) => {
+      const session = captureSession(expectedUid), client = profileClient(config, session.token, expectedUid);
+      return { assertCurrent: session.assertCurrent,
+        read: async (signal: AbortSignal) => { session.assertCurrent(); const result = await client.read(signal); session.assertCurrent(); return result; },
+        rename: async (name: string, signal: AbortSignal) => { session.assertCurrent(); const result = await client.rename(name, signal); session.assertCurrent(); return result; },
+        publish: async (username: string, wallet: string, account: string, signal: AbortSignal) => {
+          session.assertCurrent(); const result = await client.publish(username, wallet, account, signal); session.assertCurrent(); return result;
+        },
+      };
+    },
+    recipientNetworks: () => config.mode === 'firebase' ? [...config.deployment.wallet_enabled] : [],
+    recipient: async (expectedUid: string, username: string, network: string, signal: AbortSignal) => {
+      const session = captureSession(expectedUid); session.assertCurrent();
+      const result = await resolveUsername(config.deployment, username, network, signal); session.assertCurrent(); return result;
+    },
+    initializationProfile: () => config.mode === 'firebase' ? creationProfileForRelease(config.deployment) : null,
     accountContexts: (expectedUid: string) => {
       const session = captureSession(expectedUid);
-      const pins = config.mode === 'firebase' ? accountPinsForRelease(config.environment) : [];
+      const pins = config.mode === 'firebase' ? accountPinsForRelease(config.deployment) : [];
       return {
-        assertCurrent: session.assertCurrent, environment: config.environment,
+        assertCurrent: session.assertCurrent, environment: config.deployment,
         read: async (selected: import('../wallet/balances').AccountChoice, signal: AbortSignal) => {
           const expected = structuredClone(selected); session.assertCurrent();
           const { accountContextClient } = await import('../wallet/account-context'); session.assertCurrent();
@@ -164,9 +182,9 @@ function createBrowserAuth(config: EnabledAuthConfig) {
         },
       };
     },
-    activation: async (expectedUid: string, pin: Parameters<typeof activationClient>[2]) => {
+    backup: async (expectedUid: string, pin: Parameters<typeof backupClient>[2]) => {
       const session = captureSession(expectedUid), trusted = Object.freeze({ ...pin });
-      const { activationClient: createClient } = await import('../wallet/activation');
+      const { backupClient: createClient } = await import('../wallet/backup');
       session.assertCurrent();
       const client = createClient(config, session.token, trusted);
       return {
@@ -291,61 +309,15 @@ function createBrowserAuth(config: EnabledAuthConfig) {
       assertIdentity();
       return result;
     },
-    google: () => exclusive(async () => {
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
-      const standalone = window.matchMedia('(display-mode: standalone)').matches ||
-        (navigator as Navigator & { standalone?: boolean }).standalone === true;
-      if (standalone && config.mode !== 'emulator') {
-        await signInWithRedirect(auth, provider);
-        return;
-      }
-      try { await signInWithPopup(auth, provider); }
-      catch (error) {
-        if (config.mode !== 'emulator' && REDIRECT_FALLBACKS.has(authErrorCode(error))) {
-          await signInWithRedirect(auth, provider);
-        } else throw error; // A dismissed popup must never trigger a forced redirect.
-      }
+    prepareLogin: (signal: AbortSignal) => exclusive(() => { assertSignedOut(); return access.prepareLogin(signal); }),
+    prepareRegistration: (input: Parameters<typeof access.prepareRegistration>[0], signal: AbortSignal) =>
+      exclusive(() => { assertSignedOut(); return access.prepareRegistration(input, signal); }),
+    completeLogin: (...args: Parameters<typeof access.completeLogin>) => exclusive(async () => {
+      assertSignedOut(); const token = await access.completeLogin(...args); await startSession(token, args[2]);
     }),
-    sendLink: (email: string, token: string, locale: 'es' | 'en') => exclusive(async () => {
-      if (updateRequired) throw Object.assign(new Error('Update this client before retrying'), { code: 'client/update-required' });
-      const normalized = normalizeEmail(email);
-      if (!normalized) throw new Error('Invalid email');
-      auth.languageCode = locale;
-      if (config.mode === 'emulator') {
-        if (!normalized.endsWith('@example.test')) throw Object.assign(new Error('Use a synthetic email'), { code: 'auth/test-email-required' });
-        await sendSignInLinkToEmail(auth, normalized, { url: `${config.webOrigin}/login?flow=signin&lang=${locale}`, handleCodeInApp: true });
-        return 60;
-      }
-      // No direct SDK send in remote mode: Wallet Core owns Turnstile and rate limits.
-      const response = await fetch(config.emailRequestUrl!, {
-        method: 'POST', credentials: 'omit', redirect: 'error', cache: 'no-store',
-        headers: { 'Content-Type': 'application/json', ...clientMutationHeaders(config.environment) },
-        body: JSON.stringify(emailRequestBody(normalized, token, locale)),
-        signal: AbortSignal.timeout(12_000),
-      });
-      if (response.status === 409 && response.headers.get(CLIENT_STATUS_HEADER) === 'update-required') {
-        updateRequired = true;
-        throw Object.assign(new Error('Update this client before retrying'), { code: 'client/update-required' });
-      }
-      if (response.status !== 202) throw Object.assign(new Error('Email request failed'), {
-        code: response.status === 429 ? 'auth/too-many-requests' : 'auth/email-unavailable',
-      });
-      return parseSentResponse(await response.json());
-    }),
-    completeLink: (email: string, href: string) => exclusive(async () => {
-      const normalized = normalizeEmail(email);
-      const link = parseEmailLanding(href, config);
-      if (!normalized || link.kind !== 'signin') throw Object.assign(new Error('Invalid signin link'), { code: 'auth/invalid-action-code' });
-      if (auth.currentUser && auth.currentUser.email?.toLowerCase() !== normalized) {
-        throw Object.assign(new Error('Sign out before switching identity'), { code: 'auth/identity-mismatch' });
-      }
-      await signInWithEmailLink(auth, normalized, link.url);
+    completeRegistration: (...args: Parameters<typeof access.completeRegistration>) => exclusive(async () => {
+      assertSignedOut(); const token = await access.completeRegistration(...args); await startSession(token, args[2]);
     }),
     logout: () => exclusive(() => signOut(auth)),
   };
-}
-
-export function authErrorCode(error: unknown): string {
-  return error && typeof error === 'object' && 'code' in error && typeof error.code === 'string' ? error.code : 'auth/unknown';
 }

@@ -10,14 +10,7 @@ import { createServer } from 'node:http';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const webRoot = resolve(root, 'apps/web');
 const verifierFile = resolve(root, 'output/playwright/v3-enrollment-verifier.mjs');
-await build({ outfile: verifierFile, bundle: true, platform: 'node', format: 'esm', stdin: { resolveDir: root, contents: `
-export { verifyEnrollment } from './server/src/v3/enrollment/verification';
-export { initializationFixture } from './server/test/fixtures/v3Initialization';
-export { prepareInitialization, authorizeInitialization } from './shared/v3/initialization';
-export { parseInitializationProof } from './shared/v3/initializationWire';
-export { prepareCreationOperation, authorizeCreationOperation } from './shared/v3/creationOperation';
-export { creationGasWire } from './shared/v3/creationOperationWire';
-` } });
+await build({ outfile: verifierFile, bundle: true, platform: 'node', format: 'esm', entryPoints: [resolve(webRoot, 'test/enrollment-verifier.ts')] });
 const { verifyEnrollment, initializationFixture, prepareInitialization, authorizeInitialization, parseInitializationProof,
   prepareCreationOperation, authorizeCreationOperation, creationGasWire } = await import(pathToFileURL(verifierFile).href);
 const creationPin = initializationFixture().pin;

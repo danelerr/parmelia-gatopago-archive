@@ -5,7 +5,7 @@ import { parseCredentialDetail } from '@gatopago/shared/v3/credential-detail';
 import { createResourceId } from '@gatopago/shared/v3/primitives';
 import { buildAuthConfig, type EnabledAuthConfig } from '../src/auth/config';
 import { loadCredentialDetail } from '../src/wallet/credential-detail';
-import { activationWireFixture } from './activation.fixture';
+import { backupWireFixture } from './backup.fixture';
 
 const config = buildAuthConfig(parseEnvironment({ ...environments.staging, status: 'provisioned', firebase_project_id: 'v3-runtime-test' }), {
   apiKey: `AIza${'a'.repeat(35)}`, appId: '1:123:web:abcdef', turnstileSiteKey: `0x${'a'.repeat(22)}`,
@@ -13,7 +13,7 @@ const config = buildAuthConfig(parseEnvironment({ ...environments.staging, statu
 const token = async () => 'synthetic.token.signature';
 const signal = () => new AbortController().signal;
 function fixture() {
-  const t = activationWireFixture(), p = t.choice.consent.preparation;
+  const t = backupWireFixture(), p = t.choice.consent.preparation;
   return { scope: { ...t.choice.consent.expected.scope }, credential_ref: p.credential_ref,
     credential_id: p.credential_id, public_key: p.public_key, device_availability: 'unknown', onchain_authority: 'not_assessed' };
 }
@@ -69,7 +69,7 @@ describe('Owner credential detail transport and parser', () => {
   });
   it('does not acquire a token for another API or a local emulator', async () => {
     const getToken = vi.fn(token); vi.stubGlobal('fetch', vi.fn());
-    for (const candidate of [{ ...config, emailRequestUrl: 'https://other.test/app/v1/auth/email-link/request' }, { ...config, mode: 'emulator' as const }]) {
+    for (const candidate of [{ ...config, apiOrigin: 'https://other.test' }, { ...config, mode: 'emulator' as const }]) {
       await expect(loadCredentialDetail(candidate, getToken, createResourceId('operation'), signal())).rejects.toThrow();
     }
     expect(getToken).not.toHaveBeenCalled(); expect(fetch).not.toHaveBeenCalled();

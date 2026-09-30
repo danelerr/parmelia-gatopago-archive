@@ -38,7 +38,6 @@ export function documentCsp(input: {
 export const documentSecurityHeaders = {
   'Cache-Control': 'private, no-store, max-age=0', 'CDN-Cache-Control': 'no-store',
   'Vercel-CDN-Cache-Control': 'no-store',
-  // Google popup/redirect relies on its opener. COEP require-corp would also break third-party helpers.
-  'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+  'Cross-Origin-Opener-Policy': 'same-origin',
   'Permissions-Policy': 'camera=(self), microphone=(), geolocation=(), payment=(), publickey-credentials-get=(self), publickey-credentials-create=(self)',
 } as const;

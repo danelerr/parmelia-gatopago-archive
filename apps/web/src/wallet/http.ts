@@ -1,7 +1,5 @@
-import { parseResourceId } from '@gatopago/shared/v3/primitives';
 import { clientMutationHeaders, CLIENT_STATUS_HEADER, type AccountReleaseContext } from '@gatopago/shared/v3/client-release';
 import type { EnabledAuthConfig } from '../auth/config';
-import environments from '@gatopago/environment/environments.json';
 
 export class WalletCoreError extends Error {
   constructor(readonly code: 'wallet/unavailable' | 'auth/session-changed' | 'auth/unauthenticated' | 'client/update-required') {
@@ -48,10 +46,10 @@ async function body(response: Response, signal: AbortSignal, limit: number): Pro
  * getToken is supplied by a captured Firebase session, never from local storage.
  */
 export function walletTransport(config: EnabledAuthConfig, getToken: () => Promise<string>, inputSignal: AbortSignal,
-  profile: 'default' | 'transfer-preparation' | 'transfer-command' = 'default') {
+  profile: 'default' | 'chain-read' | 'transfer-preparation' | 'transfer-command' = 'default') {
   if (config.mode !== 'firebase') throw new WalletCoreError('wallet/unavailable');
-  const api = new URL(config.emailRequestUrl ?? 'https://invalid.test');
-  if (api.origin !== environments[config.environment].api_origin || api.pathname !== '/app/v1/auth/email-link/request'
+  const api = new URL(config.apiOrigin ?? 'https://invalid.test');
+  if (api.origin !== config.deployment.api_origin || api.pathname !== '/'
       || api.search || api.hash || api.username || api.password) throw new WalletCoreError('wallet/unavailable');
   // Fixed local profiles, never limits chosen by a remote response or user input.
   const transfer = profile === 'transfer-preparation';
@@ -78,10 +76,5 @@ export function walletTransport(config: EnabledAuthConfig, getToken: () => Promi
     }
     return { status: response.status, value: await body(response, signal, transfer ? 1_000_000 : 32_768) };
   }
-  async function createIdentity() {
-    const result = await request('/session', 'POST');
-    if (result.status !== 200 || !record(result.value) || !exact(result.value, ['user_id', 'party_id'])) throw new WalletCoreError('wallet/unavailable');
-    parseResourceId('user', result.value.user_id); parseResourceId('party', result.value.party_id);
-  }
-  return { request, createIdentity };
+  return { request };
 }

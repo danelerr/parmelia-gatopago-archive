@@ -48,7 +48,7 @@ export default function SecurityEnrollment({ runtime, uid, english: en = false }
   return <section aria-labelledby="passkey-heading" aria-busy={busy}>
     <h2 id="passkey-heading">{en ? 'Your access keys' : 'Tus llaves de acceso'}</h2>
     <p>{en ? 'Your device or password manager keeps the private key. GatoPago verifies and stores its public part.' : 'Tu dispositivo o gestor conserva la llave privada. GatoPago verifica y registra su parte pública.'}</p>
-    <p className="auth-local" role="note">{en ? 'V3 candidate: registering a key does not activate an onchain account or authorize payments. Account activation is a separate step.' : 'Candidato V3: registrar una llave no activa una cuenta onchain ni autoriza pagos. La activación de la cuenta es un paso separado.'}</p>
+    <p className="auth-local" role="note">{en ? 'V3 candidate: registering a key does not activate an onchain account or authorize payments. Account backup is a separate step.' : 'Candidato V3: registrar una llave no activa una cuenta onchain ni autoriza pagos. La activación de la cuenta es un paso separado.'}</p>
     {initializationActive ? <p role="note">{en ? 'Finish or cancel the initial configuration below before registering another key.' : 'Termina o cancela la configuración inicial de abajo antes de registrar otra llave.'}</p> : null}
     <fieldset className="security-actions" disabled={initializationActive}>
     <legend>{en ? 'Key registration' : 'Registro de llaves'}</legend>

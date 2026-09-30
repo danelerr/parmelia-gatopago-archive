@@ -111,7 +111,7 @@ async function requestAssertion(input: AssertionInput) {
  * check the following signature before sending it. Nothing is persisted here.
  */
 export async function requestPasskeyRegistration(input: {
-  scope: WebAuthnScope; challenge: Hex; userHandle: string; userName: string;
+  scope: WebAuthnScope; challenge: Hex; userHandle: string; userName: string; displayName?: string;
   excludeCredentials: readonly string[]; validUntilMs: number; signal?: AbortSignal;
   preference?: 'default' | 'security-key';
 }) {
@@ -119,7 +119,8 @@ export async function requestPasskeyRegistration(input: {
   assertWebAuthnScope(input.scope); assertWebAuthnChallenge(input.challenge);
   if (window.location.origin !== input.scope.origin || window.top !== window || navigator.userActivation?.isActive !== true) return fail('context');
   const userId = credentialIdBytes(input.userHandle);
-  if (userId.length !== 32 || !/^GatoPago [0-9a-f]{8}$/.test(input.userName) ||
+  if (userId.length !== 32 || !(/^(?:GatoPago [0-9a-f]{8}|[a-z][a-z0-9_]{4,29})$/).test(input.userName)
+      || (input.displayName !== undefined && (!input.displayName.trim() || input.displayName.length > 80 || /[\p{Cc}\p{Cf}]/u.test(input.displayName))) ||
       !Array.isArray(input.excludeCredentials) || input.excludeCredentials.length > 16 ||
       new Set(input.excludeCredentials).size !== input.excludeCredentials.length ||
       !['default', 'security-key'].includes(input.preference ?? 'default')) return fail('context');
@@ -143,7 +144,7 @@ export async function requestPasskeyRegistration(input: {
   try {
     const credential = await Promise.race([navigator.credentials.create({ publicKey: {
       rp: { id: expected.scope.rpId, name: 'GatoPago' },
-      user: { id: userId, name: input.userName, displayName: 'Tu cuenta GatoPago' },
+      user: { id: userId, name: input.userName, displayName: input.displayName ?? 'Tu cuenta GatoPago' },
       challenge: Uint8Array.from(expected.challenge.slice(2).match(/../g)!, (part) => Number.parseInt(part, 16)),
       pubKeyCredParams: [{ type: 'public-key', alg: -7 }], timeout, attestation: 'none',
       excludeCredentials: excluded,
@@ -182,5 +183,57 @@ export async function requestPasskeyRegistration(input: {
   } finally {
     clearTimeout(timer); signal?.removeEventListener('abort', cancel);
     controller.signal.removeEventListener('abort', abort); controller.abort(); busy = false; release();
+  }
+}
+
+/** Discoverable login only. Wallet Core verifies the returned key and signature;
+ * this assertion never substitutes for an onchain operation's authorization. */
+export async function requestPasskeyLogin(input: { scope: WebAuthnScope; challenge: Hex; validUntilMs: number; signal?: AbortSignal }) {
+  if (typeof window === 'undefined' || !window.isSecureContext || !navigator.credentials?.get) return fail('unsupported');
+  assertWebAuthnScope(input.scope); assertWebAuthnChallenge(input.challenge);
+  if (window.location.origin !== input.scope.origin || window.top !== window || navigator.userActivation?.isActive !== true) return fail('context');
+  if (!Number.isSafeInteger(input.validUntilMs) || input.validUntilMs <= Date.now()) return fail('expired');
+  if (input.signal?.aborted) return fail('cancelled');
+  if (busy) return fail('busy');
+  const expected = { scope: { ...input.scope }, challenge: input.challenge, validUntilMs: input.validUntilMs };
+  const timeout = Math.min(60_000, expected.validUntilMs - Date.now());
+  const controller = new AbortController(), signal = input.signal;
+  const cancel = () => controller.abort(new PasskeyRequestError('cancelled'));
+  const timer = setTimeout(() => controller.abort(new PasskeyRequestError('expired')), timeout);
+  signal?.addEventListener('abort', cancel, { once: true });
+  let abort!: () => void;
+  const cancelled = new Promise<never>((_, reject) => {
+    abort = () => reject(controller.signal.reason); controller.signal.addEventListener('abort', abort, { once: true });
+  });
+  const release = holdPageReload(); busy = true;
+  try {
+    const credential = await Promise.race([navigator.credentials.get({ publicKey: {
+      rpId: expected.scope.rpId, challenge: Uint8Array.from(expected.challenge.slice(2).match(/../g)!, part => Number.parseInt(part, 16)),
+      userVerification: 'required', timeout,
+    }, signal: controller.signal }), cancelled]);
+    if (controller.signal.aborted || signal?.aborted) return fail('cancelled');
+    if (Date.now() >= expected.validUntilMs) return fail('expired');
+    if (window.location.origin !== expected.scope.origin) return fail('context');
+    if (!(credential instanceof PublicKeyCredential) || credential.type !== 'public-key'
+        || !(credential.response instanceof AuthenticatorAssertionResponse)) return fail('invalid-response');
+    credentialIdBytes(credential.id);
+    const r = credential.response;
+    const auth = new Uint8Array(r.authenticatorData), client = new Uint8Array(r.clientDataJSON), signature = new Uint8Array(r.signature);
+    if (base64url(new Uint8Array(credential.rawId)) !== credential.id || !r.userHandle || r.userHandle.byteLength !== 32
+        || auth.length < 37 || auth.length > 1024 || (auth[32] & 5) !== 5
+        || !client.length || client.length > 2048 || !signature.length || signature.length > 72) return fail('invalid-response');
+    const data: unknown = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(client));
+    if (!data || typeof data !== 'object' || !('type' in data) || data.type !== 'webauthn.get'
+        || !('origin' in data) || data.origin !== expected.scope.origin || !('challenge' in data)
+        || data.challenge !== base64url(Uint8Array.from(expected.challenge.slice(2).match(/../g)!, part => Number.parseInt(part, 16)))
+        || !('crossOrigin' in data) || data.crossOrigin !== false || 'topOrigin' in data) return fail('invalid-response');
+    return { credential_id: credential.id, authenticator_data: base64url(auth), client_data: base64url(client),
+      signature: base64url(signature), user_handle: base64url(new Uint8Array(r.userHandle)) };
+  } catch (error) {
+    if (error instanceof DOMException && ['NotAllowedError', 'AbortError'].includes(error.name)) return fail('cancelled');
+    throw error;
+  } finally {
+    clearTimeout(timer); signal?.removeEventListener('abort', cancel); controller.signal.removeEventListener('abort', abort);
+    controller.abort(); busy = false; release();
   }
 }

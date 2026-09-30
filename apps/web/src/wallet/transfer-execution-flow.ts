@@ -29,7 +29,7 @@ export class TransferExecutionFlow {
   private lastSubmittedProofs: TransferProofs | null = null;
   private readonly listeners = new Set<() => void>();
   constructor(private readonly capture: () => Session, selected: TransferSelection, request: TransferRequest, review: TransferReview,
-    private readonly environment: EnabledAuthConfig['environment']) {
+    private readonly environment: EnabledAuthConfig['deployment']) {
     this.selected = structuredClone(selected); this.request = structuredClone(request); this.review = structuredClone(review);
     this.initial = this.currentReview();
   }

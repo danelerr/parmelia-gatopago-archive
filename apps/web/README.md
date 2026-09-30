@@ -2,39 +2,16 @@
 
 Next.js consumer: marketing, login, shell de cuenta y checkout público. Wallet
 Core y Flow siguen siendo los propietarios del estado y la autorización.
-Este candidato local todavía no crea Account V3 ni permite recibir/pagar.
+El acceso usa passkeys verificadas por Wallet Core y sesiones Firebase. La creación,
+seguridad y transferencias se conectan a Account V3 en Arbitrum Sepolia. La prueba
+completa requiere configuración de proveedores, una passkey y gas de prueba.
 
-## Migración Consumer a Next — 20 de septiembre de 2026
+## Desarrollo local
 
-El frontend activo es **apps/web**, un proyecto Next.js con Tailwind 4,
-marketing, PWA, Consumer y rutas públicas. Los comandos pnpm dev:client,
-pnpm build:client y pnpm build ahora apuntan a Web. No se importan
-React Router, el entrypoint Vite ni el cliente financiero V2 desde Next.
-
-Las 17 rutas consumer tienen entradas App Router, además de login, alias y
-rutas públicas. Home, Ajustes, Mover y los formularios recuperan los tokens,
-marco, controles y marca del client. QR tiene cámara, imagen y entrada manual;
-no convierte contenido no confiable en instrucciones de ejecución.
-
-**Esto no equivale a paridad funcional completa con client ni a una App V3
-operativa.** Varias pantallas son presentadores con operaciones deshabilitadas,
-no implementaciones completas trasladadas del backend anterior. En particular:
-cobros/checkout, perfil/contactos, swap, Earn, cross-chain, recepción, faucet,
-recovery y salida aún necesitan integración V3, no sólo variables de entorno.
-La cuenta, seguridad y envío reutilizan componentes V3 existentes, cuyas
-limitaciones operativas siguen vigentes.
-
-Cuando identidad está deshabilitada, se permite recorrer la UI vacía con un
-aviso explícito: sin usuario ficticio, saldo cero inventado, dirección de
-recepción, firma o petición financiera. Con Firebase habilitado, las rutas
-privadas exigen sesión. Las pantallas públicas no infieren pagos desde la URL.
-
-Se conserva client/ como referencia para comparar paridad; todavía pertenece
-al workspace histórico. No se declara terminado su retiro, la adaptación de
-los gates globales V2 ni la aceptación visual completa. No se tocó la eliminación
-preexistente de Dashboard. La landing Astro original tampoco fue eliminada.
-
-Ver [inventario y límites de esta migración](../../docs/operations/v3-client-next-migration-2026-09-20.md).
+Copiar `.env.example` a `.env.local`, completar los identificadores públicos de
+Firebase y ejecutar `pnpm dev:web` desde la raíz. Abrir `http://localhost:3000`.
+Wallet Core se configura y arranca por separado; ver el [inicio local](../../README.md).
+No poner claves privadas, cuentas de servicio ni secretos Turnstile en Web.
 
 ## Comprobaciones
 
@@ -48,88 +25,59 @@ Incluye inventario de procedencia, hash de los iconos PWA, pruebas de auth/PWA,
 compatibilidad de cliente, lint, tipos y build con descriptor de fuentes. No
 sustituye el smoke de Firebase/Turnstile provisionados ni las pruebas monetarias.
 
-## Autenticación local sin cuentas ni correos reales
+## Acceso con passkey
 
-En una terminal, desde `apps/web`:
+El registro requiere invitación, nombre, username y una passkey descubrible ES256.
+La pantalla separa preparación, creación y confirmación de posesión: cada diálogo
+WebAuthn comienza desde un gesto explícito. El login usa una credencial descubrible.
+Wallet Core verifica las respuestas; sólo entonces Web intercambia el custom token
+con Firebase. La sesión no sustituye las firmas de operaciones onchain.
 
-```powershell
-$env:FIREBASE_CLI_DISABLE_USAGE_REPORTING='true'
-npx.cmd --yes --package firebase-tools@15.29.0 firebase emulators:start --only auth --project demo-gatopago-v3 --config firebase.emulator.json --non-interactive
-```
+Los enlaces de invitación usan `/login#invite=…`; el fragmento se retira del historial
+al montar el formulario y no se persiste en localStorage. Cancelar WebAuthn no consume
+la invitación. Después de un resultado incierto de registro, entrar con la passkey
+permite continuar sin crear otro usuario. No hay reintentos automáticos.
 
-En otra terminal, desde la raíz:
+Google, correo y los proxies de helpers Firebase fueron eliminados. El emulador
+se mantiene aislado para pruebas del SDK, pero no ofrece un registro alternativo
+sin Wallet Core. No constituye un entorno de aceptación completo de passkeys.
+`GATOPAGO_LOCAL_AUTH=1` sigue prohibido fuera de desarrollo local.
 
-```powershell
-$env:GATOPAGO_LOCAL_AUTH='1'
-pnpm --filter @gatopago/web dev
-```
+## Configuración
 
-- Abrir exactamente `http://localhost:3000/login`; `127.0.0.1`, otros puertos y
-  dominios remotos no son orígenes equivalentes para esta configuración.
-- Usar únicamente direcciones sintéticas terminadas en `@example.test`.
-- El enlace aparece en la terminal del emulador; no se envía un correo.
-- Google abre el formulario del emulador en `127.0.0.1:9099`, no Google real.
-- En el mismo navegador, el enlace completa la sesión automáticamente. En otro
-  navegador pide escribir el correo; nunca lo obtiene del query string.
-- Entrar no crea passkeys, no ejecuta recovery y no escribe una smart account.
-- Cerrar ambas terminales al terminar. No exportar/importar usuarios reales en
-  este emulador ni reutilizar sus tokens en Workers remotos.
+`packages/environment` valida las variables de `.env.local`. No se seleccionan
+hosts desde un JSON global. Las variables públicas compartidas con Wallet Core
+son `GATOPAGO_ENVIRONMENT`, `GATOPAGO_WEB_ORIGIN`, `GATOPAGO_API_ORIGIN`,
+`GATOPAGO_BUSINESS_ORIGIN`, `GATOPAGO_WALLET_NETWORKS` y `FIREBASE_PROJECT_ID`.
+El RP de WebAuthn se deriva del hostname Web. HTTP sólo está permitido en loopback;
+los dominios remotos requieren HTTPS.
 
-El modo local está prohibido en builds, `next start` y el ambiente production.
-`GATOPAGO_LOCAL_AUTH=1` junto a `next build` debe fallar, no producir un release.
-El valor público `fake-api-key` es el identificador literal que utiliza el
-emulador para sus enlaces; no es una credencial de un proyecto Firebase real.
-
-El CLI de Firebase se usa temporalmente para pruebas locales y no forma parte
-de las dependencias desplegadas de Web. `pnpm audit` no cubre ese caché de npx.
-
-## Configuración remota pendiente de E1/E3
-
-La fuente canónica es `packages/environment/environments.json`. Mientras el
-ambiente sea `unprovisioned`, la web presenta acceso no habilitado, sin intentar
-reutilizar el proyecto Firebase ni las cuentas de versiones anteriores.
-
-| Entrada | Procedencia | Naturaleza |
-|---|---|---|
-| `GATOPAGO_ENVIRONMENT` | `staging` o `production`, manifiesto aprobado | Configuración pública |
-| `firebase_project_id` | Proyecto aislado aprobado en el manifiesto | Identificador público |
-| `GATOPAGO_FIREBASE_WEB_API_KEY` | Configuración de la app Web del proyecto Firebase correspondiente | API key pública Firebase Web; no Admin |
-| `GATOPAGO_FIREBASE_WEB_APP_ID` | Misma configuración Web de Firebase | Identificador público |
-| `GATOPAGO_TURNSTILE_SITE_KEY` | Widget aprobado para el ambiente | Site key pública; no widget secret |
-
-No se generó, recuperó ni cargó ninguno de esos valores remotos en este
-incremento. No usar service accounts, secretos de Turnstile, private keys,
-relayers ni paymasters en Web. Se rechazan configuraciones parciales o que
-mezclen el emulador con recursos remotos.
+Web añade `GATOPAGO_FIREBASE_WEB_API_KEY`, `GATOPAGO_FIREBASE_WEB_APP_ID` y
+`GATOPAGO_TURNSTILE_SITE_KEY`. Son valores públicos. Para desarrollo local se admite
+la site key de prueba documentada por Cloudflare si Web y API están en loopback.
+Firebase sigue siendo el proyecto configurado, sin login con Google.
 
 ### Contrato de identidad de Wallet Core V3
 
-`POST /app/v1/auth/email-link/request`, con JSON
-`{ email, locale: "es" | "en", turnstileToken }`, devuelve
-`202 { sent: true, resendAfterSeconds: 60 }` sólo tras aceptación de Firebase;
-no es prueba de recepción en la bandeja.
-No acepta `continueUrl`, UID ni destinos proporcionados por el navegador.
-El Worker debe conservar cuotas IP/correo/global, Siteverify de un solo uso,
-action `email_login`, hostname exacto, respuestas acotadas y fallos cerrados.
-La web no envía directamente por el SDK en modo remoto ni recurre a `/auth/*`
-de V1/V2. La ruta está implementada en el [candidato aislado Wallet Core V3](../../server/v3/README.md),
-con pruebas D1 locales; **no está desplegada ni habilitada**. El manifest real
-sigue sin provisionar y el entrypoint falla cerrado. Las cuotas del Worker no
-impiden por sí solas llamar directamente a la API pública de Firebase; revisar
-controles del proyecto antes de abrir el ambiente.
+Wallet Core expone cuatro rutas públicas POST bajo `/app/v1/auth`:
 
-Además falta verificar en el proyecto aislado: Google + Email Link habilitados,
-dominios autorizados y callback OAuth. Los rewrites de Next son proxies
-transparentes exclusivamente para `/__/auth/*` y `/__/firebase/*`, al proyecto
-del manifiesto. No son redirects ni un BFF financiero. El helper iframe admite
-sólo `SAMEORIGIN`; el resto de Web mantiene `DENY`.
+- `/register/options`: `{ invite, name, username, turnstile_token }`.
+- `/register/complete`: `{ request_id, response }` con creación y posesión.
+- `/login/options`: `{}`; sin allowlist de credenciales.
+- `/login/complete`: `{ request_id, response }` con assertion y user handle.
 
-Login/App/helpers tienen `no-store` y `no-referrer`. Los logs de acceso del
-hosting deben redactar query strings de autenticación antes de usar correos
-reales; la configuración de logging de Next sólo controla desarrollo. El
-service worker V3 excluye helpers/API/Flight y no guarda documentos privados.
-La CSP de documentos Next está implementada; la política efectiva del helper
-Firebase proxied y la prueba del proxy/widget reales permanecen pendientes.
+Las respuestas completas contienen `{ custom_token }`, usado sólo con
+`signInWithCustomToken`; las APIs autenticadas reciben el ID token resultante.
+El proveedor custom, la referencia/versión de credencial y su estado local son
+verificados por Wallet Core. La retirada de claves onchain se reconcilia con
+ADMIN mediante dos RPC, con caché máxima de 30 segundos además del tiempo de
+finalidad de la red. Falta validar el flujo completo en el despliegue de staging.
+
+Registro exige Turnstile con action `signup`. IP y cuota global limitan solicitudes;
+la invitación se consume atómicamente al registrar. Las respuestas y solicitudes
+están acotadas, el origen/RP se fijan por entorno y no se aceptan redirects.
+Login/App tienen `no-store` y `no-referrer`; los documentos usan `frame-ancestors
+'none'`. Falta el smoke con Firebase/Turnstile realmente provisionados.
 
 ## PWA V3: instalación, recarga y offline
 
@@ -185,17 +133,16 @@ Gate W integral, CSP/auth de proveedores reales y compatibilidad monetaria de re
 
 ## Compatibilidad con Wallet Core
 
-Las solicitudes remotas de correo llevan el ID inmutable de fuentes, versión
+Las solicitudes de registro y login llevan el ID inmutable de fuentes, versión
 de API, ambiente y contexto de contrato explícitamente `none`. El Worker decide
 si son compatibles. Un `409 CLIENT_UPDATE_REQUIRED` bloquea nuevas solicitudes
-del mismo runtime y muestra actualización/reapertura de ventanas. No se envía
-otro correo, no se intenta por Firebase directamente y no se recarga a la fuerza.
+del mismo runtime y muestra actualización/reapertura de ventanas. No se omite la verificación de Wallet Core ni se recarga a la fuerza.
 Cerrar sesión sigue siendo posible. El botón Recargar usa el guard de operaciones.
 
 El ID se fija al compilar desde `shared/v3/web-release.json`; no se toma de la
 respuesta del servidor para fingir que una PWA antigua es nueva. `build` verifica
 el descriptor con `scripts/v3-web-release.mjs`; el procedimiento y el contrato
-HTTP están en [Wallet Core](../../server/v3/README.md#compatibilidad-de-web-y-worker).
+HTTP están en [Wallet Core](../../gatopago-wallet-core/README.md#compatibilidad-de-web-y-worker).
 Cambiar las fuentes exige revisar/regenerar el descriptor y reconstruir ambos
 artefactos. No constituye una firma de código ni una prueba de despliegue.
 
@@ -220,8 +167,7 @@ SW y offline tienen sus propias políticas; una 404 desconocida es HTML inerte.
 no se promete CDN/ISR de HTML ni mayor rendimiento sólo por usar Next. Los assets
 versionados siguen cacheables. Medir coste/latencia antes de promover el origen.
 Auth sólo permite sus endpoints necesarios; analytics/SDK wallet no se montan
-en la landing. Los helpers Firebase conservan la política del proveedor, cuya
-evidencia real sigue siendo gate: no se les agrega un nonce ajeno a su HTML.
+en la landing. Ya no hay proxies ni excepciones de CSP para helpers de OAuth.
 
 En Chromium release local se comprobaron cinco rutas 200 con todos sus scripts
 nonced, una 404 sin scripts y bloqueo de dos scripts insertados en HTML (sin nonce
@@ -234,7 +180,13 @@ una IP como RP ID. El servidor HTTP y el transporte del emulador siguen ligados
 a `127.0.0.1`; eso no obliga a usar una IP como origen del navegador. No se
 admiten ambos orígenes indistintamente ni se relajan los orígenes de release.
 
-## Adaptador de firma V3 (todavía sin pantalla financiera)
+## Contratos V3 de staging
+
+`src/wallet/creation-release.ts` y `account-release.ts` consumen el perfil público compartido de `@gatopago/shared/v3/wallet-release`. La creación, inspección de cuenta y transferencias quedan ligadas a la misma factory e implementación de Arbitrum Sepolia que usa Wallet Core. El perfil de producción sigue vacío. Las credenciales RPC/bundler no entran en Web.
+
+La configuración contractual no activa Firebase ni publica la API: staging debe estar provisionado en `@gatopago/environment`, con autenticación y origen API configurados. Web sigue accediendo al backend mediante su transporte autenticado; no firma ni envía operaciones al cargar la aplicación.
+
+## Adaptador de firma V3
 
 `src/wallet/passkeys.ts` solicita una assertion únicamente desde una acción
 explícita, en top-level seguro y con activación de usuario. Exige UV y la llave
@@ -248,17 +200,34 @@ Solidity. La pantalla futura debe derivar el digest del documento V3 revisado,
 comprobar la política vigente y cancelar al cambiar de cuenta/ruta. No llamar
 a este helper con un hash arbitrario recibido de la API.
 
-La biblioteca queda fuera de los imports de marketing y login. El smoke en
+La biblioteca queda fuera de los imports de marketing; login la usa para sus propias ceremonias. El smoke en
 Chromium usa un harness local y un autenticador virtual; no es enrollment real,
 prueba de iPhone/iCloud ni prueba de Account V3. Véase el noveno incremento del
 [registro E0–E4](../../docs/operations/v3-e0-e4-implementation.md).
 
-El 8 de septiembre de 2026 se probaron con Chromium y Firebase Auth Emulator:
-Google, email link, autocompletado mismo navegador, confirmación en navegador
-separado, enlace reutilizado rechazado, persistencia tras recarga y logout.
-Son pruebas locales de identidad; no validan Google/iCloud reales, correo real,
-un desafío Turnstile real, iPhone/Android físicos ni autoridad onchain.
+Los smokes históricos de Google/correo no validan este acceso nuevo. Las pruebas
+actuales de transporte y SDK usan proveedores simulados; no prueban Firebase real,
+Turnstile real, dispositivos físicos ni activación contractual. Esas verificaciones
+siguen pendientes para la aceptación integral.
 
-Fuentes: [Firebase email links](https://firebase.google.com/docs/auth/web/email-link-auth),
-[Auth Emulator](https://firebase.google.com/docs/emulator-suite/connect_auth),
-[proxy de autenticación](https://firebase.google.com/docs/auth/web/redirect-best-practices).
+Referencia: [Firebase custom tokens](https://firebase.google.com/docs/auth/admin/create-custom-tokens).
+
+
+## Perfil y recepción por username
+
+`/profile` lee el perfil de Wallet Core, permite editar el nombre visible y publicar
+el username seleccionando explícitamente wallet y cuenta por red. Las listas de
+wallets/cuentas se paginan; ninguna primera wallet se elige implícitamente. El
+username y su wallet quedan fijos después de publicar. `/receive` enlaza el perfil
+propio y solicita una verificación actual antes de mostrar/copiar una dirección.
+
+`/@username` (también `/username`) consulta la API pública para la red seleccionada.
+La página no acepta direcciones/importe del enlace como evidencia, retira la dirección
+al vencer la respuesta y no refresca automáticamente. Desde allí se puede abrir un
+envío con username y red como sugerencias, sin autorización ni importe predefinido.
+
+El formulario de envío admite una dirección o username. Primero carga credenciales,
+luego resuelve el username y prepara la operación con esa dirección exacta. La revisión
+muestra username, nombre, red y dirección; no consulta de nuevo el nombre después de
+firmar. La ventana de firma no supera la vigencia de la resolución ni la revisión
+financiera. Este flujo aún requiere aceptación de navegador con proveedores reales.

@@ -5,14 +5,14 @@ import type { CredentialInventory } from '@gatopago/shared/v3/credential-invento
 import type { CreationConsent } from '@gatopago/shared/v3/creation-operation-wire';
 import type { BrowserAuth } from '../auth/browser';
 import type { CreationProfilePin } from './creation-release';
-import { ActivationPolicyStore } from './activation-policy-store';
+import { BackupPolicyStore } from './backup-policy-store';
 
 /** Read-only backup review. Never a prerequisite for creating or spending from an account. */
-export default function ActivationPolicyReview({ runtime, uid, consent, inventory, pin, english: en, onActiveChange }: {
+export default function BackupPolicyReview({ runtime, uid, consent, inventory, pin, english: en, onActiveChange }: {
   runtime: BrowserAuth; uid: string; consent: CreationConsent; inventory: CredentialInventory; pin: CreationProfilePin;
   english: boolean; onActiveChange: (active: boolean) => void;
 }) {
-  const [store] = useState(() => new ActivationPolicyStore(() => runtime.credentialInventory(uid)));
+  const [store] = useState(() => new BackupPolicyStore(() => runtime.credentialInventory(uid)));
   const [selected, setSelected] = useState<string[]>([]);
   const state = useSyncExternalStore(store.subscribe, store.snapshot, store.snapshot), id = useId();
   const initial = consent.preparation.credential_ref, others = inventory.data.filter((row) => row.credential_ref !== initial);
@@ -30,7 +30,7 @@ export default function ActivationPolicyReview({ runtime, uid, consent, inventor
       : 'Una passkey basta para usar y administrar tu cuenta. Agregar otra es opcional. Cada llave autorizada puede gastar y cambiar la seguridad.'}</p>
     <p>{en ? 'Initial key included' : 'Llave inicial incluida'}: <code>{initial.slice(-8)}</code>.</p>
     {others.length ? <form onSubmit={(event) => { event.preventDefault(); void store.review(consent, inventory, selected, pin); }}>
-      <fieldset className="activation-factor-options" disabled={busy}><legend>{en ? 'Additional registered keys' : 'Llaves registradas adicionales'}</legend>
+      <fieldset className="backup-factor-options" disabled={busy}><legend>{en ? 'Additional registered keys' : 'Llaves registradas adicionales'}</legend>
         {others.map((row) => <label key={row.credential_ref}>
           <input type="checkbox" checked={selected.includes(row.credential_ref)} onChange={(event) => {
             store.clear(); const checked = event.target.checked;

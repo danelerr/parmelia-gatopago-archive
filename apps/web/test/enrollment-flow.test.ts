@@ -25,7 +25,7 @@ describe('Component-owned enrollment state machine (ceremonies and identity mock
   it('requires separate create and proof gestures and confirms only after the server', async () => {
     const { flow, session, ceremonies } = fixture();
     await flow.prepare(); expect(flow.snapshot().phase).toBe('ready'); expect(ceremonies.create).not.toHaveBeenCalled();
-    const creating = flow.create('default'); expect(ceremonies.create).toHaveBeenCalledOnce(); // Called synchronously, before yielding user activation.
+    const creating = flow.create('default'); expect(ceremonies.create).toHaveBeenCalledOnce(); // Called synchronously, before yielding user backup.
     expect(isReloadBlocked()).toBe(true); await creating;
     expect(flow.snapshot().phase).toBe('proof'); expect(ceremonies.prove).not.toHaveBeenCalled(); expect(session.complete).not.toHaveBeenCalled();
     const proving = flow.prove(); expect(ceremonies.prove).toHaveBeenCalledOnce(); await proving;

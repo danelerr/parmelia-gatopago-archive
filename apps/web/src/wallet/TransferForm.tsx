@@ -10,12 +10,15 @@ import type { BalanceView } from './balances';
 import type { TransferSelection } from './transfer-preparation';
 import { transferAssets, transferFormRequest } from './transfer-form';
 import { TransferReview } from './TransferReview';
+import { normalizeUsername, parseRecipient, type Recipient } from './profile';
 
 type Props = { runtime:BrowserAuth; uid:string; selected:TransferSelection; balance:BalanceView;
-  environment:EnabledAuthConfig['environment']; english:boolean };
+  environment:EnabledAuthConfig['deployment']; english:boolean };
 export function TransferForm(props:Props) {
   const params = useSearchParams();
-  const recipient = reviewedRecipient(params, props.selected.network_id);
+  const username = params?.get('username'), chain = params?.get('chain');
+  const handle = username && /^[a-z][a-z0-9_]{4,29}$/.test(username) && (!chain || `eip155:${chain}` === props.selected.network_id) ? `@${username}` : '';
+  const recipient = reviewedRecipient(params, props.selected.network_id) || handle;
   return <OwnedTransferForm key={JSON.stringify([props.uid,props.environment,props.selected,props.balance,recipient])} {...props} recipient={recipient}/>;
 }
 function OwnedTransferForm({ runtime,uid,selected,balance,environment,english:en,recipient }:Props & { recipient: string }) {
@@ -24,7 +27,7 @@ function OwnedTransferForm({ runtime,uid,selected,balance,environment,english:en
   const [amount,setAmount] = useState(''), [max,setMax] = useState(false), [busy,setBusy] = useState(false), [error,setError] = useState(false);
   const [closed,setClosed] = useState(false);
   const [prepared,setPrepared] = useState<{ request:ReturnType<typeof transferFormRequest>;
-    review:Awaited<ReturnType<ReturnType<BrowserAuth['transferPreparations']>['prepare']>>; credentials:CredentialDetail[] } | null>(null);
+    review:Awaited<ReturnType<ReturnType<BrowserAuth['transferPreparations']>['prepare']>>; credentials:CredentialDetail[]; recipient:Recipient|null } | null>(null);
   const active = useRef<AbortController|null>(null), form = useId();
   useEffect(() => {
     let live = true;
@@ -48,7 +51,8 @@ function OwnedTransferForm({ runtime,uid,selected,balance,environment,english:en
     if (active.current || prepared || closed) return;
     const controller = new AbortController(); active.current = controller; setBusy(true); setError(false);
     try {
-      const request = transferFormRequest(selected,metadata,{ asset_id:asset,destination,amount,max });
+      const username = destination.startsWith('0x') ? null : normalizeUsername(destination);
+      let request = username ? null : transferFormRequest(selected,metadata,{ asset_id:asset,destination,amount,max });
       const credentialsSession = runtime.credentialInventory(uid), transfers = runtime.transferPreparations(uid);
       const inventory = await credentialsSession.read(controller.signal), credentials:CredentialDetail[] = [];
       // Bounded batches; complete public credential discovery before starting
@@ -57,22 +61,25 @@ function OwnedTransferForm({ runtime,uid,selected,balance,environment,english:en
         controller.signal.throwIfAborted();
         credentials.push(...await Promise.all(inventory.data.slice(offset,offset+4).map(c => credentialsSession.detail(c.credential_ref,controller.signal))));
       }
+      const recipient = username ? await runtime.recipient(uid, username, selected.network_id, controller.signal) : null;
+      request ??= transferFormRequest(selected,metadata,{ asset_id:asset,destination:recipient!.address,amount,max });
       const review = await transfers.prepare(selected,request,controller.signal);
+      if (recipient) parseRecipient(recipient, recipient.username, selected.network_id);
       if (controller.signal.aborted || active.current !== controller) return;
-      credentialsSession.assertCurrent(); transfers.assertCurrent(); setPrepared({ request,review,credentials });
+      credentialsSession.assertCurrent(); transfers.assertCurrent(); setPrepared({ request,review,credentials,recipient });
     } catch { if (!controller.signal.aborted && active.current === controller) setError(true); }
     finally { if (active.current === controller) { active.current = null; setBusy(false); } }
   }
   if (closed) return <p role="alert">{en ? 'Your session changed. Reopen this account.' : 'Tu sesión cambió. Vuelve a abrir esta cuenta.'}</p>;
   if (prepared) return <TransferReview runtime={runtime} uid={uid} selected={selected} request={prepared.request}
-    review={prepared.review} metadata={metadata} environment={environment} credentials={prepared.credentials} english={en} onEdit={change}/>;
+    review={prepared.review} metadata={metadata} environment={environment} credentials={prepared.credentials} recipient={prepared.recipient} english={en} onEdit={change}/>;
   return <section aria-labelledby={`${form}-heading`} aria-busy={busy}>
     <h3 id={`${form}-heading`}>{en ? 'Send' : 'Enviar'}</h3>
     <form onSubmit={event => { event.preventDefault(); void prepare(); }}>
       <label htmlFor={`${form}-asset`}>{en ? 'Asset' : 'Activo'}</label>
       <select id={`${form}-asset`} value={asset} onChange={event => { change(); setAsset(event.target.value); setAmount(''); }}>
         {metadata.map(a => <option key={a.asset_id} value={a.asset_id}>{a.symbol} · {a.asset_id.split('/')[1]}</option>)}</select>
-      <label htmlFor={`${form}-destination`}>{en ? 'Recipient address' : 'Dirección de destino'}</label>
+      <label htmlFor={`${form}-destination`}>{en ? 'Address or @username' : 'Dirección o @username'}</label>
       <input id={`${form}-destination`} autoComplete="off" spellCheck={false} maxLength={42} value={destination}
         onChange={event => { change(); setDestination(event.target.value); }} required/>
       <label htmlFor={`${form}-amount`}>{en ? 'Amount' : 'Importe'}</label>

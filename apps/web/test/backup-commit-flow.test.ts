@@ -1,21 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { parseActivationCommitPreview } from '@gatopago/shared/v3/activation-wire';
+import { parseBackupCommitPreview } from '@gatopago/shared/v3/backup-wire';
 import { parseResourceId } from '@gatopago/shared/v3/primitives';
-import { ActivationCommitFlow } from '../src/wallet/activation-commit-flow';
-import { activationWireFixture } from './activation.fixture';
+import { BackupCommitFlow } from '../src/wallet/backup-commit-flow';
+import { backupWireFixture } from './backup.fixture';
 import type { BrowserAuth } from '../src/auth/browser';
 import type { requestPasskeyProof } from '../src/wallet/passkeys';
 import { isReloadBlocked } from '../src/pwa/reload-guard';
 
-type Session = Awaited<ReturnType<BrowserAuth['activation']>>;
+type Session = Awaited<ReturnType<BrowserAuth['backup']>>;
 beforeEach(() => { vi.stubGlobal('window', {}); vi.useFakeTimers(); });
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 function fixture() {
-  const t = activationWireFixture(), c = t.commit();
+  const t = backupWireFixture(), c = t.commit();
   let wire = { ...c.wire, state: 'prepared' as 'prepared' | 'authorized' };
   const read = (commitId: string) => {
     wire = { ...wire, commit_id: parseResourceId('operation', commitId) };
-    return { wire: structuredClone(wire), preview: parseActivationCommitPreview(wire, t.choice, t.parent.wire, commitId) };
+    return { wire: structuredClone(wire), preview: parseBackupCommitPreview(wire, t.choice, t.parent.wire, commitId) };
   };
   const session = {
     assertCurrent: vi.fn(),
@@ -32,15 +32,15 @@ function fixture() {
       client_data: Buffer.from(proof.clientDataJSON).toString('base64url'), signature: Buffer.from(proof.signatureDER).toString('base64url') };
   });
   const capture = vi.fn(async () => session as unknown as Session);
-  const newFlow = () => new ActivationCommitFlow(capture, prove, { choice: t.choice, parent: t.parent });
+  const newFlow = () => new BackupCommitFlow(capture, prove, { choice: t.choice, parent: t.parent });
   return { t, c, session, prove, capture, newFlow, flow: newFlow() };
 }
-describe('Final activation consent in Consumer', () => {
+describe('Final backup consent in Consumer', () => {
   it('keeps an accepted consent after a failed status read and retries without signing or submitting', async () => {
     const f = fixture(); await f.flow.prepare(); await f.flow.confirm(); await f.flow.authorize();
     f.session.status.mockRejectedValueOnce(new Error('unavailable'));
     await f.flow.checkProgress();
-    expect(f.flow.snapshot()).toMatchObject({ phase: 'authorized', progress: null, error: 'activation/status-unavailable' });
+    expect(f.flow.snapshot()).toMatchObject({ phase: 'authorized', progress: null, error: 'backup/status-unavailable' });
     f.session.status.mockRejectedValueOnce(new Error('unavailable'));
     await f.flow.checkProgress();
     expect(f.session.status).toHaveBeenCalledTimes(2);
@@ -51,7 +51,7 @@ describe('Final activation consent in Consumer', () => {
     const f = fixture(); await f.flow.prepare(); await f.flow.confirm(); await f.flow.authorize();
     f.session.status.mockReturnValueOnce(new Promise(() => {})); const task = f.flow.checkProgress();
     f.flow.stop(); await task;
-    expect(f.flow.snapshot()).toMatchObject({ phase: 'authorized', error: 'activation/status-stopped', progress: null });
+    expect(f.flow.snapshot()).toMatchObject({ phase: 'authorized', error: 'backup/status-stopped', progress: null });
     expect(f.session.authorizeCommit).toHaveBeenCalledTimes(1); expect(isReloadBlocked()).toBe(false); f.flow.dispose();
   });
   it('discards pending progress when the session changes, without another ceremony or POST', async () => {
@@ -74,7 +74,7 @@ describe('Final activation consent in Consumer', () => {
     expect(JSON.stringify(f.flow.snapshot())).not.toContain('signature'); expect(isReloadBlocked()).toBe(false); f.flow.dispose();
   });
   it('cannot begin from a merely prepared parent', () => {
-    const f = fixture(); expect(() => new ActivationCommitFlow(f.capture, f.prove, { choice: f.t.choice, parent: { wire: f.t.wire } })).toThrow();
+    const f = fixture(); expect(() => new BackupCommitFlow(f.capture, f.prove, { choice: f.t.choice, parent: { wire: f.t.wire } })).toThrow();
   });
   it('never reuses the proposal signature for the final consent', async () => {
     const f = fixture(); await f.flow.prepare();
@@ -126,7 +126,7 @@ describe('Final activation consent in Consumer', () => {
     const task = f.flow.prepare(); await Promise.resolve(); await Promise.resolve();
     f.session.assertCurrent.mockImplementation(() => { throw Object.assign(new Error('changed'), { code: 'auth/session-changed' }); });
     f.flow.checkSession(); await task;
-    resolve({ wire: f.c.wire, preview: parseActivationCommitPreview(f.c.wire, f.t.choice, f.t.parent.wire, f.c.commitId) });
+    resolve({ wire: f.c.wire, preview: parseBackupCommitPreview(f.c.wire, f.t.choice, f.t.parent.wire, f.c.commitId) });
     await Promise.resolve(); expect(f.flow.snapshot().phase).toBe('closed'); expect(isReloadBlocked()).toBe(false);
   });
   it('survives the Strict Mode effect cleanup rehearsal without network or ceremonies', async () => {

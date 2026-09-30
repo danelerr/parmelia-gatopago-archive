@@ -37,7 +37,7 @@ export function WalletOverview({ runtime, uid, english: en, mode = 'balance' }: 
     try {
       const next = await runtime.wallets(uid, controller.signal, previous.next_cursor);
       if (!controller.signal.aborted) {
-        if (previous.data.some((wallet) => next.data.some((item) => item.id === wallet.id || item.owner_party_id !== wallet.owner_party_id))) throw new Error('Inconsistent wallet page');
+        if (previous.data.some((wallet) => next.data.some((item) => item.id === wallet.id || item.user_id !== wallet.user_id))) throw new Error('Inconsistent wallet page');
         setState({ phase: 'ready', page: { data: [...previous.data, ...next.data], next_cursor: next.next_cursor } });
       }
     } catch (error) {

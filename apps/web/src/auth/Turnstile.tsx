@@ -7,7 +7,7 @@ import { useCspNonce } from '../security/NonceProvider';
 
 type TurnstileApi = {
   render(container: HTMLElement, options: {
-    sitekey: string; action: 'email_login'; theme: 'light'; retry: 'never';
+    sitekey: string; action: 'signup'; theme: 'light'; retry: 'never';
     'refresh-expired': 'manual'; 'refresh-timeout': 'manual';
     callback(token: string): void;
     'expired-callback'(): void; 'error-callback'(): void;
@@ -38,7 +38,7 @@ export function Turnstile({ siteKey, onState, english }: {
       try {
         if (!container.current || !window.turnstile) throw new Error('Turnstile unavailable');
         widget = window.turnstile.render(container.current, {
-          sitekey: siteKey, action: 'email_login', theme: 'light', retry: 'never',
+          sitekey: siteKey, action: 'signup', theme: 'light', retry: 'never',
           'refresh-expired': 'manual', 'refresh-timeout': 'manual',
           callback: (token) => { window.clearTimeout(timer); lifecycle.verified(token); },
           'expired-callback': () => lifecycle.invalidate('expired'),

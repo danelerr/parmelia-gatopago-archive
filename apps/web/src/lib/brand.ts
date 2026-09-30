@@ -1,8 +1,11 @@
-import environments from '@gatopago/environment/environments.json';
-import { parseEnvironment } from '@gatopago/environment';
+import { environmentFromVariables } from '@gatopago/environment';
 
-const name = process.env.GATOPAGO_ENVIRONMENT ?? 'staging';
-if (name !== 'production' && name !== 'staging') throw new Error('Unknown GatoPago environment');
-export const environment = parseEnvironment(environments[name]);
-// Public configuration only. No credentials or legacy operational hostname fallbacks.
+export const environment = environmentFromVariables({
+  GATOPAGO_ENVIRONMENT: process.env.GATOPAGO_ENVIRONMENT,
+  GATOPAGO_WEB_ORIGIN: process.env.GATOPAGO_WEB_ORIGIN,
+  GATOPAGO_API_ORIGIN: process.env.GATOPAGO_API_ORIGIN,
+  GATOPAGO_BUSINESS_ORIGIN: process.env.GATOPAGO_BUSINESS_ORIGIN,
+  GATOPAGO_WALLET_NETWORKS: process.env.GATOPAGO_WALLET_NETWORKS,
+  FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
+});
 export const brand = { name: 'GatoPago', siteUrl: environment.web_origin } as const;

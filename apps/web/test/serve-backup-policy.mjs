@@ -9,7 +9,7 @@ import { createServer } from 'node:http';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const webRoot = resolve(root, 'apps/web'), fixtureFile = resolve(root, 'output/playwright/v3-policy-fixture.mjs');
 await build({ outfile: fixtureFile, bundle: true, platform: 'node', format: 'esm', stdin: { resolveDir: webRoot,
-  contents: "export { policyReviewFixture } from './test/activation-policy.fixture';" } });
+  contents: "export { policyReviewFixture } from './test/backup-policy.fixture';" } });
 const { policyReviewFixture } = await import(pathToFileURL(fixtureFile).href);
 const fixture = policyReviewFixture();
 const publicData = { consent: fixture.consent, inventory: fixture.inventory, pin: fixture.pin, material: fixture.material };
@@ -18,7 +18,7 @@ const result = await build({ bundle: true, write: false, platform: 'browser', fo
   define: { 'process.env.NODE_ENV': '"development"' }, stdin: { resolveDir: webRoot, sourcefile: 'policy-harness.tsx', loader: 'tsx', contents: `
 import { StrictMode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import ActivationPolicyReview from './src/wallet/ActivationPolicyReview';
+import BackupPolicyReview from './src/wallet/BackupPolicyReview';
 import { parseCredentialDetail } from '@gatopago/shared/v3/credential-detail';
 const data = ${JSON.stringify(publicData)};
 let current = {}, failure = false, delay = false, reads = 0, ceremonies = 0;
@@ -50,7 +50,7 @@ function Harness() {
       <button onClick={() => { delay = !delay; }}>Simular espera</button>
       <button onClick={() => { current = {}; listeners.forEach(callback => callback({ uid: 'synthetic' })); }}>Reemplazar sesión</button>
       <button onClick={() => setMount(value => value + 1)}>Reiniciar revisión</button></nav>
-    <section className="auth-panel"><ActivationPolicyReview key={mount} runtime={runtime} uid="synthetic" english={english}
+    <section className="auth-panel"><BackupPolicyReview key={mount} runtime={runtime} uid="synthetic" english={english}
       consent={data.consent} inventory={data.inventory} pin={data.pin} onActiveChange={setActive} /></section>
   </main>;
 }

@@ -8,7 +8,7 @@ import type { BrowserAuth } from '../src/auth/browser';
 import { CreationFlow } from '../src/wallet/creation-flow';
 import { creationFeeUnit, formatCreationFee, parseCreationFee } from '../src/wallet/creation-fee';
 import { isReloadBlocked } from '../src/pwa/reload-guard';
-import { initializationFixture } from '../../../server/test/fixtures/v3Initialization';
+import { initializationFixture } from '@gatopago/test-fixtures/v3-initialization';
 
 type Session = Awaited<ReturnType<BrowserAuth['creationOperation']>>;
 const error = (code: string) => Object.assign(new Error(code), { code });

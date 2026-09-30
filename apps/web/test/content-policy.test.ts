@@ -45,13 +45,13 @@ describe('Document CSP with per-response nonce', () => {
     expect(policy['style-src-attr']).toEqual(["'unsafe-inline'"]);
     expect(documentCsp(defaults)).not.toContain('*');
     expect(documentSecurityHeaders['Cache-Control']).toContain('no-store');
-    expect(documentSecurityHeaders['Cross-Origin-Opener-Policy']).toBe('same-origin-allow-popups');
+    expect(documentSecurityHeaders['Cross-Origin-Opener-Policy']).toBe('same-origin');
   });
   it('allows only the provisioned identity connections and Turnstile frame, never analytics', () => {
     const policy = directives(documentCsp({ ...defaults, auth: {
-      mode: 'firebase', environment: 'staging', webOrigin: environment.web_origin,
+      deployment: environment, mode: 'firebase', environment: 'staging', webOrigin: environment.web_origin,
       firebase: { apiKey: 'public-fixture', appId: 'fixture', projectId: 'fixture', authDomain: 'staging.gatopago.com' },
-      emailRequestUrl: environment.api_origin + '/app/v1/auth/email-link/request', turnstileSiteKey: 'fixture',
+      apiOrigin: environment.api_origin + '', turnstileSiteKey: 'fixture',
     } }));
     expect(policy['connect-src']).toEqual(["'self'", environment.api_origin,
       'https://identitytoolkit.googleapis.com', 'https://securetoken.googleapis.com']);
@@ -60,9 +60,9 @@ describe('Document CSP with per-response nonce', () => {
     expect(JSON.stringify(policy)).not.toMatch(/analytics|tagmanager|walletconnect|reown/);
   });
   it('restricts eval/HMR and the emulator to development, without HTTPS upgrading loopback', () => {
-    const auth = { mode: 'emulator' as const, environment: 'staging' as const, webOrigin: 'http://localhost:3000',
+    const auth = { deployment: environment, mode: 'emulator' as const, environment: 'staging' as const, webOrigin: 'http://localhost:3000',
       firebase: { apiKey: 'fake', appId: 'fixture', projectId: 'demo-fixture', authDomain: 'localhost' },
-      emailRequestUrl: null, turnstileSiteKey: null };
+      apiOrigin: null, turnstileSiteKey: null };
     expect(() => documentCsp({ ...defaults, auth })).toThrow('release');
     const policy = directives(documentCsp({ ...defaults, auth, development: true, secure: false }));
     expect(policy['script-src']).toContain("'unsafe-eval'");

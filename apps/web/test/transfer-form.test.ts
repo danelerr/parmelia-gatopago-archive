@@ -1,3 +1,5 @@
+import { parseEnvironment } from '@gatopago/environment';
+import environments from '@gatopago/environment/environments.json';
 import { describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -66,8 +68,8 @@ describe('Transfer form and asset metadata', () => {
   it.each([false,true])('renders an inert form in English=%s', english => {
     const x = fixture(), runtime = { credentialInventory:vi.fn(),transferPreparations:vi.fn(),subscribe:vi.fn() };
     const html = renderToStaticMarkup(createElement(TransferForm,{ runtime:runtime as unknown as BrowserAuth,uid:'synthetic',
-      selected:x.selected,balance:x.balance,environment:'staging',english }));
-    expect(html).toContain(english ? 'Recipient address' : 'Dirección de destino'); expect(html).toContain('USDC');
+      selected:x.selected,balance:x.balance,environment:parseEnvironment(environments.staging),english }));
+    expect(html).toContain(english ? 'Address or @username' : 'Dirección o @username'); expect(html).toContain('USDC');
     expect(html).toContain('MAX'); expect(html).toContain('inputMode="decimal"');
     expect(runtime.credentialInventory).not.toHaveBeenCalled(); expect(runtime.transferPreparations).not.toHaveBeenCalled();
   });

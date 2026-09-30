@@ -71,7 +71,7 @@ export default function AccountInitialization({ runtime, uid, inventory, english
         <li>{en ? 'Account V3 in initial mode, with the selected key.' : 'Cuenta V3 en modo inicial, con la llave seleccionada.'}</li>
         <li>{en ? 'Initial network' : 'Red inicial'}: {state.review.network}.</li>
         <li>{en ? 'No payments, withdrawals, spending permissions or recovery are activated by this consent.' : 'Este consentimiento no activa pagos, retiros, permisos para gastar ni recuperación.'}</li>
-        <li>{en ? 'Using the account requires verified deployment and a separate independent-factor activation; this screen does not check those steps.' : 'Usar la cuenta requiere despliegue verificado y activación separada con factor independiente; esta pantalla no comprueba esos pasos.'}</li>
+        <li>{en ? 'Using the account requires verified deployment and a separate independent-factor backup; this screen does not check those steps.' : 'Usar la cuenta requiere despliegue verificado y activación separada con factor independiente; esta pantalla no comprueba esos pasos.'}</li>
       </ul>
       <p>{en ? 'Authorization expires' : 'La autorización vence'}: <time dateTime={new Date(state.review.validUntil * 1000).toISOString()}>
         {new Date(state.review.validUntil * 1000).toLocaleString(en ? 'en-US' : 'es-BO')}</time>.</p>

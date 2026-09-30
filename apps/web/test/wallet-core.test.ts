@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import environments from '@gatopago/environment/environments.json';
 import { parseEnvironment } from '@gatopago/environment';
 import { createResourceId } from '@gatopago/shared/v3/primitives';
-import { clientMutationHeaders, CLIENT_STATUS_HEADER } from '@gatopago/shared/v3/client-release';
+import { CLIENT_STATUS_HEADER } from '@gatopago/shared/v3/client-release';
 import { loadWalletPage, WalletCoreError } from '../src/wallet/core';
 import { buildAuthConfig, type EnabledAuthConfig } from '../src/auth/config';
 
@@ -11,8 +11,8 @@ const config = buildAuthConfig(parseEnvironment({ ...environments.staging, statu
 }) as EnabledAuthConfig;
 const token = async () => 'synthetic.id.token';
 const signal = () => new AbortController().signal;
-const owner = createResourceId('party');
-const wallet = () => ({ id: createResourceId('wallet'), owner_party_id: owner, controller: 'end_user', account_kind: 'evm_smart_account', status: 'active' });
+const owner = createResourceId('user');
+const wallet = () => ({ id: createResourceId('wallet'), user_id: owner, status: 'active' });
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('Wallet Core browser transport (synthetic HTTP, no real identity/funds)', () => {
@@ -26,35 +26,18 @@ describe('Wallet Core browser transport (synthetic HTTP, no real identity/funds)
       headers: { Authorization: 'Bearer synthetic.id.token', Accept: 'application/json' },
     }));
   });
-  it('bootstraps a missing app profile once, without creating a wallet or key', async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce(Response.json({ error_code: 'SESSION_REQUIRED' }, { status: 409 }))
-      .mockResolvedValueOnce(Response.json({ user_id: createResourceId('user'), party_id: owner }))
-      .mockResolvedValueOnce(Response.json({ data: [], next_cursor: null }));
-    vi.stubGlobal('fetch', fetchMock);
-    expect(await loadWalletPage(config, token, signal())).toEqual({ data: [], next_cursor: null });
-    expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(fetchMock.mock.calls[1]).toEqual([`${environments.staging.api_origin}/app/v1/session`, expect.objectContaining({
-      method: 'POST', body: '{}', credentials: 'omit', redirect: 'error', cache: 'no-store',
-      headers: { Authorization: 'Bearer synthetic.id.token', Accept: 'application/json', 'Content-Type': 'application/json', ...clientMutationHeaders('staging') },
-    })]);
-  });
-  it('does not retry an uncertain bootstrap or loop on SESSION_REQUIRED', async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce(Response.json({ error_code: 'SESSION_REQUIRED' }, { status: 409 }))
-      .mockResolvedValueOnce(Response.json({ error_code: 'SERVICE_UNAVAILABLE' }, { status: 503 }));
+  it('does not create a user implicitly when admission is missing', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ error_code: 'SESSION_REQUIRED' }, { status: 409 }));
     vi.stubGlobal('fetch', fetchMock);
     await expect(loadWalletPage(config, token, signal())).rejects.toMatchObject({ code: 'wallet/unavailable' });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    fetchMock.mockReset().mockResolvedValueOnce(Response.json({ error_code: 'SESSION_REQUIRED' }, { status: 409 }))
-      .mockResolvedValueOnce(Response.json({ user_id: createResourceId('user'), party_id: owner }))
-      .mockResolvedValueOnce(Response.json({ error_code: 'SESSION_REQUIRED' }, { status: 409 }));
-    await expect(loadWalletPage(config, token, signal())).rejects.toMatchObject({ code: 'wallet/unavailable' });
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][1].method).toBe('GET');
   });
   it('never sends emulator tokens or tokens to a foreign/changed API origin', async () => {
     const fetchMock = vi.fn(); vi.stubGlobal('fetch', fetchMock);
     const getToken = vi.fn(token);
-    for (const changed of [{ ...config, mode: 'emulator' as const }, { ...config, emailRequestUrl: 'https://evil.test/app/v1/auth/email-link/request' },
-      { ...config, emailRequestUrl: 'not a URL' }, { ...config, emailRequestUrl: `${config.emailRequestUrl}?redirect=evil` }]) {
+    for (const changed of [{ ...config, mode: 'emulator' as const }, { ...config, apiOrigin: 'https://evil.test' },
+      { ...config, apiOrigin: 'not a URL' }, { ...config, apiOrigin: `${config.apiOrigin}?redirect=evil` }]) {
       await expect(loadWalletPage(changed, getToken, signal())).rejects.toMatchObject({ code: 'wallet/unavailable' });
     }
     expect(getToken).not.toHaveBeenCalled(); expect(fetchMock).not.toHaveBeenCalled();
@@ -71,7 +54,7 @@ describe('Wallet Core browser transport (synthetic HTTP, no real identity/funds)
     const first = wallet(), second = wallet();
     const fetchMock = vi.fn(); vi.stubGlobal('fetch', fetchMock);
     for (const data of [null, { data: [], next_cursor: first.id }, { data: [{ ...first, id: 'firebase-uid' }], next_cursor: null },
-      { data: [first, first], next_cursor: null }, { data: [first, { ...second, owner_party_id: createResourceId('party') }], next_cursor: null },
+      { data: [first, first], next_cursor: null }, { data: [first, { ...second, user_id: createResourceId('user') }], next_cursor: null },
       { data: [{ ...first, balance: '100' }], next_cursor: null }, { data: [first, second].sort((a, b) => b.id.localeCompare(a.id)), next_cursor: null }]) {
       fetchMock.mockResolvedValueOnce(Response.json(data));
       await expect(loadWalletPage(config, token, signal())).rejects.toMatchObject({ code: 'wallet/unavailable' });

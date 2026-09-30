@@ -2,7 +2,6 @@ import { loadPinnedCreationProfile } from '@gatopago/shared/v3/initialization';
 import { parseInitializationPreparation, parseInitializationProof } from '@gatopago/shared/v3/initialization-wire';
 import { parseCreationCapRequest, parseCreationPreview, parseCreationReceipt, type CreationConsent } from '@gatopago/shared/v3/creation-operation-wire';
 import { encodeWebAuthnAssertion } from '@gatopago/shared/v3/webauthn';
-import environments from '@gatopago/environment/environments.json';
 import type { EnabledAuthConfig } from '../auth/config';
 import { walletTransport, WalletCoreError } from './http';
 
@@ -28,7 +27,7 @@ function success(result: { status: number }) {
  */
 export function creationOperationClient(config: EnabledAuthConfig, getToken: () => Promise<string>, pin: Pin) {
   const trusted = Object.freeze({ ...pin }), profile = loadPinnedCreationProfile(trusted.document, trusted.digest);
-  const environment = environments[config.environment];
+  const environment = config.deployment;
   if (config.mode !== 'firebase' || config.webOrigin !== environment.web_origin) throw new WalletCoreError('wallet/unavailable');
   const scope = Object.freeze({ rpId: environment.webauthn_rp_id, origin: environment.web_origin });
   const account = Object.freeze({ generation: String(profile.deployment.generation), contract_manifest_version: profile.deployment.manifest_id });

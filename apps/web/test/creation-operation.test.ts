@@ -9,8 +9,8 @@ import { parseInitializationPreparation } from '@gatopago/shared/v3/initializati
 import { CLIENT_RELEASE_HEADERS } from '@gatopago/shared/v3/client-release';
 import { creationOperationClient } from '../src/wallet/creation-operation';
 import { buildAuthConfig, type EnabledAuthConfig } from '../src/auth/config';
-import { initializationFixture } from '../../../server/test/fixtures/v3Initialization';
-import { fixtureHash } from '../../../server/test/fixtures/v3Inspection';
+import { initializationFixture } from '@gatopago/test-fixtures/v3-initialization';
+import { fixtureHash } from '@gatopago/test-fixtures/v3-inspection';
 
 const config = buildAuthConfig(parseEnvironment({ ...environments.staging, status: 'provisioned', firebase_project_id: 'v3-runtime-test' }), {
   apiKey: `AIza${'a'.repeat(35)}`, appId: '1:123:web:abcdef', turnstileSiteKey: `0x${'a'.repeat(22)}`,

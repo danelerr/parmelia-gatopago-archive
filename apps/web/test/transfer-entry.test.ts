@@ -1,13 +1,18 @@
+import { parseEnvironment } from '@gatopago/environment';
+import environments from '@gatopago/environment/environments.json';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach,describe,expect,it,vi } from 'vitest';
 import { createResourceId } from '@gatopago/shared/v3/primitives';
-import { transferFixture } from '../../../server/test/fixtures/v3Transfer';
+import { transferFixture } from '@gatopago/test-fixtures/v3-transfer';
 import type { BrowserAuth } from '../src/auth/browser';
 import type { BalanceView } from '../src/wallet/balances';
 import { TransferEntryStore } from '../src/wallet/transfer-entry-store';
 import { TransferEntry } from '../src/wallet/TransferEntry';
 import { accountPinsForRelease } from '../src/wallet/account-release';
+import { creationProfileForRelease } from '../src/wallet/creation-release';
+import { loadPinnedCreationProfile } from '@gatopago/shared/v3/initialization';
+import { deploymentDocumentDigest } from '@gatopago/shared/v3/deployment';
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 function fixture() {
@@ -17,7 +22,7 @@ function fixture() {
  const balance:BalanceView = { account:{ ...account },address:selected.address,observed_at:f.now,expires_at:f.now+30,block_number:'10',block_hash:`0x${'ab'.repeat(32)}`,
   assets:[{ asset_id:`${account.network_id}/slip44:60`,symbol:'ETH',decimals:18,amount_atomic:'1' }] };
  vi.spyOn(Date,'now').mockReturnValue(f.now*1000);
- const session = { assertCurrent:vi.fn(),environment:'staging' as const,read:vi.fn(async () => structuredClone(selected)) };
+ const session = { assertCurrent:vi.fn(),environment:parseEnvironment(environments.staging),read:vi.fn(async () => structuredClone(selected)) };
  const capture = vi.fn(() => session), store = new TransferEntryStore(capture,account);
  return { f,account,selected,balance,session,capture,store };
 }
@@ -72,7 +77,14 @@ describe('Consumer send entry lifecycle', () => {
   const html = renderToStaticMarkup(createElement(TransferEntry,{ runtime:runtime as unknown as BrowserAuth,uid:'synthetic',account:x.account,balance:x.balance,english }));
   expect(html).toContain(english ? 'Send' : 'Enviar'); expect(runtime.accountContexts).not.toHaveBeenCalled();
  });
- it('does not invent an admitted deployment in either environment', () => {
-  expect(accountPinsForRelease('staging')).toEqual([]); expect(accountPinsForRelease('production')).toEqual([]);
+ it('pins the deployed Sepolia account revision only in staging', () => {
+  const pins = accountPinsForRelease(parseEnvironment(environments.staging));
+  expect(pins).toHaveLength(1);
+  expect(JSON.parse(pins[0].document).components.factory.address).toBe('0x61c74d8f0834791db732fba9ac022224bf3bbb5f');
+  const creation = creationProfileForRelease(parseEnvironment(environments.staging))!;
+  const profile = loadPinnedCreationProfile(creation.document, creation.digest);
+  const document = JSON.stringify(profile.deployment);
+  expect(pins[0]).toEqual({ document, digest: deploymentDocumentDigest(document) });
+  expect(accountPinsForRelease(parseEnvironment(environments.production))).toEqual([]);
  });
 });

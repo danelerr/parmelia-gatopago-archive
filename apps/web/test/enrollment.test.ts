@@ -37,22 +37,15 @@ describe('Enrollment HTTP contract (synthetic server)', () => {
       headers: { Authorization: 'Bearer synthetic.token.signature', Accept: 'application/json', 'Content-Type': 'application/json', ...clientMutationHeaders('staging') },
     }));
   });
-  it('bootstraps a missing profile once and reuses the exact enrollment ID', async () => {
-    const request = vi.fn().mockResolvedValueOnce(Response.json({ error_code: 'SESSION_REQUIRED' }, { status: 409 }))
-      .mockResolvedValueOnce(Response.json({ user_id: createResourceId('user'), party_id: createResourceId('party') }))
-      .mockResolvedValueOnce(Response.json(preparation())); vi.stubGlobal('fetch', request);
-    await prepareEnrollment(config, token, id, signal());
-    expect(request).toHaveBeenCalledTimes(3);
-    expect(request.mock.calls[0][1].body).toBe(request.mock.calls[2][1].body);
-    expect(request.mock.calls[1][0]).toBe(`${environments.staging.api_origin}/app/v1/session`);
-  });
-  it('does not loop after bootstrap or retry an uncertain preparation', async () => {
-    const request = vi.fn().mockResolvedValueOnce(Response.json({ error_code: 'SESSION_REQUIRED' }, { status: 409 }))
-      .mockResolvedValueOnce(Response.json({ user_id: createResourceId('user'), party_id: createResourceId('party') }))
-      .mockResolvedValueOnce(Response.json({ error_code: 'SESSION_REQUIRED' }, { status: 409 })); vi.stubGlobal('fetch', request);
+  it('requires an admitted user and never creates one during enrollment', async () => {
+    const request = vi.fn().mockResolvedValue(Response.json({ error_code: 'SESSION_REQUIRED' }, { status: 409 }));
+    vi.stubGlobal('fetch', request);
     await expect(prepareEnrollment(config, token, id, signal())).rejects.toMatchObject({ code: 'enrollment/unavailable' });
-    expect(request).toHaveBeenCalledTimes(3);
-    request.mockReset().mockRejectedValue(new Error('network'));
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request.mock.calls[0][0]).toBe(`${environments.staging.api_origin}/app/v1/security/enrollments`);
+  });
+  it('does not retry an uncertain preparation', async () => {
+    const request = vi.fn().mockRejectedValue(new Error('network')); vi.stubGlobal('fetch', request);
     await expect(prepareEnrollment(config, token, id, signal())).rejects.toMatchObject({ code: 'enrollment/unavailable' });
     expect(request).toHaveBeenCalledTimes(1);
   });
@@ -96,7 +89,7 @@ describe('Enrollment HTTP contract (synthetic server)', () => {
   });
   it('rejects external API URLs, emulator mode and invalid IDs before obtaining a token', async () => {
     const getToken = vi.fn(token); vi.stubGlobal('fetch', vi.fn());
-    for (const candidate of [{ ...config, emailRequestUrl: 'https://evil.test/app/v1/auth/email-link/request' }, { ...config, mode: 'emulator' as const }]) {
+    for (const candidate of [{ ...config, apiOrigin: 'https://evil.test' }, { ...config, mode: 'emulator' as const }]) {
       await expect(prepareEnrollment(candidate, getToken, id, signal())).rejects.toThrow();
     }
     await expect(prepareEnrollment(config, getToken, '../other', signal())).rejects.toThrow();

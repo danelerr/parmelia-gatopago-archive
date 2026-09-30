@@ -1,13 +1,13 @@
-import type { parseActivationStatus } from '@gatopago/shared/v3/activation-status';
+import type { parseBackupStatus } from '@gatopago/shared/v3/backup-status';
 
 /** Historical evidence is displayed separately from current security and key possession. */
-export default function ActivationProgress({ progress: p, english: en }: {
-  progress: ReturnType<typeof parseActivationStatus>; english: boolean;
+export default function BackupProgress({ progress: p, english: en }: {
+  progress: ReturnType<typeof parseBackupStatus>; english: boolean;
 }) {
   const o = p.observation, confirmed = p.policy_confirmation;
   const uncertain = o && (o.status !== 'observed' || o.finality !== 'finalized');
   const title = p.job_state === 'review' || o?.outcome === 'execution_reverted'
-    ? (en ? 'Activation needs review' : 'La activación necesita revisión')
+    ? (en ? 'Backup needs review' : 'La activación necesita revisión')
     : uncertain ? (en ? 'Latest network result is not confirmed' : 'El último resultado en red no está confirmado')
       : confirmed ? (en ? 'Installed policy recorded' : 'Política instalada registrada')
         : o?.status === 'observed' && o.finality === 'finalized'

@@ -2,7 +2,7 @@ import type { CredentialInventory } from '@gatopago/shared/v3/credential-invento
 import type { CreationConsent } from '@gatopago/shared/v3/creation-operation-wire';
 import type { BrowserAuth } from '../auth/browser';
 import type { CreationProfilePin } from './creation-release';
-import { passkeyPolicyDraft, policySelection } from './activation-policy';
+import { passkeyPolicyDraft, policySelection } from './backup-policy';
 
 type Session = Pick<ReturnType<BrowserAuth['credentialInventory']>, 'assertCurrent' | 'detail'>;
 type Draft = ReturnType<typeof passkeyPolicyDraft>;
@@ -11,7 +11,7 @@ type View = Readonly<{ phase: 'idle' | 'loading' | 'ready' | 'error' | 'closed';
 /** Per-mounted review. No signing, POST, storage, polling or module-global I/O.
  * Selection is copied before async reads; any replacement discards the old review.
  */
-export class ActivationPolicyStore {
+export class BackupPolicyStore {
   private view: View = Object.freeze({ phase: 'idle', draft: null, code: null });
   private session: Session | null = null;
   private active: AbortController | null = null;

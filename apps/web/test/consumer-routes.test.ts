@@ -72,6 +72,10 @@ describe('Untrusted QR review', () => {
     if (result) expect(result).toEqual({ kind: 'link', path: '/pay/a' });
     else expect(result).toBeNull();
   });
+  it('accepts canonical username links without trusting a supplied destination', () => {
+    expect(parseConsumerQr('/@Daniel_1?to=evil', origin)).toEqual({ kind: 'link', path: '/@Daniel_1' });
+    for (const path of ['/@a', '/@0daniel', '/@dan-iel']) expect(parseConsumerQr(path, origin)).toBeNull();
+  });
   it('rejects duplicated ERC-681 recipients and unsupported functions', () => {
     expect(parseConsumerQr(`ethereum:${address}/transfer?address=${address}&address=${address}`, origin)).toBeNull();
     expect(parseConsumerQr(`ethereum:${address}/approve?address=${address}`, origin)).toBeNull();

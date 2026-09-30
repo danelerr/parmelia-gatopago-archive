@@ -14,10 +14,9 @@ const hash = (value: unknown): value is `0x${string}` => typeof value === 'strin
 function accounts(input: unknown, walletId: string, after: string | null): AccountPage {
   if (!record(input) || !exact(input, ['data', 'next_cursor']) || !Array.isArray(input.data) || input.data.length > 20) throw fail();
   const data = input.data.map((row): AccountChoice => {
-    if (!record(row) || !exact(row, ['id','wallet_id','account_identity_id','network_id','generation','deployment_state','spend_readiness','receive_enabled'])
+    if (!record(row) || !exact(row, ['id','wallet_id','network_id','generation','deployment_state','spend_readiness','receive_enabled'])
       || row.wallet_id !== walletId || row.generation !== 3 || row.spend_readiness !== 'not_assessed' || row.receive_enabled !== false
       || !['counterfactual','deploying','active','needs_security_sync','unsupported','retired'].includes(String(row.deployment_state))) throw fail();
-    parseResourceId('accountIdentity', row.account_identity_id);
     return { id: parseResourceId('walletAccount', row.id), wallet_id: walletId, network_id: parseNetworkId(row.network_id) };
   });
   if (data.some((row, i) => row.id <= (i ? data[i - 1].id : after ?? ''))) throw fail();

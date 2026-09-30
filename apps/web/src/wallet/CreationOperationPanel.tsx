@@ -64,8 +64,8 @@ export default function CreationOperationPanel({ runtime, uid, pin, consent, kno
       <label htmlFor="creation-gas-cap">{en ? 'Execution charge limit' : 'Límite del cargo de ejecución'} ({unit.symbol})</label>
       <input id="creation-gas-cap" inputMode="decimal" autoComplete="off" value={cap} maxLength={100} required
         aria-describedby="creation-fee-explanation" onChange={(event) => setCap(event.target.value)} />
-      <p id="creation-fee-explanation">{en ? 'This path uses native currency from the account, with no gas sponsorship. The limit applies to EntryPoint charges; it is not an all-in quote and may not cover additional network charges. No funding is requested here.'
-        : 'Este trayecto usa moneda nativa de la cuenta, sin patrocinio de gas. El límite corresponde al cargo del EntryPoint: no es una cotización total y puede no cubrir cargos adicionales de la red. Aquí no te pedimos enviar fondos.'}</p>
+      <p id="creation-fee-explanation">{en ? 'The next review shows who pays the network fee. This limit bounds the creation operation.'
+        : 'La siguiente revisión muestra quién paga la comisión de red. Este límite acota la operación de creación.'}</p>
       <button type="submit" className="auth-primary">{en ? 'Review creation operation' : 'Revisar operación de creación'}</button>
     </form> : null}
     {state.phase === 'prepare-retry' && unit && state.cap ? <>
@@ -75,11 +75,11 @@ export default function CreationOperationPanel({ runtime, uid, pin, consent, kno
     {state.review ? <details className="initialization-review" open={state.receipt?.state === 'authorized' ? undefined : true}>
       <summary>{state.receipt?.state === 'authorized' ? (en ? 'Recorded operation details' : 'Detalles de la operación registrada')
         : (en ? 'Operation to authorize' : 'Operación a autorizar')}</summary>
-      <p>{en ? 'Only deploy and complete the initial account configuration. No transfer, token approval or spending activation.'
+      <p>{en ? 'Only deploy and complete the initial account configuration. No transfer, token approval or spending backup.'
         : 'Sólo desplegar y completar la configuración inicial de la cuenta. Sin transferencia, aprobación de tokens ni activación de gastos.'}</p>
       {unit ? <><p>{en ? 'Your approved execution limit' : 'Tu límite aprobado de ejecución'}: <strong>{formatCreationFee(state.review.cap, state.network)}</strong>.</p>
         <p>{en ? 'Maximum EntryPoint charge from these gas terms' : 'Cargo máximo del EntryPoint según estas condiciones de gas'}: {formatCreationFee(state.review.maximumCharge, state.network)}.</p>
-        <p>{en ? 'Not an all-in quote; this account-funded path has no gas sponsorship.' : 'No es una cotización total; este trayecto se financia desde la cuenta y no tiene patrocinio de gas.'}</p></> : null}
+        <p>{state.review.sponsored ? (en ? 'Network fee covered by GatoPago. Your account pays no gas for this operation.' : 'GatoPago cubre la comisión de red. Tu cuenta no paga gas por esta operación.') : (en ? 'The network fee is paid from your account.' : 'La comisión de red se paga desde tu cuenta.')}</p></> : null}
       <p>{en ? 'Signing deadline' : 'Plazo para firmar'}: <time dateTime={new Date(state.review.expiresAt * 1000).toISOString()}>
         {new Date(state.review.expiresAt * 1000).toLocaleString(en ? 'en-US' : 'es-BO')}</time>.</p>
       <details><summary>{en ? 'Technical operation details' : 'Detalles técnicos de la operación'}</summary>

@@ -1,10 +1,10 @@
+import type { Environment } from '@gatopago/environment';
 import { getAddress } from 'viem';
 import { CLIENT_RELEASE_ID } from '@gatopago/shared/v3/client-release';
 import { loadPinnedDeploymentManifest, requireHash } from '@gatopago/shared/v3/deployment';
 import { parseNetworkId, parseResourceId } from '@gatopago/shared/v3/primitives';
 import { parseTransferRequest, type TransferRequest } from '@gatopago/shared/v3/transfer';
 import { readTransferDraft } from '@gatopago/shared/v3/transfer-review-record';
-import environments from '@gatopago/environment/environments.json';
 import type { EnabledAuthConfig } from '../auth/config';
 import { exact, record, walletTransport, WalletCoreError } from './http';
 
@@ -28,8 +28,8 @@ function selection(input: TransferSelection) {
 /** Rebuilds the exact request and signing digest locally. Not chain evidence or a
  * signing grant: the UI must still obtain explicit consent and server confirmation. */
 export function parseTransferPreparation(input: unknown, selected: TransferSelection, requested: TransferRequest,
-  environment: EnabledAuthConfig['environment'], now = Math.floor(Date.now() / 1000), preparationId?: string) {
-  const expected = selection(selected), request = parseTransferRequest(requested), config = environments[environment];
+  environment: Environment, now = Math.floor(Date.now() / 1000), preparationId?: string) {
+  const expected = selection(selected), request = parseTransferRequest(requested), config = environment;
   if (!record(input) || !exact(input, ['schema_version','preparation_id','wallet_id','wallet_account_id',
     'consent_digest','review_json','review_sha256','expires_at','send_enabled']) || input.schema_version !== 1
     || input.wallet_id !== expected.wallet_id || input.wallet_account_id !== expected.wallet_account_id || input.send_enabled !== false
@@ -57,7 +57,7 @@ export function transferPreparationClient(config: EnabledAuthConfig, token: () =
       `/wallets/${expected.wallet_id}/accounts/${expected.wallet_account_id}/transfer-preparations${id ? `/${id}` : ''}`,
       id ? 'GET' : 'POST', request, { generation: '3', contract_manifest_version: expected.manifest.manifest_id });
     if (result.status !== 200) throw fail();
-    return parseTransferPreparation(result.value, expected, request, config.environment, Math.floor(Date.now() / 1000), id);
+    return parseTransferPreparation(result.value, expected, request, config.deployment, Math.floor(Date.now() / 1000), id);
   }
   return { prepare: (selected: TransferSelection, request: TransferRequest, signal: AbortSignal) => load(selected, request, signal),
     read: (selected: TransferSelection, request: TransferRequest, id: string, signal: AbortSignal) => load(selected, request, signal, id) };

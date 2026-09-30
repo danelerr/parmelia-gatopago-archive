@@ -1,5 +1,5 @@
-import { parseActivationPreview, parseActivationSelection, parseActivationCommitPreview, parseActivationCommitReceipt,
-  type ActivationSelection } from '@gatopago/shared/v3/activation-wire';
+import { parseBackupPreview, parseBackupSelection, parseBackupCommitPreview, parseBackupCommitReceipt,
+  type BackupSelection } from '@gatopago/shared/v3/backup-wire';
 import { createResourceId, parseResourceId } from '@gatopago/shared/v3/primitives';
 import { parseInitializationProof } from '@gatopago/shared/v3/initialization-wire';
 import { encodeWebAuthnAssertion, type WebAuthnAssertionBytes } from '@gatopago/shared/v3/webauthn';
@@ -7,8 +7,8 @@ import type { BrowserAuth } from '../auth/browser';
 import type { requestPasskeyProof } from './passkeys';
 import { holdPageReload } from '../pwa/reload-guard';
 
-type Session = Awaited<ReturnType<BrowserAuth['activation']>>;
-type Preview = ReturnType<typeof parseActivationCommitPreview>;
+type Session = Awaited<ReturnType<BrowserAuth['backup']>>;
+type Preview = ReturnType<typeof parseBackupCommitPreview>;
 type Phase = 'idle' | 'loading' | 'tracking' | 'absent' | 'ready' | 'proving' | 'submitting' | 'uncertain' | 'authorized' | 'expired' | 'closed';
 type View = Readonly<{ phase: Phase; error: string | null; commitId: string | null; proofReady: boolean;
   progress: Awaited<ReturnType<Session['status']>> | null;
@@ -17,8 +17,8 @@ const error = (code: string) => Object.assign(new Error(code), { code });
 
 /** An explicit second consent, not evidence of settlement. No work on construction,
  * no automatic retries, and no reuse of the first proposal signature. */
-export class ActivationCommitFlow {
-  private readonly choice: ActivationSelection;
+export class BackupCommitFlow {
+  private readonly choice: BackupSelection;
   private readonly parent: { wire: unknown };
   private session: Session | null = null;
   private operation: { wire: unknown; preview: Preview } | null = null;
@@ -28,10 +28,10 @@ export class ActivationCommitFlow {
   private listeners = new Set<() => void>();
   private view: View = Object.freeze({ phase: 'idle', error: null, commitId: null, proofReady: false, submitted: false, review: null, progress: null });
   constructor(private readonly capture: () => Promise<Session>, private readonly prove: typeof requestPasskeyProof,
-    context: { choice: ActivationSelection; parent: { wire: unknown } }) {
-    this.choice = parseActivationSelection(structuredClone(context.choice));
+    context: { choice: BackupSelection; parent: { wire: unknown } }) {
+    this.choice = parseBackupSelection(structuredClone(context.choice));
     this.parent = structuredClone(context.parent);
-    if (parseActivationPreview(this.parent.wire, this.choice).receipt.state !== 'authorized') throw error('activation/invalid');
+    if (parseBackupPreview(this.parent.wire, this.choice).receipt.state !== 'authorized') throw error('backup/invalid');
   }
   snapshot = () => this.view;
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
@@ -43,12 +43,12 @@ export class ActivationCommitFlow {
     this.listeners.forEach((listener) => listener());
   }
   private expire() {
-    if (this.view.submitted) this.set('uncertain', { error: 'activation/result-unknown' });
-    else { this.proof = null; this.set('expired', { error: 'activation/expired', proofReady: false }); }
+    if (this.view.submitted) this.set('uncertain', { error: 'backup/result-unknown' });
+    else { this.proof = null; this.set('expired', { error: 'backup/expired', proofReady: false }); }
   }
   private live() {
     const r = this.operation?.preview.receipt, now = Date.now() / 1000;
-    if (!r || r.state !== 'prepared' || now < r.valid_after || now >= r.valid_until) throw error('activation/expired');
+    if (!r || r.state !== 'prepared' || now < r.valid_after || now >= r.valid_until) throw error('backup/expired');
   }
   checkSession() { try { this.session?.assertCurrent(); } catch { this.invalidate(); } }
   invalidate() { this.dispose(); this.set('closed'); }
@@ -61,8 +61,8 @@ export class ActivationCommitFlow {
     const tracking = this.view.phase === 'tracking';
     const local = this.view.phase === 'proving';
     this.active.abort(); this.active = null;
-    this.set(tracking ? 'authorized' : local ? 'ready' : 'uncertain', { error: tracking ? 'activation/status-stopped'
-      : local ? 'activation/verification-stopped' : 'activation/result-unknown' });
+    this.set(tracking ? 'authorized' : local ? 'ready' : 'uncertain', { error: tracking ? 'backup/status-stopped'
+      : local ? 'backup/verification-stopped' : 'backup/result-unknown' });
   }
   private async run(phase: Phase, action: (signal: AbortSignal, current: () => void) => Promise<void>, fallback: Phase) {
     if (this.active || this.view.phase === 'closed') return;
@@ -72,15 +72,15 @@ export class ActivationCommitFlow {
     let abort!: () => void;
     const cancelled = new Promise<never>((_, reject) => { abort = () => reject(controller.signal.reason);
       controller.signal.addEventListener('abort', abort, { once: true }); });
-    const timeout = setTimeout(() => controller.abort(error('activation/timeout')), phase === 'proving' ? 90_000 : 30_000);
+    const timeout = setTimeout(() => controller.abort(error('backup/timeout')), phase === 'proving' ? 90_000 : 30_000);
     this.set(phase);
     try { await Promise.race([(async () => { current(); await action(controller.signal, current); })(), cancelled]); }
     catch (e) {
       if (this.active === controller) {
-        const code = e && typeof e === 'object' && 'code' in e && typeof e.code === 'string' ? e.code : 'activation/unavailable';
+        const code = e && typeof e === 'object' && 'code' in e && typeof e.code === 'string' ? e.code : 'backup/unavailable';
         if (['auth/session-changed', 'auth/unauthenticated', 'client/update-required'].includes(code)) this.invalidate();
-        else if (code === 'activation/expired') this.expire();
-        else this.set(fallback, { error: phase === 'tracking' ? 'activation/status-unavailable' : code });
+        else if (code === 'backup/expired') this.expire();
+        else this.set(fallback, { error: phase === 'tracking' ? 'backup/status-unavailable' : code });
       }
     } finally {
       clearTimeout(timeout); controller.signal.removeEventListener('abort', abort);
@@ -93,10 +93,10 @@ export class ActivationCommitFlow {
     return this.session;
   }
   private accept(response: { wire: unknown }) {
-    const wire = structuredClone(response.wire), preview = parseActivationCommitPreview(wire, this.choice, this.parent.wire, this.view.commitId!);
+    const wire = structuredClone(response.wire), preview = parseBackupCommitPreview(wire, this.choice, this.parent.wire, this.view.commitId!);
     if (this.operation && (JSON.stringify(this.operation.preview.observation) !== JSON.stringify(preview.observation)
       || this.operation.preview.compiled.digest !== preview.compiled.digest
-      || (this.operation.preview.receipt.state === 'authorized' && preview.receipt.state !== 'authorized'))) throw error('activation/invalid');
+      || (this.operation.preview.receipt.state === 'authorized' && preview.receipt.state !== 'authorized'))) throw error('backup/invalid');
     this.operation = { wire, preview };
     if (preview.receipt.state === 'authorized') this.proof = null;
     this.set(preview.receipt.state === 'authorized' ? 'authorized' : 'ready', {
@@ -117,15 +117,15 @@ export class ActivationCommitFlow {
     if (this.active || this.view.phase === 'closed') return Promise.resolve();
     try {
       if (!this.view.commitId) this.set('idle', { commitId: parseResourceId('operation', id!) });
-      else if (id !== undefined) throw error('activation/invalid');
-    } catch { this.set(this.view.phase, { error: 'activation/invalid' }); return Promise.resolve(); }
+      else if (id !== undefined) throw error('backup/invalid');
+    } catch { this.set(this.view.phase, { error: 'backup/invalid' }); return Promise.resolve(); }
     return this.run('loading', async (signal, current) => {
       const session = await this.sessionFor(current); current();
       let response;
       try { response = await session.restoreCommit(this.choice, this.parent, this.view.commitId!, signal); current(); }
       catch (e) {
         current();
-        if (e && typeof e === 'object' && 'code' in e && e.code === 'activation/not-found' && !this.operation && !this.view.submitted) { this.set('absent'); return; }
+        if (e && typeof e === 'object' && 'code' in e && e.code === 'backup/not-found' && !this.operation && !this.view.submitted) { this.set('absent'); return; }
         throw e;
       }
       this.accept(response);
@@ -149,7 +149,7 @@ export class ActivationCommitFlow {
     this.set('authorized', { progress: null });
     return this.run('tracking', async (signal, current) => {
       const progress = await this.session!.status(this.choice, this.parent, this.view.commitId!, signal); current();
-      if (progress.consent_state !== 'authorized') throw error('activation/invalid');
+      if (progress.consent_state !== 'authorized') throw error('backup/invalid');
       this.set('authorized', { progress });
     }, 'authorized');
   }
@@ -158,8 +158,8 @@ export class ActivationCommitFlow {
     return this.run('submitting', async (signal, current) => {
       this.live(); this.set('submitting', { submitted: true });
       const raw = await this.session!.authorizeCommit(this.choice, this.parent, this.operation!, this.view.commitId!, structuredClone(this.proof!), signal);
-      current(); const receipt = parseActivationCommitReceipt(raw, this.choice, this.parent.wire, this.operation!.wire, this.view.commitId!);
-      if (receipt.state !== 'authorized') throw error('activation/invalid');
+      current(); const receipt = parseBackupCommitReceipt(raw, this.choice, this.parent.wire, this.operation!.wire, this.view.commitId!);
+      if (receipt.state !== 'authorized') throw error('backup/invalid');
       this.accept({ wire: { ...(this.operation!.wire as object), ...receipt } });
     }, 'uncertain');
   }

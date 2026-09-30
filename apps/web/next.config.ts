@@ -1,17 +1,17 @@
 import type { NextConfig } from 'next';
 import { webAuthConfig } from './src/auth/server-config';
-import { authHeaders, authRewrites } from './src/auth/config';
+import { authHeaders } from './src/auth/config';
 import { pwaHeaders } from './src/pwa/manifest';
 
 // Evaluate at build/start: emulated release configuration must fail early.
-const authConfig = webAuthConfig();
+webAuthConfig();
 
 const config: NextConfig = {
   agentRules: false,
-  // Auth action codes belong neither in request logs nor forwarded browser logs.
+  // Invitation codes belong neither in request logs nor forwarded browser logs.
   // Hosted access-log redaction is a separate release gate, not controlled here.
   logging: {
-    incomingRequests: { ignore: [/^\/login(?:[?/]|$)/, /^\/__\/auth(?:[?/]|$)/] },
+    incomingRequests: { ignore: [/^\/login(?:[?/]|$)/] },
     browserToTerminal: false,
     serverFunctions: false,
   },
@@ -19,7 +19,6 @@ const config: NextConfig = {
   reactStrictMode: true,
   // Wallet/Flow own the state. This web does not expose financial Route Handlers.
   transpilePackages: ['@gatopago/environment', '@gatopago/shared'],
-  async rewrites() { return authRewrites(authConfig); },
   async headers() {
     return [{ source: '/:path*', headers: [
       { key: 'X-Content-Type-Options', value: 'nosniff' },

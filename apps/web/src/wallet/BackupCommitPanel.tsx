@@ -3,15 +3,15 @@
 import { useEffect, useId, useState, useSyncExternalStore } from 'react';
 import type { BrowserAuth } from '../auth/browser';
 import type { CreationProfilePin } from './creation-release';
-import { ActivationCommitFlow } from './activation-commit-flow';
+import { BackupCommitFlow } from './backup-commit-flow';
 import { requestPasskeyProof } from './passkeys';
-import ActivationProgress from './ActivationProgress';
+import BackupProgress from './BackupProgress';
 
-export default function ActivationCommitPanel({ runtime, uid, pin, context, english: en }: {
+export default function BackupCommitPanel({ runtime, uid, pin, context, english: en }: {
   runtime: BrowserAuth; uid: string; pin: CreationProfilePin;
-  context: ConstructorParameters<typeof ActivationCommitFlow>[2]; english: boolean;
+  context: ConstructorParameters<typeof BackupCommitFlow>[2]; english: boolean;
 }) {
-  const [flow] = useState(() => new ActivationCommitFlow(() => runtime.activation(uid, pin), requestPasskeyProof, context));
+  const [flow] = useState(() => new BackupCommitFlow(() => runtime.backup(uid, pin), requestPasskeyProof, context));
   const state = useSyncExternalStore(flow.subscribe, flow.snapshot, flow.snapshot), id = useId();
   const busy = ['loading', 'tracking', 'proving', 'submitting'].includes(state.phase);
   useEffect(() => {
@@ -22,17 +22,17 @@ export default function ActivationCommitPanel({ runtime, uid, pin, context, engl
     <h5 id={`${id}-title`}>{en ? 'Final security confirmation' : 'Confirmación final de seguridad'}</h5>
     <p>{en ? 'This separate consent can only be prepared after the proposal is observed onchain. Review it before signing. It does not transfer funds.'
       : 'Este consentimiento separado sólo se puede preparar cuando la propuesta se observa en red. Revísalo antes de firmar. No transfiere fondos.'}</p>
-    {state.error ? <p role="alert" className="auth-error">{['cancelled', 'context', 'unsupported', 'busy', 'invalid-response', 'activation/verification-stopped'].includes(state.error)
+    {state.error ? <p role="alert" className="auth-error">{['cancelled', 'context', 'unsupported', 'busy', 'invalid-response', 'backup/verification-stopped'].includes(state.error)
       ? (en ? 'The key confirmation was cancelled or could not be verified. No consent was sent. This does not mean your key is missing; you can try again.'
         : 'La confirmación de llave se canceló o no pudo verificarse. No se envió consentimiento. No significa que falte tu llave; puedes volver a intentar.')
-      : state.error === 'activation/status-unavailable'
+      : state.error === 'backup/status-unavailable'
         ? (en ? 'We could not read the latest status. Your consent is still recorded. You can check again without signing or resending.'
           : 'No pudimos consultar el estado reciente. Tu consentimiento sigue registrado. Puedes volver a consultar sin firmar ni reenviar.')
-      : state.error === 'activation/status-stopped'
+      : state.error === 'backup/status-stopped'
       ? (en ? 'Status lookup stopped. You can check again; no authorization was sent.' : 'Consulta de estado detenida. Puedes volver a consultar; no se envió una autorización.')
-      : state.error === 'activation/expired'
+      : state.error === 'backup/expired'
       ? (en ? 'The signature window expired. Read this same request to check its recorded result.' : 'Venció el plazo de firma. Consulta esta misma solicitud para comprobar su resultado registrado.')
-      : (en ? 'This step could not be completed. No activation is confirmed. Check the same request; do not create another one to resolve an uncertain result.'
+      : (en ? 'This step could not be completed. No backup is confirmed. Check the same request; do not create another one to resolve an uncertain result.'
         : 'No se pudo completar este paso. No hay activación confirmada. Consulta la misma solicitud; no crees otra para resolver un resultado incierto.')}</p> : null}
     {state.phase === 'idle' ? <>
       <button type="button" className="auth-primary" onClick={() => void flow.prepare()}>{en ? 'Review final confirmation' : 'Revisar confirmación final'}</button>
@@ -64,11 +64,11 @@ export default function ActivationCommitPanel({ runtime, uid, pin, context, engl
     {state.phase === 'absent' ? <button className="auth-secondary" type="button" onClick={() => void flow.prepare()}>
       {en ? 'Retry preparation with this identifier' : 'Reintentar preparación con este identificador'}</button> : null}
     {state.phase === 'authorized' && !state.progress ? <p role="status">{en
-      ? 'Final consent recorded. This is not proof of onchain activation. Delivery and independent confirmation of the installed policy are still required.'
+      ? 'Final consent recorded. This is not proof of onchain backup. Delivery and independent confirmation of the installed policy are still required.'
       : 'Consentimiento final registrado. Esto no prueba la activación onchain. Aún se requieren entrega y confirmación independiente de la política instalada.'}</p> : null}
-    {state.progress ? <ActivationProgress progress={state.progress} english={en} /> : null}
+    {state.progress ? <BackupProgress progress={state.progress} english={en} /> : null}
     {state.phase === 'authorized' ? <button type="button" className="auth-secondary" onClick={() => void flow.checkProgress()}>
-      {en ? 'Check onchain activation' : 'Consultar activación en red'}</button> : null}
+      {en ? 'Check onchain backup' : 'Consultar activación en red'}</button> : null}
     {busy ? <><p role="status">{en ? 'Waiting for this step…' : 'Esperando este paso…'}</p>
       <button className="auth-secondary" type="button" onClick={() => flow.stop()}>{en ? 'Stop waiting' : 'Detener espera'}</button></>
       : state.commitId && !['closed', 'authorized'].includes(state.phase) ? <button className="auth-secondary" type="button" onClick={() => void flow.restore()}>

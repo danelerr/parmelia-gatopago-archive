@@ -6,7 +6,7 @@ import { prepareInitialization } from '@gatopago/shared/v3/initialization';
 import { hashSecurityPolicy, Role, SignerKind, signerId, type SecurityPolicy } from '@gatopago/shared/v3/security-policy';
 import type { CreationProfilePin } from './creation-release';
 
-const invalid = (): never => { throw Object.assign(new Error('Invalid policy selection'), { code: 'activation/invalid-selection' }); };
+const invalid = (): never => { throw Object.assign(new Error('Invalid policy selection'), { code: 'backup/invalid-selection' }); };
 export function policySelection(consent: CreationConsent, inventory: CredentialInventory, references: readonly string[], pin: CreationProfilePin) {
   return selection(consent, inventory, references, pin, 2);
 }
@@ -22,7 +22,7 @@ function selection(consent: CreationConsent, inventory: CredentialInventory, ref
   return Object.freeze({ consent: Object.freeze({ expected, preparation }), inventory: listed, references: Object.freeze(refs) });
 }
 
-/** Review of a passkey quorum, NOT a release-approved activation profile. Even
+/** Review of a passkey quorum, NOT a release-approved backup profile. Even
  * several physical authenticators share the RP dependency. Backup enrollment is optional; one existing key remains sufficient.
  */
 export function passkeyPolicyDraft(selection: ReturnType<typeof policySelection>, material: readonly CredentialDetail[]) {
@@ -46,5 +46,5 @@ export function passkeyPolicyDraft(selection: ReturnType<typeof policySelection>
   return Object.freeze({ profile: 'passkey-quorum' as const, policy, hash, factors: Object.freeze(factors), scope: Object.freeze({ ...expected.scope }),
     recoverableLostKeys: factors.length - policy.adminThreshold,
     independentExit: 'not_configured' as const, possession: 'not_assessed' as const,
-    activationReady: false as const, onchainAuthority: 'not_assessed' as const });
+    backupReady: false as const, onchainAuthority: 'not_assessed' as const });
 }

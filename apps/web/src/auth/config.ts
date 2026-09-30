@@ -1,13 +1,14 @@
-import { parseEnvironment, type Environment } from '@gatopago/environment';
+import { isLocalEnvironment, parseEnvironment, type Environment } from '@gatopago/environment';
 
 export type WebAuthConfig =
   | { mode: 'disabled' }
   | {
     mode: 'firebase' | 'emulator';
     environment: 'staging' | 'production';
+    deployment: Environment;
     webOrigin: string;
     firebase: { apiKey: string; appId: string; projectId: string; authDomain: string };
-    emailRequestUrl: string | null;
+    apiOrigin: string | null;
     turnstileSiteKey: string | null;
   };
 export type EnabledAuthConfig = Exclude<WebAuthConfig, { mode: 'disabled' }>;
@@ -29,10 +30,10 @@ export function buildAuthConfig(environment: Environment, input: {
     }
     if (input.apiKey || input.appId || input.turnstileSiteKey) throw new Error('Do not mix local and remote auth');
     return {
-      mode: 'emulator', environment: 'staging', webOrigin: LOCAL_WEB_ORIGIN,
+      deployment: env, mode: 'emulator', environment: 'staging', webOrigin: LOCAL_WEB_ORIGIN,
       firebase: { apiKey: 'fake-api-key', projectId: LOCAL_AUTH_PROJECT,
         appId: '1:123456789:web:0000000000000000000000', authDomain: 'localhost' },
-      emailRequestUrl: null, turnstileSiteKey: null,
+      apiOrigin: null, turnstileSiteKey: null,
     };
   }
   if (env.status !== 'provisioned') {
@@ -41,15 +42,16 @@ export function buildAuthConfig(environment: Environment, input: {
   }
   if (!input.apiKey || !/^AIza[A-Za-z0-9_-]{35}$/.test(input.apiKey) ||
       !input.appId || !/^1:[0-9]+:web:[a-f0-9]+$/.test(input.appId) ||
-      !input.turnstileSiteKey || !/^0x[A-Za-z0-9_-]{10,100}$/.test(input.turnstileSiteKey) ||
+      !input.turnstileSiteKey || !(/^0x[A-Za-z0-9_-]{10,100}$/.test(input.turnstileSiteKey) ||
+        (isLocalEnvironment(env) && input.turnstileSiteKey === '1x00000000000000000000AA')) ||
       !env.firebase_project_id || env.firebase_project_id.startsWith('demo-')) {
     throw new Error('Incomplete public Firebase/Turnstile configuration');
   }
   return {
-    mode: 'firebase', environment: env.environment, webOrigin: env.web_origin,
+    deployment: env, mode: 'firebase', environment: env.environment, webOrigin: env.web_origin,
     firebase: { apiKey: input.apiKey, appId: input.appId, projectId: env.firebase_project_id,
       authDomain: new URL(env.web_origin).hostname },
-    emailRequestUrl: `${env.api_origin}/app/v1/auth/email-link/request`,
+    apiOrigin: `${env.api_origin}`,
     turnstileSiteKey: input.turnstileSiteKey,
   };
 }
@@ -58,19 +60,9 @@ export function assertBrowserOrigin(config: EnabledAuthConfig, origin: string): 
   if (origin !== config.webOrigin) throw new Error('Auth origin does not match this environment');
   if (config.mode === 'emulator' && (origin !== LOCAL_WEB_ORIGIN ||
       config.firebase.projectId !== LOCAL_AUTH_PROJECT || config.firebase.apiKey !== 'fake-api-key' ||
-      config.emailRequestUrl !== null || config.turnstileSiteKey !== null)) {
+      config.apiOrigin !== null || config.turnstileSiteKey !== null)) {
     throw new Error('Invalid isolated emulator configuration');
   }
-}
-
-/** Only signin helper paths; never an API, economic proxy or redirect. */
-export function authRewrites(config: WebAuthConfig): { source: string; destination: string }[] {
-  if (config.mode !== 'firebase') return [];
-  const project = config.firebase.projectId;
-  if (!/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(project)) throw new Error('Invalid Firebase project ID');
-  return ['/__/auth/:path*', '/__/firebase/:path*'].map((source) => ({
-    source, destination: `https://${project}.firebaseapp.com${source}`,
-  }));
 }
 
 export function authHeaders() {
@@ -80,9 +72,7 @@ export function authHeaders() {
     { key: 'Vercel-CDN-Cache-Control', value: 'no-store' },
     { key: 'Referrer-Policy', value: 'no-referrer' },
   ];
-  return ['/login', '/app/:path*', '/settings/:path*', '/__/auth/:path*', '/__/firebase/:path*'].map((source) => ({
-    source, headers: source === '/__/auth/:path*'
-      ? [...privateHeaders, { key: 'X-Frame-Options', value: 'SAMEORIGIN' }]
-      : privateHeaders,
+  return ['/login', '/app/:path*', '/settings/:path*'].map((source) => ({
+    source, headers: privateHeaders,
   }));
 }

@@ -7,8 +7,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createServer } from 'node:http';
 const root = resolve(dirname(fileURLToPath(import.meta.url)),'../../..'), web = resolve(root,'apps/web');
 const fixtureFile = resolve(root,'output/playwright/v3-transfer-review-fixture.mjs');
-await build({ outfile:fixtureFile,bundle:true,platform:'node',format:'esm',stdin:{ resolveDir:root,
-  contents:"export { transferFixture } from './server/test/fixtures/v3Transfer';" } });
+await build({ outfile:fixtureFile,bundle:true,platform:'node',format:'esm',stdin:{ resolveDir:web,
+  contents:"export { transferFixture } from '@gatopago/test-fixtures/v3-transfer';" } });
 const { transferFixture } = await import(pathToFileURL(fixtureFile).href), f = transferFixture();
 const data = { request:f.request,context:f.context,policy:f.approval.policy,scope:f.approval.scope,document:f.approval.security_evidence.document };
 const json = JSON.stringify(data,(_,value) => typeof value === 'bigint' ? { bigint:value.toString() } : value);
@@ -20,6 +20,7 @@ const result = await build({ bundle:true,write:false,platform:'browser',format:'
       window.syntheticTransferCeremony(); throw new Error('Synthetic cancellation'); }`,loader:'js' }));
   }}],define:{ 'process.env.NODE_ENV':'"development"' },stdin:{ resolveDir:web,loader:'tsx',contents:`
 import { StrictMode,useState } from 'react';
+import environments from '@gatopago/environment/environments.json';
 import { createRoot } from 'react-dom/client';
 import { TransferReview } from './src/wallet/TransferReview';
 import { TransferEntry } from './src/wallet/TransferEntry';
@@ -29,7 +30,7 @@ const data = JSON.parse(${JSON.stringify(json)},(_,v) => v && typeof v === 'obje
 let session = {}, ceremonies = 0, commands = 0, pendingPreparation = null; const listeners = new Set();
 window.syntheticTransferCeremony = () => { document.getElementById('ceremonies').textContent = String(++ceremonies); };
 const runtime = { subscribe(fn) { listeners.add(fn); fn({ uid:'synthetic' }); return () => listeners.delete(fn); },
-  accountContexts() { const captured = session; return { environment:'staging',assertCurrent() { if (captured !== session) throw new Error('Changed'); },
+  accountContexts() { const captured = session; return { environment:environments.staging,assertCurrent() { if (captured !== session) throw new Error('Changed'); },
     async read() { return newReview().selected; } }; },
   credentialInventory() { const captured = session; return { assertCurrent() { if (captured !== session) throw new Error('Changed'); },
     async read() { return { data:newReview().credentials }; },async detail() { return newReview().credentials[0]; } }; },
@@ -64,7 +65,7 @@ function Harness() {
       {entryMode ? <><button onClick={() => { const finish = pendingPreparation; pendingPreparation = null; finish?.(); }}>Resolver preparación</button>
         <button onClick={() => setMissingBalance(true)}>Vencer saldo mostrado</button></> : null}</nav>
     <div className="auth-panel">{entryMode ? <TransferEntry runtime={runtime} uid="synthetic" account={account} balance={missingBalance ? null : balance} english={en}/>
-      : <TransferReview {...value} runtime={runtime} uid="synthetic" environment="staging" english={en}/>}</div></main>;
+      : <TransferReview {...value} runtime={runtime} uid="synthetic" environment={environments.staging} english={en}/>}</div></main>;
 }
 createRoot(document.getElementById('root')).render(<StrictMode><Harness /></StrictMode>);
 ` } });

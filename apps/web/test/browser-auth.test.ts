@@ -2,23 +2,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import environments from '@gatopago/environment/environments.json';
 import { parseEnvironment } from '@gatopago/environment';
 import { buildAuthConfig, type EnabledAuthConfig } from '../src/auth/config';
-import { CLIENT_STATUS_HEADER, clientMutationHeaders } from '@gatopago/shared/v3/client-release';
-import { initializationFixture } from '../../../server/test/fixtures/v3Initialization';
-import { activationWireFixture } from './activation.fixture';
-import { transferFixture } from '../../../server/test/fixtures/v3Transfer';
+import { CLIENT_STATUS_HEADER } from '@gatopago/shared/v3/client-release';
+import { initializationFixture } from '@gatopago/test-fixtures/v3-initialization';
+import { backupWireFixture } from './backup.fixture';
+import { transferFixture } from '@gatopago/test-fixtures/v3-transfer';
 import { createResourceId } from '@gatopago/shared/v3/primitives';
 
 const sdk = vi.hoisted(() => ({
   getApps: vi.fn(() => []), initializeApp: vi.fn(() => ({})), initializeAuth: vi.fn(),
-  connectAuthEmulator: vi.fn(), getRedirectResult: vi.fn(), authStateReady: vi.fn(),
-  onIdTokenChanged: vi.fn(), signInWithPopup: vi.fn(), signInWithRedirect: vi.fn(),
-  sendSignInLinkToEmail: vi.fn(), signInWithEmailLink: vi.fn(), signOut: vi.fn(),
-  setCustomParameters: vi.fn(),
+  connectAuthEmulator: vi.fn(), authStateReady: vi.fn(), onIdTokenChanged: vi.fn(), signInWithCustomToken: vi.fn(), signOut: vi.fn(),
 }));
 vi.mock('firebase/app', () => ({ getApps: sdk.getApps, initializeApp: sdk.initializeApp }));
 vi.mock('firebase/auth', () => ({
-  ...sdk, browserLocalPersistence: 'local', browserPopupRedirectResolver: 'popup',
-  GoogleAuthProvider: class { setCustomParameters = sdk.setCustomParameters; },
+  ...sdk, browserLocalPersistence: 'local',
 }));
 
 const env = parseEnvironment(environments.staging);
@@ -31,9 +27,8 @@ let auth: { currentUser: null | { uid: string; email: string; displayName: null;
 beforeEach(() => {
   vi.resetModules(); vi.clearAllMocks();
   sdk.getApps.mockReturnValue([]);
-  sdk.getRedirectResult.mockResolvedValue(null); sdk.authStateReady.mockResolvedValue(undefined);
-  sdk.signInWithPopup.mockResolvedValue({}); sdk.signInWithRedirect.mockResolvedValue(undefined);
-  sdk.sendSignInLinkToEmail.mockResolvedValue(undefined); sdk.signInWithEmailLink.mockResolvedValue({}); sdk.signOut.mockResolvedValue(undefined);
+  sdk.authStateReady.mockResolvedValue(undefined);
+  sdk.signInWithCustomToken.mockResolvedValue({}); sdk.signOut.mockResolvedValue(undefined);
   auth = { currentUser: null, authStateReady: sdk.authStateReady };
   sdk.initializeAuth.mockReturnValue(auth);
   vi.stubGlobal('window', { location: { origin: local.webOrigin }, matchMedia: () => ({ matches: false }) });
@@ -73,14 +68,14 @@ describe('Firebase browser boundary (SDK mocked, no external I/O)', () => {
       new AbortController().signal)).rejects.toMatchObject({ code:'wallet/unavailable' });
     expect(user.getIdToken).not.toHaveBeenCalled(); expect(fetch).not.toHaveBeenCalled();
   });
-  it('binds activation and local external proof methods to the captured session, without construction I/O', async () => {
+  it('binds backup and local external proof methods to the captured session, without construction I/O', async () => {
     vi.stubGlobal('window', { location: { origin: remote.webOrigin } });
     const user = { uid: 'one', email: 'one@example.test', displayName: null, emailVerified: true, getIdToken: vi.fn() };
     auth.currentUser = user;
     const runtime = (await import('../src/auth/browser')).getBrowserAuth(remote); await runtime.ready;
-    const t = activationWireFixture(), c = t.commit();
-    await expect(runtime.activation('two', t.f.pin)).rejects.toMatchObject({ code: 'auth/session-changed' });
-    const session = await runtime.activation('one', t.f.pin), signal = new AbortController().signal;
+    const t = backupWireFixture(), c = t.commit();
+    await expect(runtime.backup('two', t.f.pin)).rejects.toMatchObject({ code: 'auth/session-changed' });
+    const session = await runtime.backup('one', t.f.pin), signal = new AbortController().signal;
     expect(user.getIdToken).not.toHaveBeenCalled(); expect(fetch).not.toHaveBeenCalled();
     auth.currentUser = { ...user };
     expect(() => session.externalProofRequest(t.choice, { wire: t.wire }, 0)).toThrow();
@@ -100,35 +95,35 @@ describe('Firebase browser boundary (SDK mocked, no external I/O)', () => {
     const user = { uid: 'one', email: 'one@example.test', displayName: null, emailVerified: true, getIdToken: vi.fn() };
     auth.currentUser = user;
     const runtime = (await import('../src/auth/browser')).getBrowserAuth(remote); await runtime.ready;
-    const t = activationWireFixture(), session = await runtime.activation('one', t.f.pin);
+    const t = backupWireFixture(), session = await runtime.backup('one', t.f.pin);
     const index = t.compiled.enrollments.find((p) => t.compiled.nextPolicy.signers[p.signerIndex].kind === 0)!.signerIndex;
     const request = session.externalProofRequest(t.choice, { wire: t.wire }, index);
     const key = t.f.keys.find((key) => key.address.toLowerCase() === request.summary.signer_address)!;
     const signature = await key.signTypedData(request.typedData);
-    const text = JSON.stringify({ schema_version: 1, purpose: 'gatopago-v3-enrollment-proof', activation_id: t.choice.activationId,
+    const text = JSON.stringify({ schema_version: 1, purpose: 'gatopago-v3-enrollment-proof', backup_id: t.choice.backupId,
       signer_index: index, digest: request.summary.digest, signature });
     const pending = session.importExternalProof(t.choice, { wire: t.wire }, index, text, new AbortController().signal);
     auth.currentUser = { ...user };
     await expect(pending).rejects.toMatchObject({ code: 'auth/session-changed' });
     expect(user.getIdToken).not.toHaveBeenCalled(); expect(fetch).not.toHaveBeenCalled();
   });
-  it('never sends an activation token if the user signs out while it refreshes', async () => {
+  it('never sends an backup token if the user signs out while it refreshes', async () => {
     vi.stubGlobal('window', { location: { origin: remote.webOrigin } });
     let resolve!: (token: string) => void;
     auth.currentUser = { uid: 'one', email: 'one@example.test', displayName: null, emailVerified: true };
     Object.assign(auth.currentUser, { getIdToken: () => new Promise<string>((done) => { resolve = done; }) });
     const runtime = (await import('../src/auth/browser')).getBrowserAuth(remote); await runtime.ready;
-    const t = activationWireFixture(), session = await runtime.activation('one', t.f.pin);
+    const t = backupWireFixture(), session = await runtime.backup('one', t.f.pin);
     const task = session.restore(t.choice, new AbortController().signal);
     auth.currentUser = null; resolve('obsolete.token.signature');
     await expect(task).rejects.toMatchObject({ code: 'auth/session-changed' }); expect(fetch).not.toHaveBeenCalled();
   });
-  it('discards an activation response if the same UID logs in with a new session', async () => {
+  it('discards an backup response if the same UID logs in with a new session', async () => {
     vi.stubGlobal('window', { location: { origin: remote.webOrigin } });
     const user = { uid: 'one', email: 'one@example.test', displayName: null, emailVerified: true, getIdToken: vi.fn(async () => 'test.token.signature') };
     auth.currentUser = user;
     const runtime = (await import('../src/auth/browser')).getBrowserAuth(remote); await runtime.ready;
-    const t = activationWireFixture(), session = await runtime.activation('one', t.f.pin);
+    const t = backupWireFixture(), session = await runtime.backup('one', t.f.pin);
     vi.stubGlobal('fetch', vi.fn(async () => { auth.currentUser = { ...user }; return Response.json(t.wire); }));
     await expect(session.restore(t.choice, new AbortController().signal)).rejects.toMatchObject({ code: 'auth/session-changed' });
   });
@@ -187,24 +182,23 @@ describe('Firebase browser boundary (SDK mocked, no external I/O)', () => {
     expect(() => getBrowserAuth(local)).toThrow('server');
     expect(sdk.initializeApp).not.toHaveBeenCalled();
   });
-  it('reuses one runtime and initializes persistence before redirect reads', async () => {
+  it('reuses one runtime and initializes persistence before session restoration', async () => {
     const { getBrowserAuth } = await import('../src/auth/browser');
     const runtime = getBrowserAuth(local); await runtime.ready;
     expect(getBrowserAuth(local)).toBe(runtime);
-    expect(sdk.initializeAuth).toHaveBeenCalledExactlyOnceWith({}, { persistence: 'local', popupRedirectResolver: 'popup' });
+    expect(sdk.initializeAuth).toHaveBeenCalledExactlyOnceWith({}, { persistence: 'local' });
     expect(sdk.connectAuthEmulator).toHaveBeenCalledExactlyOnceWith(auth, 'http://127.0.0.1:9099');
-    expect(sdk.connectAuthEmulator.mock.invocationCallOrder[0]).toBeLessThan(sdk.getRedirectResult.mock.invocationCallOrder[0]);
-    expect(sdk.getRedirectResult).toHaveBeenCalledOnce();
+    expect(sdk.connectAuthEmulator.mock.invocationCallOrder[0]).toBeLessThan(sdk.authStateReady.mock.invocationCallOrder[0]);
+    expect(sdk.authStateReady).toHaveBeenCalledOnce();
   });
   it('does not invoke login, keys or recovery merely by entering the account screen', async () => {
     const runtime = (await import('../src/auth/browser')).getBrowserAuth(local); await runtime.ready;
     expect(runtime.current()).toBeNull();
-    expect(sdk.signInWithPopup).not.toHaveBeenCalled(); expect(sdk.signInWithEmailLink).not.toHaveBeenCalled();
-    expect(sdk.sendSignInLinkToEmail).not.toHaveBeenCalled(); expect(fetch).not.toHaveBeenCalled();
+    expect(sdk.signInWithCustomToken).not.toHaveBeenCalled(); expect(fetch).not.toHaveBeenCalled();
   });
   it('blocks PWA reload during session restoration and releases on failure', async () => {
     let reject!: (error: Error) => void;
-    sdk.getRedirectResult.mockImplementation(() => new Promise((_, failure) => { reject = failure; }));
+    sdk.authStateReady.mockImplementation(() => new Promise((_, failure) => { reject = failure; }));
     const runtime = (await import('../src/auth/browser')).getBrowserAuth(local);
     const guard = await import('../src/pwa/reload-guard');
     expect(guard.isReloadBlocked()).toBe(true);
@@ -218,109 +212,39 @@ describe('Firebase browser boundary (SDK mocked, no external I/O)', () => {
     getBrowserAuth(remote);
     expect(() => getBrowserAuth({ ...remote, firebase: { ...remote.firebase, appId: '1:456:web:abcdef' } })).toThrow('changed');
   });
-  it('confines synthetic sends to the emulator and never calls the remote API', async () => {
-    const runtime = (await import('../src/auth/browser')).getBrowserAuth(local); await runtime.ready;
-    expect(await runtime.sendLink('V3@example.test', '', 'es')).toBe(60);
-    expect(sdk.sendSignInLinkToEmail).toHaveBeenCalledExactlyOnceWith(auth, 'v3@example.test', {
-      url: `${local.webOrigin}/login?flow=signin&lang=es`, handleCodeInApp: true,
-    });
-    await expect(runtime.sendLink('person@example.com', '', 'es')).rejects.toMatchObject({ code: 'auth/test-email-required' });
-    expect(fetch).not.toHaveBeenCalled();
-  });
-  it('remote sends go only to the guarded Wallet Core route, never the SDK send', async () => {
+  it('makes a compatibility rejection sticky and never uses an SDK fallback', async () => {
     vi.stubGlobal('window', { location: { origin: remote.webOrigin } });
-    const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({ sent: true, resendAfterSeconds: 60 }), { status: 202 }));
-    vi.stubGlobal('fetch', request);
+    vi.mocked(fetch).mockResolvedValue(new Response('', { status: 409, headers: { [CLIENT_STATUS_HEADER]: 'update-required' } }));
     const runtime = (await import('../src/auth/browser')).getBrowserAuth(remote); await runtime.ready;
-    await expect(runtime.sendLink('person@example.test', '', 'en')).rejects.toThrow();
-    expect(request).not.toHaveBeenCalled();
-    await runtime.sendLink('person@example.test', 'one-use-token', 'en');
-    expect(request).toHaveBeenCalledExactlyOnceWith(remote.emailRequestUrl, expect.objectContaining({
-      method: 'POST', credentials: 'omit', redirect: 'error', cache: 'no-store',
-      headers: { 'Content-Type': 'application/json', ...clientMutationHeaders('staging') },
-      body: JSON.stringify({ email: 'person@example.test', turnstileToken: 'one-use-token', locale: 'en' }),
-    }));
-    expect(sdk.sendSignInLinkToEmail).not.toHaveBeenCalled();
-    expect(sdk.connectAuthEmulator).not.toHaveBeenCalled();
-  });
-  it('does not treat an HTTP error as delivered or automatically retry', async () => {
-    vi.stubGlobal('window', { location: { origin: remote.webOrigin } });
-    const request = vi.fn().mockResolvedValue(new Response('', { status: 429 })); vi.stubGlobal('fetch', request);
-    const runtime = (await import('../src/auth/browser')).getBrowserAuth(remote); await runtime.ready;
-    await expect(runtime.sendLink('person@example.test', 'one-use-token', 'es')).rejects.toMatchObject({ code: 'auth/too-many-requests' });
-    expect(request).toHaveBeenCalledOnce();
-  });
-  it('makes a compatibility rejection sticky until reload, without retries, SDK fallback or forced reload', async () => {
-    const reload = vi.fn();
-    vi.stubGlobal('window', { location: { origin: remote.webOrigin, reload } });
-    const request = vi.fn().mockResolvedValue(new Response('', { status: 409, headers: { [CLIENT_STATUS_HEADER]: 'update-required' } }));
-    vi.stubGlobal('fetch', request);
-    const runtime = (await import('../src/auth/browser')).getBrowserAuth(remote); await runtime.ready;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      await expect(runtime.sendLink('person@example.test', 'one-use-token', 'es')).rejects.toMatchObject({ code: 'client/update-required' });
-    }
-    expect(request).toHaveBeenCalledOnce();
-    expect(sdk.sendSignInLinkToEmail).not.toHaveBeenCalled();
-    expect(reload).not.toHaveBeenCalled();
-    const guard = await import('../src/pwa/reload-guard');
-    expect(guard.isReloadBlocked()).toBe(false);
-    await runtime.logout();
-    expect(sdk.signOut).toHaveBeenCalledOnce();
-  });
-  it('does not classify other conflicts or unavailable responses as a retired client', async () => {
-    vi.stubGlobal('window', { location: { origin: remote.webOrigin } });
-    const request = vi.fn().mockResolvedValueOnce(new Response('', { status: 409 }))
-      .mockResolvedValueOnce(new Response('', { status: 503, headers: { [CLIENT_STATUS_HEADER]: 'update-required' } }));
-    vi.stubGlobal('fetch', request);
-    const runtime = (await import('../src/auth/browser')).getBrowserAuth(remote); await runtime.ready;
-    for (let attempt = 0; attempt < 2; attempt++) {
-      await expect(runtime.sendLink('person@example.test', 'token', 'es')).rejects.toMatchObject({ code: 'auth/email-unavailable' });
-    }
-    expect(request).toHaveBeenCalledTimes(2);
-  });
-  it('does not turn a dismissed Google popup into a redirect', async () => {
-    vi.stubGlobal('window', { location: { origin: remote.webOrigin }, matchMedia: () => ({ matches: false }) });
-    sdk.signInWithPopup.mockRejectedValue({ code: 'auth/popup-closed-by-user' });
-    const runtime = (await import('../src/auth/browser')).getBrowserAuth(remote); await runtime.ready;
-    await expect(runtime.google()).rejects.toMatchObject({ code: 'auth/popup-closed-by-user' });
-    expect(sdk.signInWithRedirect).not.toHaveBeenCalled();
-  });
-  it('offers redirect for a blocked popup, not for all errors', async () => {
-    vi.stubGlobal('window', { location: { origin: remote.webOrigin }, matchMedia: () => ({ matches: false }) });
-    sdk.signInWithPopup.mockRejectedValue({ code: 'auth/popup-blocked' });
-    const runtime = (await import('../src/auth/browser')).getBrowserAuth(remote); await runtime.ready;
-    await runtime.google(); expect(sdk.signInWithRedirect).toHaveBeenCalledOnce();
-  });
-  it('uses redirect for an installed PWA in remote mode', async () => {
-    vi.stubGlobal('window', { location: { origin: remote.webOrigin }, matchMedia: () => ({ matches: true }) });
-    const runtime = (await import('../src/auth/browser')).getBrowserAuth(remote); await runtime.ready;
-    await runtime.google(); expect(sdk.signInWithRedirect).toHaveBeenCalledOnce(); expect(sdk.signInWithPopup).not.toHaveBeenCalled();
-  });
-  it('prevents overlapping authentication mutations', async () => {
-    let resolve!: () => void;
-    sdk.signInWithPopup.mockImplementation(() => new Promise<void>((done) => { resolve = done; }));
-    const runtime = (await import('../src/auth/browser')).getBrowserAuth(local); await runtime.ready;
-    const guard = await import('../src/pwa/reload-guard');
-    const first = runtime.google();
-    expect(guard.isReloadBlocked()).toBe(true);
-    expect(guard.reloadPage()).toBe(false);
-    await expect(runtime.google()).rejects.toMatchObject({ code: 'auth/busy' });
-    await expect(runtime.logout()).rejects.toMatchObject({ code: 'auth/busy' });
-    expect(sdk.signInWithPopup).toHaveBeenCalledOnce();
-    resolve(); await first;
-    expect(guard.isReloadBlocked()).toBe(false);
+    for (let i = 0; i < 3; i++) await expect(runtime.prepareLogin(new AbortController().signal)).rejects.toMatchObject({ code: 'client/update-required' });
+    expect(fetch).toHaveBeenCalledOnce(); expect(sdk.signInWithCustomToken).not.toHaveBeenCalled();
     await runtime.logout(); expect(sdk.signOut).toHaveBeenCalledOnce();
   });
-  it('does not silently replace another signed-in identity or consume foreign links', async () => {
-    const runtime = (await import('../src/auth/browser')).getBrowserAuth(local); await runtime.ready;
-    const link = `${local.webOrigin}/login?mode=signIn&oobCode=synthetic&apiKey=fake-api-key`;
-    auth.currentUser = { uid: 'identity-not-wallet', email: 'first@example.test', displayName: null, emailVerified: true };
-    await expect(runtime.completeLink('second@example.test', link)).rejects.toMatchObject({ code: 'auth/identity-mismatch' });
-    await expect(runtime.completeLink('first@example.test', link.replace('signIn', 'resetPassword'))).rejects.toMatchObject({ code: 'auth/invalid-action-code' });
-    expect(sdk.signInWithEmailLink).not.toHaveBeenCalled();
-    await runtime.completeLink('first@example.test', link); expect(sdk.signInWithEmailLink).toHaveBeenCalledOnce();
-    expect(runtime.current()?.uid).toBe('identity-not-wallet');
+  it('exchanges only a completed WebAuthn response and excludes overlapping mutations', async () => {
+    vi.stubGlobal('window', { location: { origin: remote.webOrigin } });
+    vi.mocked(fetch).mockResolvedValue(Response.json({ custom_token: 'signed.custom.token' }));
+    let finish!: () => void;
+    sdk.signInWithCustomToken.mockImplementation(() => new Promise<void>(resolve => { finish = resolve; }));
+    const runtime = (await import('../src/auth/browser')).getBrowserAuth(remote); await runtime.ready;
+    const submitted = runtime.completeLogin(createResourceId('operation'), { credential_id: 'test', authenticator_data: 'test',
+      client_data: 'test', signature: 'test', user_handle: 'test' }, new AbortController().signal);
+    await vi.waitFor(() => expect(sdk.signInWithCustomToken).toHaveBeenCalledWith(auth, 'signed.custom.token'));
+    expect((await import('../src/pwa/reload-guard')).isReloadBlocked()).toBe(true);
+    await expect(runtime.logout()).rejects.toMatchObject({ code: 'auth/busy' }); finish(); await submitted;
+    expect((await import('../src/pwa/reload-guard')).isReloadBlocked()).toBe(false);
+  });
+  it('does not replace an existing session or exchange a token after cancellation', async () => {
+    vi.stubGlobal('window', { location: { origin: remote.webOrigin } });
+    const runtime = (await import('../src/auth/browser')).getBrowserAuth(remote); await runtime.ready;
+    auth.currentUser = { uid: 'one', email: 'one@example.test', displayName: null, emailVerified: true };
+    await expect(runtime.prepareLogin(new AbortController().signal)).rejects.toMatchObject({ code: 'auth/session-changed' });
     expect(fetch).not.toHaveBeenCalled();
+    auth.currentUser = null;
+    const controller = new AbortController();
+    vi.mocked(fetch).mockImplementation(async () => { controller.abort(); return Response.json({ custom_token: 'signed.custom.token' }); });
+    await expect(runtime.completeLogin(createResourceId('operation'), { credential_id: 'test', authenticator_data: 'test',
+      client_data: 'test', signature: 'test', user_handle: 'test' }, controller.signal)).rejects.toThrow();
+    expect(sdk.signInWithCustomToken).not.toHaveBeenCalled();
   });
   it('binds wallet reads to the current Firebase user and rejects a different expected UID', async () => {
     vi.stubGlobal('window', { location: { origin: remote.webOrigin } });
@@ -394,7 +318,7 @@ describe('Firebase browser boundary (SDK mocked, no external I/O)', () => {
     const user = { uid: 'one', email: 'one@example.test', displayName: null, emailVerified: true, getIdToken: vi.fn(async () => 'synthetic.token.signature') };
     auth.currentUser = user;
     const runtime = (await import('../src/auth/browser')).getBrowserAuth(remote); await runtime.ready;
-    const t = activationWireFixture(), p = t.choice.consent.preparation;
+    const t = backupWireFixture(), p = t.choice.consent.preparation;
     vi.stubGlobal('fetch', vi.fn(async () => {
       auth.currentUser = { ...user };
       return Response.json({ scope: t.choice.consent.expected.scope, credential_ref: p.credential_ref,

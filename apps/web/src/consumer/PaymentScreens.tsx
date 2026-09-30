@@ -1,5 +1,7 @@
 'use client';
 
+import type { BrowserAuth } from '../auth/browser';
+import { ReceiveProfile } from './PublicUsername';
 import { useState } from 'react';
 import AmountInput from './AmountInput';
 import { BackHeader, Field, IntegrationNotice, Panel, UnavailableAction } from './Primitives';
@@ -26,7 +28,8 @@ export function ChargeScreen({ english: en }: { english: boolean }) {
   </>;
 }
 
-export function ReceiveScreen({ english: en }: { english: boolean }) {
+export function ReceiveScreen({ english: en, runtime, uid }: { english: boolean; runtime?: BrowserAuth; uid?: string }) {
+  if (runtime && uid) return <><BackHeader title={en ? 'Receive in my account' : 'Recibir en mi cuenta'} english={en} to="/move?flow=receive" /><ReceiveProfile key={uid} runtime={runtime} uid={uid} english={en} /></>;
   return <><BackHeader title={en ? 'Receive in my account' : 'Recibir en mi cuenta'} english={en} to="/move?flow=receive" />
     <p className="mb-6 text-text-muted">{en ? 'Share your verified account address or QR to receive from a wallet or exchange.' : 'Comparte el QR o dirección verificada de tu cuenta para recibir desde una wallet o exchange.'}</p>
     <Panel><Field label={en ? 'Network' : 'Red'}>{id => <select id={id} className={field} disabled><option>Arbitrum Sepolia</option></select>}</Field>

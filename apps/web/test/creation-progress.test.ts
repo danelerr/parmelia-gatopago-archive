@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { parseCreationLifecycle } from '../../../shared/v3/creationLifecycle';
+import { parseCreationLifecycle } from '@gatopago/shared/v3/creation-lifecycle';
 import { createResourceId } from '@gatopago/shared/v3/primitives';
 import CreationProgress from '../src/wallet/CreationProgress';
 
@@ -19,11 +19,11 @@ describe('creation progress: historical facts, not deposit permission', () => {
     expect(html).toContain('Confirmación onchain registrada'); expect(html).toContain('validez hasta');
     expect(html).toContain('No es una autorización actual para gastar'); expect(html).not.toContain('<button');
   });
-  it('renders bootstrap as created with activation still pending in both languages', () => {
+  it('renders recorded creation and links to fresh receiving verification', () => {
     const v = { ...value(), job_state: 'complete', reason: 'projected', bootstrap: { recorded_at: now, evidence_expires_at: now + 60,
       wallet_id: createResourceId('wallet'), wallet_account_id: createResourceId('walletAccount') } };
-    expect(render(v)).toContain('Cuenta creada: activación pendiente'); expect(render(v, true)).toContain('Account created: activation pending');
-    expect(render(v)).toContain('no demuestra su seguridad actual'); expect(render(v)).not.toContain('Copiar dirección');
+    expect(render(v)).toContain('Cuenta creada'); expect(render(v, true)).toContain('Account created');
+    expect(render(v)).toContain('href="/profile"'); expect(render(v)).toContain('no demuestra su seguridad actual'); expect(render(v)).not.toContain('Copiar dirección');
   });
   it.each(['revoked', 'execution_reverted', 'observation_timeout', 'processing_error'])('renders review reason %s without retrying', (reason) => {
     const html = render({ ...value(), job_state: 'review', reason });

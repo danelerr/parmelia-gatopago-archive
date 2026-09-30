@@ -5,7 +5,7 @@ import { writeTransferDraft, readTransferDraft } from '@gatopago/shared/v3/trans
 import { deploymentDocumentDigest } from '@gatopago/shared/v3/deployment';
 import environments from '@gatopago/environment/environments.json';
 import { parseEnvironment } from '@gatopago/environment';
-import { transferFixture } from '../../../server/test/fixtures/v3Transfer';
+import { transferFixture } from '@gatopago/test-fixtures/v3-transfer';
 import { buildAuthConfig, type EnabledAuthConfig } from '../src/auth/config';
 import { parseTransferPreparation, transferPreparationClient } from '../src/wallet/transfer-preparation';
 import { walletTransport } from '../src/wallet/http';
@@ -29,7 +29,7 @@ function fixture(native = true, max = false) {
 
 describe('Consumer transfer preparation reconstruction', () => {
   it.each([[true,false],[false,false],[true,true],[false,true]])('rebuilds native=%s MAX=%s without a signing grant', (native,max) => {
-    const x = fixture(native,max), result = parseTransferPreparation(x.wire,x.selected,x.request,'staging',x.f.now);
+    const x = fixture(native,max), result = parseTransferPreparation(x.wire,x.selected,x.request,parseEnvironment(environments.staging),x.f.now);
     expect(result.candidate).toEqual(x.candidate); expect(result.send_enabled).toBe(false);
     expect(result.candidate.operation.signature).toBe('0x');
   });
@@ -52,13 +52,13 @@ describe('Consumer transfer preparation reconstruction', () => {
       if (fault === 'send') wire.send_enabled = true;
       if (fault === 'id') wire.preparation_id = createResourceId('operation');
       if (fault === 'release') request.client_release_id = 'other-release';
-      expect(() => parseTransferPreparation(wire,selected,request,fault === 'environment' ? 'production' : 'staging',now,x.wire.preparation_id)).toThrow();
+      expect(() => parseTransferPreparation(wire,selected,request,parseEnvironment(environments[fault === 'environment' ? 'production' : 'staging']),now,x.wire.preparation_id)).toThrow();
     });
   it('rejects extra nested data even after the transport checksum is recomputed', () => {
     const x = fixture(), root = JSON.parse(x.wire.review_json); root.context.router = 'injected';
     const json = JSON.stringify(root);
     expect(() => parseTransferPreparation({ ...x.wire, review_json: json, review_sha256: deploymentDocumentDigest(json) },
-      x.selected,x.request,'staging',x.f.now)).toThrow();
+      x.selected,x.request,parseEnvironment(environments.staging),x.f.now)).toThrow();
   });
   it.each(['prepare','read'] as const)('uses one bounded %s request with captured input', async method => {
     const x = fixture(); vi.spyOn(Date, 'now').mockReturnValue(x.f.now * 1000);

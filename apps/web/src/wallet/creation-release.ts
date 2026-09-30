@@ -1,11 +1,8 @@
+import type { Environment } from '@gatopago/environment';
+import { ARBITRUM_SEPOLIA_CREATION } from '@gatopago/shared/v3/wallet-release';
+
 export type CreationProfilePin = Readonly<{ document: string; digest: `0x${string}` }>;
 
-// Web-release input, never downloaded from the preparation endpoint. Promotion
-// requires the separately reviewed creation profile and the matching Worker
-// admission/observer. An HTTP field, localStorage flag or query cannot populate it.
-const profiles: Readonly<Record<'staging' | 'production', CreationProfilePin | null>> = Object.freeze({
-  staging: null, production: null,
-});
-export function creationProfileForRelease(environment: 'staging' | 'production'): CreationProfilePin | null {
-  return profiles[environment];
+export function creationProfileForRelease(environment: Environment): CreationProfilePin | null {
+  return environment.wallet_enabled.includes('eip155:421614') ? ARBITRUM_SEPOLIA_CREATION : null;
 }

@@ -1,6 +1,5 @@
 import { parseResourceId } from '@gatopago/shared/v3/primitives';
 import type { WebAuthnScope } from '@gatopago/shared/v3/webauthn';
-import environments from '@gatopago/environment/environments.json';
 import type { EnabledAuthConfig } from '../auth/config';
 import type { requestPasskeyProof, requestPasskeyRegistration } from './passkeys';
 import { exact, record, walletTransport, WalletCoreError } from './http';
@@ -41,7 +40,7 @@ function parsePreparation(input: unknown, id: string, config: EnabledAuthConfig)
   if (!record(input) || !exact(input, ['enrollment_id', 'state', 'expires_at', 'scope', 'proof_challenge', 'options', 'onchain_authority'])
       || input.enrollment_id !== id || input.state !== 'prepared' || input.onchain_authority !== false) return invalid();
   const { scope, options: options, expires_at: expires } = input;
-  const expected = environments[config.environment];
+  const expected = config.deployment;
   if (!record(scope) || !exact(scope, ['rpId', 'origin']) || scope.rpId !== expected.webauthn_rp_id
       || scope.origin !== config.webOrigin || scope.origin !== expected.web_origin) return invalid();
   if (!record(options) || !exact(options, ['challenge', 'rp', 'user', 'pubKeyCredParams', 'timeout', 'attestation', 'authenticatorSelection', 'excludeCredentials'])
@@ -90,13 +89,9 @@ function failure(error: unknown, signal: AbortSignal): never {
 export async function prepareEnrollment(config: EnabledAuthConfig, getToken: () => Promise<string>, id: string, signal: AbortSignal) {
   try {
     parseResourceId('operation', id);
-    const { request, createIdentity } = walletTransport(config, getToken, signal);
-    let result = await request('/security/enrollments', 'POST', { request_id: id });
-    // A definitive missing-profile response allows one bootstrap. Never repeat an uncertain POST.
-    if (result.status === 409 && record(result.value) && result.value.error_code === 'SESSION_REQUIRED') {
-      await createIdentity();
-      result = await request('/security/enrollments', 'POST', { request_id: id });
-    }
+    const { request } = walletTransport(config, getToken, signal);
+    const result = await request('/security/enrollments', 'POST', { request_id: id });
+
     checkStatus(result);
     return parsePreparation(result.value, id, config);
   } catch (error) { return failure(error, signal); }

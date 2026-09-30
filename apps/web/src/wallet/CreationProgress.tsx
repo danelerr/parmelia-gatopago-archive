@@ -2,7 +2,7 @@ import type { parseCreationPreview } from '@gatopago/shared/v3/creation-operatio
 
 type Lifecycle = ReturnType<typeof parseCreationPreview>['lifecycle'];
 const messages = {
-  projected: ['Cuenta creada: activación pendiente', 'Account created: activation pending'],
+  projected: ['Cuenta creada', 'Account created'],
   review: ['La creación requiere revisión', 'Account creation needs review'],
   finalized: ['Confirmación onchain registrada', 'Onchain confirmation recorded'],
   observed: ['Operación observada: falta confirmar el resultado final', 'Operation observed: final result pending'],
@@ -48,6 +48,7 @@ export default function CreationProgress({ lifecycle, delivery, checkedAt, engli
         : en ? 'The latest check did not establish a confirmed result.' : 'La última comprobación no estableció un resultado confirmado.'}</p> : null}
     {o?.valid_until ? <p>{en ? 'That evidence was valid until' : 'Esa evidencia tenía validez hasta'}: {time(o.valid_until)}.
       {' '}{en ? 'It is not a current spending authorization.' : 'No es una autorización actual para gastar.'}</p> : null}
+    {b ? <a className="auth-secondary" href={en ? '/profile?lang=en' : '/profile'}>{en ? 'Verify receiving and publish my username' : 'Verificar recepción y publicar mi username'}</a> : null}
     {b ? <p>{en ? 'Initial configuration recorded' : 'Configuración inicial registrada'}: {time(b.recorded_at)}.</p> : null}
     {checkedAt !== null ? <p>{en ? 'Status read at' : 'Estado consultado a las'}: {time(checkedAt)}.</p> : null}
     {o?.transaction_hash ? <details><summary>{en ? 'Observed transaction' : 'Transacción observada'}</summary><code>{o.transaction_hash}</code></details> : null}

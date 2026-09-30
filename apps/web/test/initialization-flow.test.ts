@@ -1,3 +1,5 @@
+import { parseEnvironment } from '@gatopago/environment';
+import environments from '@gatopago/environment/environments.json';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createResourceId } from '@gatopago/shared/v3/primitives';
 import { prepareInitialization } from '@gatopago/shared/v3/initialization';
@@ -6,7 +8,7 @@ import type { BrowserAuth } from '../src/auth/browser';
 import { InitializationFlow } from '../src/wallet/initialization-flow';
 import { creationProfileForRelease } from '../src/wallet/creation-release';
 import { isReloadBlocked } from '../src/pwa/reload-guard';
-import { initializationFixture } from '../../../server/test/fixtures/v3Initialization';
+import { initializationFixture } from '@gatopago/test-fixtures/v3-initialization';
 
 type Session = Awaited<ReturnType<BrowserAuth['initialization']>>;
 const deferred = <T>() => { let resolve!: (value: T) => void; const promise = new Promise<T>((done) => { resolve = done; }); return { promise, resolve }; };
@@ -57,7 +59,7 @@ describe('component-owned initialization consent; HTTP/session mocked, real type
   it('does not initialize a session or invoke a ceremony on construction, subscription or mount', () => {
     const t = fixture(); const remove = t.flow.subscribe(vi.fn()); t.flow.checkSession();
     expect(t.capture).not.toHaveBeenCalled(); expect(t.prove).not.toHaveBeenCalled(); expect(t.flow.snapshot().phase).toBe('idle'); remove();
-    expect(creationProfileForRelease('staging')).toBeNull(); expect(creationProfileForRelease('production')).toBeNull();
+    expect(creationProfileForRelease(parseEnvironment(environments.staging))).not.toBeNull(); expect(creationProfileForRelease(parseEnvironment(environments.production))).toBeNull();
   });
   it('shows recomputed consent and calls WebAuthn synchronously only from confirmation', async () => {
     const t = fixture(); await t.flow.prepare(t.credentialRef);

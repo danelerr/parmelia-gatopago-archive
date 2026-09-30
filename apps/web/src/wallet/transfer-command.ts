@@ -37,7 +37,7 @@ export function parseTransferDeliveryReceipt(input: unknown, operationId: string
 export function transferCommandClient(config: EnabledAuthConfig, token: () => Promise<string>) {
   function capture(selected: TransferSelection, requested: TransferRequest, review: TransferReview) {
     const expected = structuredClone(selected), request = parseTransferRequest(requested), wire: unknown = structuredClone(review.wire);
-    const view = () => parseTransferPreparation(wire,expected,request,config.environment);
+    const view = () => parseTransferPreparation(wire,expected,request,config.deployment);
     const prepared = view();
     requireHash(expected.deployment.digest);
     const manifest = loadPinnedDeploymentManifest(expected.deployment.document,expected.deployment.digest);

@@ -1,6 +1,5 @@
 import { parseCredentialDetail } from '@gatopago/shared/v3/credential-detail';
 import { parseResourceId } from '@gatopago/shared/v3/primitives';
-import environments from '@gatopago/environment/environments.json';
 import type { EnabledAuthConfig } from '../auth/config';
 import { record, WalletCoreError, walletTransport } from './http';
 
@@ -17,7 +16,7 @@ export async function loadCredentialDetail(config: EnabledAuthConfig, token: () 
     }
     if (result.status === 404) throw new CredentialDetailError('credentials/not-found');
     if (result.status !== 200) throw new CredentialDetailError('credentials/unavailable');
-    const env = environments[config.environment];
+    const env = config.deployment;
     return parseCredentialDetail(result.value, { rpId: env.webauthn_rp_id, origin: env.web_origin }, id);
   } catch (error) {
     signal.throwIfAborted();

@@ -14,25 +14,31 @@ import { requestPasskeyProof } from './passkeys';
 import { creationFeeUnit } from './creation-fee';
 import { formatTransferAsset, validateTransferAssets, type TransferAsset } from './transfer-form';
 import { TransferReceipt } from './TransferReceipt';
+import { parseRecipient, type Recipient } from './profile';
 
 type Props = {
   runtime: Pick<BrowserAuth, 'transferCommands' | 'transfers' | 'subscribe'>; uid: string; selected: TransferSelection; request: TransferRequest; review: Review;
-  environment: EnabledAuthConfig['environment']; credentials: readonly CredentialDetail[]; metadata: readonly TransferAsset[]; english: boolean; onEdit?: () => void
+  recipient?: Recipient | null; environment: EnabledAuthConfig['deployment']; credentials: readonly CredentialDetail[]; metadata: readonly TransferAsset[]; english: boolean; onEdit?: () => void
 };
 
 /** Automatically reset all reviewed state if identity, account or consent changes. */
 export function TransferReview(props: Props) {
-  return <ReviewedTransfer key={JSON.stringify([props.uid, props.environment, props.selected, props.request, props.review.wire, props.credentials, props.metadata])} {...props} />;
+  return <ReviewedTransfer key={JSON.stringify([props.uid, props.environment, props.selected, props.request, props.review.wire, props.credentials, props.metadata, props.recipient])} {...props} />;
 }
 
-function ReviewedTransfer({ runtime, uid, selected, request, review, environment, credentials, metadata, english: en, onEdit }: Props) {
+function ReviewedTransfer({ runtime, uid, selected, request, review, environment, credentials, metadata, english: en, onEdit, recipient }: Props) {
   const [bound] = useState(() => {
     const preparation = parseTransferPreparation(review.wire, selected, request, environment);
+    const destination = recipient ? parseRecipient(recipient, recipient.username, request.network_id, recipient.verified_at) : null;
+    if (destination && destination.address !== request.destination.address) throw new Error('Recipient does not match the reviewed address');
+    const expiresAt = Math.min(preparation.expires_at, destination?.expires_at ?? preparation.expires_at);
     const commands = runtime.transferCommands(uid), transfers = runtime.transfers(uid);
     const assertCurrent = () => { commands.assertCurrent(); transfers.assertCurrent(); };
     return {
-      preparation, assertCurrent, flow: new TransferExecutionFlow(() => ({ commands, transfers }), selected, request, review, environment),
-      signing: new TransferSigning(preparation, credentials, assertCurrent, requestPasskeyProof)
+      preparation, recipient: destination, expiresAt, assertCurrent, flow: new TransferExecutionFlow(() => ({ commands, transfers }), selected, request, review, environment),
+      signing: new TransferSigning(preparation, credentials, () => {
+        assertCurrent(); if (Date.now() >= expiresAt * 1000) throw new Error('Recipient or transfer review expired');
+      }, requestPasskeyProof)
     };
   });
   const state = useSyncExternalStore(bound.flow.subscribe, bound.flow.snapshot, bound.flow.snapshot);
@@ -45,7 +51,7 @@ function ReviewedTransfer({ runtime, uid, selected, request, review, environment
     const unsubscribe = runtime.subscribe(identity => {
       try { if (identity?.uid !== uid) throw new Error('Session changed'); bound.assertCurrent(); } catch { close(); }
     });
-    const timer = setTimeout(() => { setExpired(true); bound.signing.dispose(); }, Math.max(0, bound.preparation.expires_at * 1000 - Date.now()));
+    const timer = setTimeout(() => { setExpired(true); bound.signing.dispose(); }, Math.max(0, bound.expiresAt * 1000 - Date.now()));
     return () => {
       mounted.current = false; clearTimeout(timer); unsubscribe();
       // React Strict Mode replays setup/cleanup without unmounting the instance.
@@ -70,10 +76,10 @@ function ReviewedTransfer({ runtime, uid, selected, request, review, environment
   if (state.phase === 'closed') return <p role="alert">{en ? 'Your session changed. Reopen this transfer.' : 'Tu sesión cambió. Vuelve a abrir este envío.'}</p>;
   return <section aria-labelledby={heading} aria-busy={busy}>
     <h3 id={heading}>{en ? 'Review transfer' : 'Revisar envío'}</h3>
-    <dl><dt>{en ? 'Recipient' : 'Destino'}</dt><dd style={{ overflowWrap: 'anywhere' }}>{request.destination.address}</dd>
+    <dl>{bound.recipient ? <><dt>Username</dt><dd>@{bound.recipient.username} · {bound.recipient.display_name}</dd></> : null}<dt>{en ? 'Recipient' : 'Destino'}</dt><dd style={{ overflowWrap: 'anywhere' }}>{request.destination.address}</dd>
       <dt>{en ? 'Amount' : 'Importe'}</dt><dd>{amount}{request.amount.kind === 'max' ? ' (MAX)' : ''}</dd>
       <dt>{en ? 'Network' : 'Red'}</dt><dd>{native?.network ?? request.network_id}</dd>
-      <dt>{en ? 'Maximum network cost' : 'Coste máximo de red'}</dt><dd>{gas}</dd>
+      <dt>{en ? 'Maximum network cost' : 'Coste máximo de red'}</dt><dd>{p.review.context.sponsorship ? (en ? 'Covered by GatoPago' : 'Cubierto por GatoPago') : gas}</dd>
       <dt>{en ? 'Platform fee' : 'Comisión de plataforma'}</dt><dd>{formatTransferAsset(p.review.context.budget.platform_fee.amount_atomic, request.asset_id, assets)}</dd></dl>
     <details><summary>{en ? 'Technical details' : 'Detalles técnicos'}</summary>
       <p style={{ overflowWrap: 'anywhere' }}>{request.asset_id}</p><code style={{ overflowWrap: 'anywhere' }}>{c.digest}</code>
