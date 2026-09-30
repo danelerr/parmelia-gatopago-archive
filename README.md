@@ -1,250 +1,66 @@
-# GatoPago
+# GatoPago V3
 
-**Tus dólares ya saben moverse.**
+El producto actual tiene tres aplicaciones y una única generación de cuenta: Account V3.
 
-Programmable onchain account for stablecoin payments, guided DeFi, and developer APIs on Arbitrum.
-
-GatoPago lets anyone receive, request, and swap USDC through payment links, QR
-codes, usernames, and a mobile PWA — secured by **WebAuthn passkeys** and
-**ERC-4337 smart accounts**. No seed phrases. No gas for the user.
-
-- **Live app:** https://app.parmelia.me
-- **Landing:** https://parmelia.me
-- **Landing repo:** https://github.com/danelerr/parmelia-landing
-- **Product, strategy, and brand documentation:** https://github.com/danelerr/parmelia-landing/tree/main/documentacion
-- **Technical documentation:** [docs/README.md](docs/README.md)
-- **Chain:** Arbitrum Sepolia (configuration ready for Arbitrum One)
-
-> GatoPago existed before the Arbitrum Open House London Buildathon as a portable
-> payment-link prototype. During the event it became an Arbitrum-native payments
-> product with its V2 smart-account stack deployed and verified on Arbitrum
-> Sepolia, sponsored gas, swaps, rebranding, and a PWA.
-
----
-
-## The problem
-
-Stablecoins are already how many people in Latin America and other dollarized
-markets save and get paid. But the payment experience is still built for crypto
-natives: wallet addresses, seed phrases, gas, networks, transaction hashes, and
-signing flows. That friction is the adoption barrier.
-
-GatoPago turns that into a familiar payment flow — create a profile, share a
-link, scan a QR, pay a username, confirm with your fingerprint — without taking
-custody of user funds.
-
-## What you can do today
-
-- Create a wallet with a **passkey** (biometrics), no seed phrase.
-- Receive payments through **public links and QR codes**.
-- Send to **usernames**, scanned QR codes, or addresses.
-- A **ledger-based activity feed** with payments, deposits, swaps, receipts
-  (date, time, and a receipt number = tx hash), and a **statement page** with
-  shareable URL filters.
-- An **integrated swap module** with Uniswap routing and server-side quoting.
-- **Cross-chain USDC** via Circle CCTP v2: send to another chain from the app,
-  and a public checkout (`/cc/username`) so external wallets can pay in from
-  other chains (code complete; pending deploy + Flow A smoke test).
-- A **merchant dashboard** (API keys, payment intents, webhooks with signed
-  deliveries and retries, sandbox) backed by a `/v1` payments API in test mode
-  (backend/deployment exist; the public Dashboard is currently blocked by
-  Vercel SSO and is not production-ready).
-- **Contacts, invites, push notifications**, ES/EN i18n, and an installable **PWA**.
-
-## What is onchain (Account Abstraction)
-
-- **ERC-4337 smart accounts** on the canonical EntryPoint v0.9.
-- **WebAuthn / passkey** authorization via an ERC-7913 P256 verifier (RIP-7212).
-- **Deterministic CREATE2 deployment** — same addresses across chains.
-- **ParmeliaPaymaster**: sponsored UserOperations with signed `[validAfter,
-  validUntil]` windows so a signed-but-unsubmitted op cannot be replayed.
-- Smart account built for **multiple passkeys (ERC-7913), batching (ERC-7821),
-  UUPS upgradeability, and guardian recovery** with a 48h timelock.
-
-The backend relays UserOperations and sponsors gas, but **cannot move user funds**
-— every payment requires the user's passkey signature.
-
-## Deployed contracts — Arbitrum Sepolia (421614)
-
-| Contract | Address |
+| Directorio | Responsabilidad |
 |---|---|
-| EntryPoint v0.9 (canonical) | [`0x433709009B8330FDa32311DF1C2AFA402eD8D009`](https://sepolia.arbiscan.io/address/0x433709009B8330FDa32311DF1C2AFA402eD8D009) |
-| ERC7913WebAuthnVerifier | [`0x14D5D46fc6ED1154F3719f87ae72C3020d4fb886`](https://sepolia.arbiscan.io/address/0x14D5D46fc6ED1154F3719f87ae72C3020d4fb886) |
-| AccountWebAuthnV2 (impl) | [`0xDFA9df7d6CCc3b92F8a8e245D6E9760c3346184C`](https://sepolia.arbiscan.io/address/0xDFA9df7d6CCc3b92F8a8e245D6E9760c3346184C) |
-| AccountFactoryV2 | [`0xb97E923E27CB258012081446e4b436afd3974108`](https://sepolia.arbiscan.io/address/0xb97E923E27CB258012081446e4b436afd3974108) |
-| ParmeliaPaymaster | [`0x913a1B51c4f5b1a458A56D0d700c956834cc1d15`](https://sepolia.arbiscan.io/address/0x913a1B51c4f5b1a458A56D0d700c956834cc1d15) |
-| ParmeliaPaymentRouter (Flow B) | [`0xaF5a6856F65eab6bd8d0e403E4cFd49aD0c0c04f`](https://sepolia.arbiscan.io/address/0xaF5a6856F65eab6bd8d0e403E4cFd49aD0c0c04f) |
-| ParmeliaCrosschainRouter (CCTP outbound) | [`0xD089c3764a8F2E62eFDf280Eb2432c1dC647400c`](https://sourcify.dev/server/v2/contract/421614/0xD089c3764a8F2E62eFDf280Eb2432c1dC647400c) |
-| ParmeliaPaymentRouterV2 (Universal Checkout local) | [`0x64e0B48A4D360B235C3fEDe2431D79413aebb7A4`](https://sourcify.dev/server/v2/contract/421614/0x64e0B48A4D360B235C3fEDe2431D79413aebb7A4) |
+| `apps/web` | Web Consumer V3 |
+| `gatopago-wallet-core` | Wallet Core: identidad, credenciales, cuentas, seguridad, balances y transferencias personales |
+| `gatopago-flow` | Flow: comercios, checkout, intents, intentos, liquidación y webhooks |
+| `contracts` | Account V3 y contratos de pagos |
+| `shared` | Protocolos y utilidades explícitos por dominio |
+| `packages/environment` | Perfiles de entorno y admisión de redes |
 
-Universal Checkout also accepts testnet USDC through the exact-match verified
-CCTP routers on [Base Sepolia](https://sourcify.dev/server/v2/contract/84532/0x961C08Bd5a11EFB7264B06d7f14a44FB4d9958Ba)
-and [Avalanche Fuji](https://sourcify.dev/server/v2/contract/43113/0xd8289B87b155e8691Da192b12E12E2b592fE7D1E),
-settling on Arbitrum Sepolia. Deployment and end-to-end smoke evidence lives in
-[`contracts/deployments`](contracts/deployments/README.md). No mainnet payment
-source is enabled.
+No hay runtime V2, frontend anterior ni adaptadores para sus solicitudes. Los números de versión de Circle, ERC-4337 o las APIs de Flow son independientes de la generación de Account.
 
-## Why Arbitrum
+Usar Node 24 y la versión de pnpm indicada en `package.json`. Los builds contractuales requieren Foundry 1.7.1; `install:all` instala las dependencias JS y Solidity fijadas.
 
-Consumer payments need the chain to disappear. Arbitrum gives GatoPago true
-pay-for-what-you-use gas (no reserved-gas overcharge), low and predictable fees,
-EIP-712 support, a **canonical and verified ERC-4337 EntryPoint**, mature EVM
-tooling, and deep DeFi liquidity for swaps. It is the practical foundation to
-make stablecoin payments feel fast, affordable, and reliable.
-
-## Tech stack
-
-React 19 · TypeScript · Vite · Tailwind v4 (client) · Hono on Cloudflare Workers
-+ two D1 ownership boundaries + Queues + Durable Objects (backend) · viem ·
-Solidity + Foundry + OpenZeppelin v5 (contracts) · Firebase Auth/Messaging ·
-Arbitrum.
-
-## Architecture
-
-Full write-up in [ARCHITECTURE.md](ARCHITECTURE.md). Provider-neutral RPC
-capabilities, partitioned indexing and the WebSocket decision are covered in
-[docs/runbooks/rpc-operations.md](docs/runbooks/rpc-operations.md). In short:
-
-```
-client / Alchemy ──> App Worker + App D1 ────────────────> Arbitrum ERC-4337
-                         │ Service Binding RPC
-                         ▼
-dashboard / checkout ──> Payments Worker + Payments D1 ──> Queues / DO / payment rails
+```sh
+pnpm install:all
+pnpm build:contracts
+pnpm dev:web
+pnpm dev:wallet-core
+pnpm dev:flow
 ```
 
-`server/` owns identity, accounts, contacts, activity, relaying and indexing.
-`payments-worker/` owns merchants, links, intents, API keys, webhooks, fees,
-sponsorship policy and payment execution. The App Worker can call Payments over
-a private Service Binding; neither Worker writes directly to the other's D1.
+Para desarrollo local, copiar `apps/web/.env.example` a `apps/web/.env.local` y
+`gatopago-wallet-core/.env.example` a `gatopago-wallet-core/.env`. Completar los
+identificadores públicos de Firebase en Web y sus credenciales privadas en Wallet
+Core. Mantener iguales las variables públicas compartidas. Aplicar el esquema local:
 
-The App Worker has no static Cron Trigger. Active wallets retain one configurable
-safety alarm so missed provider webhooks are reconciled even when nobody opens
-the app; it schedules only lagging shards and stops completely when there are no
-active wallets. The Payments Worker uses one bounded minute trigger for its
-outbox, key rotation, cleanup and active-chain router watches. Equivalent events
-are coalesced per partition before they reach Queue, and independent shards can
-scale horizontally.
-
-The zero-RPC Home invariant and bounded 1/100/1,000-identity load procedure are
-documented in
-[docs/runbooks/home-capacity.md](docs/runbooks/home-capacity.md).
-
-## Run locally
-
-See [DEPLOY.md](DEPLOY.md) for the full runbook. Quick start:
-
-The reproducible toolchain is Node `24.19.0`, pnpm `11.23.0` and Foundry
-`v1.7.1`; use those versions locally to match CI.
-
-```bash
-pnpm install
-pnpm --filter client dev      # web app
-pnpm dev:server               # App Worker (needs server/.dev.vars)
-pnpm dev:payments             # Payments Worker (needs payments-worker/.dev.vars)
-pnpm dev:dashboard            # merchant dashboard
-cd contracts && forge test     # contracts
-pnpm verify                    # lint + types + server tests + builds + bundle budgets
-pnpm check:contracts:storage   # append-only storage-layout gate
-pnpm check:contracts:coverage  # Foundry coverage floors for critical contracts
-pnpm check:d1:restore          # encrypted export + isolated D1 restore drill
-pnpm check:release-artifact    # release manifest tamper/extra-file drill
-pnpm check:openapi             # strict OpenAPI 3.1 structure/reference lint
-pnpm test:e2e                  # Chrome: client/dashboard desktop + mobile
+```sh
+pnpm --filter gatopago-wallet-core exec wrangler d1 migrations apply WALLET_DB --local
 ```
 
-Before any Phase 2.1 remote change, run the read-only inventory:
+Abrir **http://localhost:3000**; Wallet Core escucha en **http://localhost:8787**.
+Las passkeys usan `localhost` como RP; `127.0.0.1` es otro origen. Los archivos locales
+están ignorados por Git. El registro requiere una invitación emitida con
+`pnpm wallet:invites issue --local --issuer daniel --hours 24 --capacity 1`.
 
-```bash
-pnpm verify:remote-readonly
+Las URLs, proyecto Firebase, redes habilitadas, endpoints RPC y clave de relayer
+se configuran por variables. `GATOPAGO_ENVIRONMENT` sólo etiqueta los registros
+(`staging` o `production`); no elige dominios. Las direcciones y hashes de contratos
+permanecen en los artefactos de despliegue revisados; no se toman de respuestas HTTP.
+El paymaster no está desplegado. El relayer utiliza `PRIVATE_KEY` exportada en
+la terminal; `.env` permite que Wrangler lea las variables del proceso.
+No hace falta copiar la clave al archivo. El Worker remoto reutiliza ese binding
+secreto ya cargado en `gatopago-wallet-core`.
+Arrancar Wallet Core desde la misma terminal:
+
+```sh
+# Con PRIVATE_KEY ya exportada desde tu keystore:
+pnpm dev:wallet-core
 ```
 
-An exit code of `2` means the local artifact is valid but remote provisioning or
-cutover is still pending; it does not mean production was changed. Follow the
-[Payments cutover runbook](docs/runbooks/payments-cutover.md) for the explicit,
-single-writer migration sequence.
+El argumento `--account` es el alias de tu keystore de Foundry. El envío requiere
+ETH de prueba para el relayer y fondos para el gas de la cuenta. El login no requiere
+esa clave.
 
-## Tests
+`pnpm check:backends` verifica fronteras, tipos, lint, pruebas unitarias y workerd/D1 de ambos backends. `pnpm verify:ci` agrega Web y verificaciones contractuales. No implica despliegue ni certificación de producción.
 
-- Contracts: `pnpm test:fork` — 197 tests/invariants passing, 0 failures and
-  0 skips. The command validates the three testnet chain IDs and executes six
-  live fork proofs; its public RPC defaults can be replaced with environment
-  variables when a dedicated provider is available.
-  Coverage includes account recovery, paymaster gas caps, permit payments,
-  cross-chain settlement and the upgrade-path storage regression.
-- `pnpm verify:all` enforces append-only contract storage layouts and
-  per-contract coverage floors. Current branch coverage is 88.24% for
-  `AccountWebAuthnV2` and 100% for Factory, Paymaster, PaymentRouter and
-  CrosschainRouter.
-- Arbitrum One deployment scripts reject missing/reused owner, treasury,
-  broadcaster and signing roles before broadcast; testnet retains simple defaults.
-- Server: `pnpm --filter server test` — Node tests plus tests inside
-  `workerd` with a real isolated D1 binding. Coverage includes OpenAPI drift,
-  key rotation, production readiness, every versioned D1 migration, schema constraints,
-  authentication, body limits, Web Crypto, event coalescing and lease ownership, in addition to swap encoding,
-  fee/slippage math, validation, UserOperation serialization, error contract,
-  CCTP message validation, key policy, durable account operations and faucet/turnstile fail-closed).
-- Redocly validates the public API with the OpenAPI 3.1 `recommended-strict`
-  ruleset, while the server test suite independently requires an exact match
-  between every documented `/v1` method/path and the routes registered by Hono.
-- Server logs are structured and centrally redact credentials, secret fields and
-  sensitive URL data. `pnpm check:server-console` prevents direct `console.*`
-  calls outside the logger implementation.
-- `pnpm check:d1:restore` applies all D1 migrations to a local fixture, encrypts
-  its export with AES-256-GCM, restores it into a second isolated D1 and requires
-  integrity/FK checks plus the fixture join to survive.
-- Production operations are manual: the operator runs `pnpm verify:all`, creates
-  and restore-checks an encrypted D1 backup, applies pending migrations, deploys
-  with Wrangler and requires a healthy `/health` response. Rollback is also an
-  explicit Wrangler operation; D1 is never rolled back automatically.
-- Lint is blocking (`--max-warnings 0`) on `client`, `dashboard` and `server`;
-  server lint is type-aware and rejects floating or misused promises.
-- `pnpm test:fork` runs six live fork tests against Arbitrum Sepolia, Base
-  Sepolia and Avalanche Fuji. They cover the three deployed checkout rails plus
-  EntryPoint/CCTP/Aave wiring, including Aave supply/withdraw and CCTP burn state
-  changes.
-- Manual release verification scans Git history and the checked-out worktree
-  with Gitleaks and executes twelve Playwright checks across four viewport
-  profiles, including automated WCAG 2.2 AA rules and keyboard focus order.
-  Semgrep, a reviewed Slither medium/high gate and Foundry lint remain available
-  as local blocking checks.
+El arranque local usa D1 y colas locales, sin crear recursos remotos. Wallet Core conecta rutas y jobs desde `src/runtime/catalog.ts`; comparte con Web el perfil del Account V3 desplegado en Arbitrum Sepolia. Su activación requiere habilitar la red y provisionar los proveedores del entorno.
 
-## Security model
-
-Non-custodial by design. Identity (Firebase) is separate from custody (the
-passkey-controlled smart account). The server's keys can deploy accounts, pay
-gas, and relay `handleOps`, but **cannot move funds** without a valid passkey
-signature the contract accepts. Key-separation guidance for mainnet is in
-[DEPLOY.md](DEPLOY.md) §11.
-Private reporting, secret handling and incident response are documented in
-[SECURITY.md](SECURITY.md). The name-only inventory, verified provenance and
-safe acquisition/rotation guide is in
-[docs/operations/worker-variables.md](docs/operations/worker-variables.md).
-
-## Roadmap
-
-Shipped since the buildathon: the **Stripe-like payments API** (test mode, with
-merchant dashboard and signed webhooks) and **cross-chain USDC via CCTP v2**
-(code complete, pending deploy). Designed as the next phases: a **GatoPago
-card** and **local bank-QR settlement** so people can spend their stablecoin
-balance in the real world, and **Earn** on idle balances. The DeFi direction is
-written up in [the DeFi design](docs/design/defi.md), the API direction in
-[the API design](docs/design/api.md), and cross-chain in
-[the cross-chain design](docs/design/cross-chain.md). The dated evidence is in
-[the current technical audit](docs/audits/2026-08-23.md), while actionable work
-lives only in the [technical roadmap](docs/roadmap.md).
-
-## Repository layout
-
-```
-client/      React PWA (deployed to Vercel → app.parmelia.me)
-server/      App Worker (identity/accounts/activity/indexer/relayer + App D1)
-payments-worker/ Payments Worker (merchant API/execution/webhooks + Payments D1)
-dashboard/   Merchant dashboard (React; API keys, payments, webhooks, sandbox)
-contracts/   Foundry: AccountWebAuthnV2, AccountFactoryV2, ParmeliaPaymaster,
-             ParmeliaPaymentRouter, ParmeliaCrosschainRouter, verifier
-shared/      Network config, ABIs, error contract (source of truth)
-docs/        Technical index, designs, API reference, operations, audits and runbooks
-```
-
-Landing page lives in a separate repo:
-[danelerr/parmelia-landing](https://github.com/danelerr/parmelia-landing).
+- [Wallet Core](gatopago-wallet-core/README.md)
+- [Flow](gatopago-flow/README.md)
+- [Build y despliegue](DEPLOY.md)
+- [Estado de los backends](docs/operations/backend-status.md)

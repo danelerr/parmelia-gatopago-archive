@@ -6,6 +6,12 @@ prohibida como base de implementación
 **Propósito:** explicar el sistema con un único vocabulario y separar con claridad
 lo que está desplegado, lo que está listo en código y lo que sólo es futuro.
 
+**Código vigente (25 de septiembre de 2026):** los backends están en
+`gatopago-wallet-core/` y `gatopago-flow/`. La estructura y los límites actuales
+están en [`ARCHITECTURE.md`](../../ARCHITECTURE.md). Los nombres de carpetas y
+recursos remotos en las tablas históricas siguientes documentan el runtime
+anterior; no son instrucciones de despliegue del código actual.
+
 Este directorio es el punto de entrada visual. No reemplaza al código,
 `ARCHITECTURE.md`, `SECURITY.md` ni `DEPLOY.md`, y no autoriza por sí mismo un
 despliegue.
@@ -48,9 +54,8 @@ temporal, no un tercer BFF.
 
 ## Vocabulario del runtime anterior y transición
 
-Objetivo V3: `apps/web/` Next.js sustituye `client/` y la landing Astro;
-`server/` evoluciona lógicamente a Wallet Core y `payments-worker/` a Flow Core.
-Los nombres físicos de recursos se conservan hasta un corte justificado.
+El código V3 usa `apps/web/`, `gatopago-wallet-core/` y `gatopago-flow/`.
+El cambio de carpetas no modifica los recursos remotos del corte anterior.
 La tabla siguiente identifica el runtime anterior, no una implementación V3.
 
 | Nombre que usamos | Nombre técnico | Responsabilidad |

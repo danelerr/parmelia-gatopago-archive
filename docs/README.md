@@ -74,7 +74,7 @@ Cuando dos documentos se contradigan, se aplica este orden:
 - `audits/historico/`: auditorías anteriores que todavía explican decisiones o mediciones.
 - `historico/`: planes reemplazados que conservan contexto arquitectónico.
 
-Los README de `client/`, `server/` y `contracts/`, así como `contracts/AUDIT.md`, permanecen junto a sus componentes.
+Los README de `apps/web/`, `gatopago-wallet-core/`, `gatopago-flow/` y `contracts/` permanecen junto a sus componentes.
 
 ## Fuera del sistema documental
 

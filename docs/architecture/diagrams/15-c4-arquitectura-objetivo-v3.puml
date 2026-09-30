@@ -17,12 +17,12 @@ package "Clientes" {
 }
 
 package "Dominios GatoPago" {
-  component "Wallet Core (server/)\nIdentidad, Party, Wallet, manifests,\nportfolio y operaciones" as app COLOR_READY
+  component "Wallet Core (gatopago-wallet-core/)\nIdentidad, Party, Wallet, manifests,\nportfolio y operaciones" as app COLOR_READY
   database "App D1\nAccount Identity + estado por chain" as app_db COLOR_DATA
   queue "App Jobs" as app_jobs COLOR_LIVE
   component "ChainExecution\nComponente lógico + DO" as execution COLOR_LIVE
 
-  component "Flow Core (payments-worker/)\nTenancy, intents, settlement,\njournal y webhooks" as payments COLOR_READY
+  component "Flow Core (gatopago-flow/)\nTenancy, intents, settlement,\njournal y webhooks" as payments COLOR_READY
   database "Payments D1\nIntent + attempt + outbox" as payments_db COLOR_DATA
   queue "Payments Jobs" as payments_jobs COLOR_LIVE
 }
