@@ -16,10 +16,10 @@ node_modules
 *.DS_Store
 Thumbs.db
 
-# This is a pnpm workspace. The client also keeps a lockfile because it is
-# intentionally deployable as an independent Vercel project from client/.
+# One lockfile for the pnpm workspace.
 package-lock.json
-server/pnpm-lock.yaml
+gatopago-wallet-core/pnpm-lock.yaml
+gatopago-flow/pnpm-lock.yaml
 shared/pnpm-lock.yaml
 
 # Playwright runtime artifacts.
@@ -57,3 +57,4 @@ backups/
 # The `npx skills` toolchain has no "install everything from skills-lock.json"
 # command yet (vercel-labs/skills#283), so the only restore path is re-adding each
 # skill by hand. Once that command ships, gitignore .agents/ and restore from the lockfile.
+.env*

@@ -47,7 +47,7 @@ jobs:
         run: >-
           semgrep scan --config p/default --error --metrics=off
           --exclude .agents --exclude contracts/lib --exclude node_modules
-          --exclude contracts/out --exclude client/dist --exclude dashboard/dist .
+          --exclude contracts/out .
 
   slither:
     name: Slither

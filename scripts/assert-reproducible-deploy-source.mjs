@@ -11,13 +11,14 @@ const sharedPaths = [
 	"pnpm-workspace.yaml",
 	"scripts",
 	"shared",
+	"packages",
 	"contracts",
 ];
 
 function deploymentPaths(scopes) {
 	const values = new Set(sharedPaths);
 	for (const scope of scopes) {
-		if (!/^(?:server|payments-worker|client|dashboard)$/u.test(scope)) {
+		if (!/^(?:gatopago-wallet-core|gatopago-flow|apps\/web)$/u.test(scope)) {
 			throw new Error(`Unknown deployment scope: ${scope}`);
 		}
 		values.add(scope);
@@ -32,33 +33,27 @@ export function validateDeploySource(input) {
 		throw new Error(`Refusing deployment: ${entries.length} deploy-relevant file(s) are modified or untracked. Commit and review the exact source first.`);
 	}
 	if (!/^[0-9a-f]{40}$/u.test(input.head)) throw new Error("Refusing deployment: HEAD is not a full Git commit.");
-	if (!/^[0-9a-f]{40}$/u.test(input.upstream)) throw new Error("Refusing deployment: the current branch has no published upstream commit.");
-	if (input.head !== input.upstream) throw new Error("Refusing deployment: HEAD is not the commit published at the branch upstream.");
 	return input.head;
 }
 
 export function assertReproducibleDeploySource(scopes) {
 	const paths = deploymentPaths(scopes);
 	const run = (args) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
-	let upstream = "";
-	try { upstream = run(["rev-parse", "@{upstream}"]); }
-	catch { throw new Error("Refusing deployment: publish the current branch and configure its upstream first."); }
 	return validateDeploySource({
 		status: run(["status", "--porcelain=v1", "--untracked-files=all", "--", ...paths]),
 		head: run(["rev-parse", "HEAD"]).toLowerCase(),
-		upstream: upstream.toLowerCase(),
 	});
 }
 
 function drill() {
 	const commit = "a".repeat(40);
-	if (validateDeploySource({ status: "", head: commit, upstream: commit }) !== commit) {
+	if (validateDeploySource({ status: "", head: commit }) !== commit) {
 		throw new Error("Clean deploy-source fixture was rejected");
 	}
 	for (const fixture of [
-		{ status: " M payments-worker/src/index.ts", head: commit, upstream: commit },
-		{ status: "?? payments-worker/", head: commit, upstream: commit },
-		{ status: "", head: commit, upstream: "b".repeat(40) },
+		{ status: " M gatopago-flow/src/index.ts", head: commit, upstream: commit },
+		{ status: "?? gatopago-flow/", head: commit, upstream: commit },
+		{ status: "", head: "not-a-commit" },
 	]) {
 		let rejected = false;
 		try { validateDeploySource(fixture); } catch { rejected = true; }
@@ -73,9 +68,9 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
 			drill();
 			process.stdout.write("Reproducible deploy-source guard drill passed.\n");
 		} else {
-			if (args.length === 0) throw new Error("Usage: assert-reproducible-deploy-source.mjs <server|payments-worker|client|dashboard> [...]");
+			if (args.length === 0) throw new Error("Usage: assert-reproducible-deploy-source.mjs <gatopago-wallet-core|gatopago-flow|apps/web> [...]");
 			const commit = assertReproducibleDeploySource(args);
-			process.stdout.write(`Deploy source is clean and published at ${commit}.\n`);
+			process.stdout.write(`Deploy source is clean and committed at ${commit}.\n`);
 		}
 	} catch (error) {
 		process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);

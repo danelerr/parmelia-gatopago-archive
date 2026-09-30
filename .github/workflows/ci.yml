@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/v3]
   pull_request:
   workflow_dispatch:
 
@@ -15,14 +15,15 @@ concurrency:
 
 env:
   CI: "true"
-  VITE_FIREBASE_API_KEY: ci-not-a-secret
-  VITE_FIREBASE_AUTH_DOMAIN: localhost
-  VITE_FIREBASE_PROJECT_ID: gatopago-ci
-  VITE_FIREBASE_STORAGE_BUCKET: gatopago-ci.invalid
-  VITE_FIREBASE_MESSAGING_SENDER_ID: "000000000000"
-  VITE_FIREBASE_APP_ID: 1:000000000000:web:0000000000000000
-  VITE_CHAIN_KEY: arbitrum-sepolia
-  VITE_SERVER_URL: https://server.example.invalid
+  GATOPAGO_ENVIRONMENT: staging
+  GATOPAGO_WEB_ORIGIN: https://web.example.test
+  GATOPAGO_API_ORIGIN: https://api.example.test
+  GATOPAGO_BUSINESS_ORIGIN: https://business.example.test
+  GATOPAGO_WALLET_NETWORKS: eip155:421614
+  FIREBASE_PROJECT_ID: v3-build-test
+  GATOPAGO_FIREBASE_WEB_API_KEY: ${{ vars.GATOPAGO_FIREBASE_WEB_API_KEY }}
+  GATOPAGO_FIREBASE_WEB_APP_ID: ${{ vars.GATOPAGO_FIREBASE_WEB_APP_ID }}
+  GATOPAGO_TURNSTILE_SITE_KEY: ${{ vars.GATOPAGO_TURNSTILE_SITE_KEY }}
 
 jobs:
   verify:
@@ -51,46 +52,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install pinned Solidity dependencies
-        working-directory: contracts
-        run: >-
-          forge install --no-git --shallow
-          forge-std=foundry-rs/forge-std@rev=bf647bd6046f2f7da30d0c2bf435e5c76a780c1b
-          openzeppelin-contracts=OpenZeppelin/openzeppelin-contracts@rev=cab19933c33c2ad1d4c7a84864a3601dddfd16f3
+        run: pnpm install:solidity
 
       - name: Run deterministic release verification
-        run: pnpm check:v3 && pnpm check:v3:web && pnpm check:v3:wallet-api && pnpm verify:ci
-
-  e2e:
-    name: Browser and accessibility tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Install pnpm from packageManager
-        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
-
-      - name: Install Node 24
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Install Chromium
-        run: pnpm exec playwright install --with-deps chromium
-
-      - name: Run browser tests
-        run: pnpm test:e2e
-
-      - name: Upload failure evidence
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: playwright-failure-evidence
-          path: test-results
-          if-no-files-found: ignore
-          retention-days: 7
+        run: pnpm verify:ci

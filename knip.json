@@ -4,40 +4,20 @@
   "workspaces": {
     ".": {
       "project": [
-        "e2e/**/*.ts",
         "scripts/**/*.mjs"
       ],
       "ignoreBinaries": [
         "cast",
         "forge",
         "java"
-      ]
-    },
-    "client": {
-      "entry": [
-        "public/sw.js"
       ],
-      "project": [
-        "src/**/*.{ts,tsx,css}"
+      "ignoreDependencies": [
+        "wrangler"
       ]
     },
-    "dashboard": {
-      "project": [
-        "src/**/*.{ts,tsx,css}"
-      ]
-    },
-    "server": {
+    "gatopago-wallet-core": {
       "ignoreBinaries": [
         "anvil"
-      ],
-      "entry": [
-        "src/v3/index.ts",
-        "src/routes/crosschain.routes.ts",
-        "src/routes/links.routes.ts",
-        "src/routes/merchant.routes.ts",
-        "src/services/indexer/routerWatcher.ts",
-        "src/services/crosschainRelayer.ts",
-        "src/services/webhooks.ts"
       ],
       "project": [
         "src/**/*.ts",
@@ -48,7 +28,7 @@
         "cloudflare"
       ]
     },
-    "payments-worker": {
+    "gatopago-flow": {
       "project": [
         "src/**/*.ts",
         "test/**/*.ts",
@@ -62,6 +42,14 @@
       "project": [
         "**/*.ts"
       ]
+    },
+    "apps/web": {
+      "entry": [
+        "src/wallet/BackupCommitPanel.tsx"
+      ]
     }
-  }
+  },
+  "ignore": [
+    "contracts/lib/**"
+  ]
 }
