@@ -157,15 +157,15 @@
         },
         "web_origin": {
           "type": "string",
-          "pattern": "^https://[a-z0-9.-]{1,245}$(?![\\s\\S])"
+          "pattern": "^https?://[a-z0-9.\\[\\]:-]{1,253}$(?![\\s\\S])"
         },
         "business_origin": {
           "type": "string",
-          "pattern": "^https://[a-z0-9.-]{1,245}$(?![\\s\\S])"
+          "pattern": "^https?://[a-z0-9.\\[\\]:-]{1,253}$(?![\\s\\S])"
         },
         "api_origin": {
           "type": "string",
-          "pattern": "^https://[a-z0-9.-]{1,245}$(?![\\s\\S])"
+          "pattern": "^https?://[a-z0-9.\\[\\]:-]{1,253}$(?![\\s\\S])"
         },
         "webauthn_rp_id": {
           "type": "string",
@@ -178,7 +178,7 @@
           "uniqueItems": true,
           "items": {
             "type": "string",
-            "pattern": "^https://[a-z0-9.-]{1,245}$(?![\\s\\S])"
+            "pattern": "^https?://[a-z0-9.\\[\\]:-]{1,253}$(?![\\s\\S])"
           }
         },
         "api_modes": {

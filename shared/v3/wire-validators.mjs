@@ -435,8 +435,8 @@ return errors === 0;
 }
 
 export const validateEnvironmentShape = validate12;
-const schema17 = {"type":"object","additionalProperties":false,"required":["schema_version","environment","web_origin","business_origin","api_origin","webauthn_rp_id","webauthn_allowed_origins","api_modes","blockchain_tiers","wallet_candidates","wallet_enabled","payment_live_enabled","firebase_project_id","status"],"properties":{"schema_version":{"const":1},"environment":{"type":"string","enum":["staging","production"]},"status":{"type":"string","enum":["unprovisioned","provisioned"]},"web_origin":{"type":"string","pattern":"^https://[a-z0-9.-]{1,245}$(?![\\s\\S])"},"business_origin":{"type":"string","pattern":"^https://[a-z0-9.-]{1,245}$(?![\\s\\S])"},"api_origin":{"type":"string","pattern":"^https://[a-z0-9.-]{1,245}$(?![\\s\\S])"},"webauthn_rp_id":{"type":"string","pattern":"^[a-z0-9.-]{1,253}$(?![\\s\\S])"},"webauthn_allowed_origins":{"type":"array","minItems":1,"maxItems":2,"uniqueItems":true,"items":{"type":"string","pattern":"^https://[a-z0-9.-]{1,245}$(?![\\s\\S])"}},"api_modes":{"type":"array","minItems":1,"maxItems":2,"uniqueItems":true,"items":{"type":"string","enum":["test","live"]}},"blockchain_tiers":{"type":"array","minItems":1,"maxItems":2,"uniqueItems":true,"items":{"type":"string","enum":["testnet","mainnet"]}},"wallet_candidates":{"type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"string","$ref":"#/definitions/evmNetworkId"}},"wallet_enabled":{"type":"array","maxItems":32,"uniqueItems":true,"items":{"type":"string","$ref":"#/definitions/evmNetworkId"}},"payment_live_enabled":{"type":"boolean"},"firebase_project_id":{"type":["string","null"],"pattern":"^[a-z][a-z0-9-]{4,28}[a-z0-9]$(?![\\s\\S])"}}};
-const pattern6 = new RegExp("^https://[a-z0-9.-]{1,245}$(?![\\s\\S])", "u");
+const schema17 = {"type":"object","additionalProperties":false,"required":["schema_version","environment","web_origin","business_origin","api_origin","webauthn_rp_id","webauthn_allowed_origins","api_modes","blockchain_tiers","wallet_candidates","wallet_enabled","payment_live_enabled","firebase_project_id","status"],"properties":{"schema_version":{"const":1},"environment":{"type":"string","enum":["staging","production"]},"status":{"type":"string","enum":["unprovisioned","provisioned"]},"web_origin":{"type":"string","pattern":"^https?://[a-z0-9.\\[\\]:-]{1,253}$(?![\\s\\S])"},"business_origin":{"type":"string","pattern":"^https?://[a-z0-9.\\[\\]:-]{1,253}$(?![\\s\\S])"},"api_origin":{"type":"string","pattern":"^https?://[a-z0-9.\\[\\]:-]{1,253}$(?![\\s\\S])"},"webauthn_rp_id":{"type":"string","pattern":"^[a-z0-9.-]{1,253}$(?![\\s\\S])"},"webauthn_allowed_origins":{"type":"array","minItems":1,"maxItems":2,"uniqueItems":true,"items":{"type":"string","pattern":"^https?://[a-z0-9.\\[\\]:-]{1,253}$(?![\\s\\S])"}},"api_modes":{"type":"array","minItems":1,"maxItems":2,"uniqueItems":true,"items":{"type":"string","enum":["test","live"]}},"blockchain_tiers":{"type":"array","minItems":1,"maxItems":2,"uniqueItems":true,"items":{"type":"string","enum":["testnet","mainnet"]}},"wallet_candidates":{"type":"array","minItems":1,"maxItems":32,"uniqueItems":true,"items":{"type":"string","$ref":"#/definitions/evmNetworkId"}},"wallet_enabled":{"type":"array","maxItems":32,"uniqueItems":true,"items":{"type":"string","$ref":"#/definitions/evmNetworkId"}},"payment_live_enabled":{"type":"boolean"},"firebase_project_id":{"type":["string","null"],"pattern":"^[a-z][a-z0-9-]{4,28}[a-z0-9]$(?![\\s\\S])"}}};
+const pattern6 = new RegExp("^https?://[a-z0-9.\\[\\]:-]{1,253}$(?![\\s\\S])", "u");
 const pattern9 = new RegExp("^[a-z0-9.-]{1,253}$(?![\\s\\S])", "u");
 const pattern13 = new RegExp("^[a-z][a-z0-9-]{4,28}[a-z0-9]$(?![\\s\\S])", "u");
 
@@ -512,7 +512,7 @@ const _errs7 = errors;
 if(errors === _errs7){
 if(typeof data3 === "string"){
 if(!pattern6.test(data3)){
-validate12.errors = [{instancePath:instancePath+"/web_origin",schemaPath:"#/properties/web_origin/pattern",keyword:"pattern",params:{pattern: "^https://[a-z0-9.-]{1,245}$(?![\\s\\S])"},message:"must match pattern \""+"^https://[a-z0-9.-]{1,245}$(?![\\s\\S])"+"\""}];
+validate12.errors = [{instancePath:instancePath+"/web_origin",schemaPath:"#/properties/web_origin/pattern",keyword:"pattern",params:{pattern: "^https?://[a-z0-9.\\[\\]:-]{1,253}$(?![\\s\\S])"},message:"must match pattern \""+"^https?://[a-z0-9.\\[\\]:-]{1,253}$(?![\\s\\S])"+"\""}];
 return false;
 }
 }
@@ -533,7 +533,7 @@ const _errs9 = errors;
 if(errors === _errs9){
 if(typeof data4 === "string"){
 if(!pattern6.test(data4)){
-validate12.errors = [{instancePath:instancePath+"/business_origin",schemaPath:"#/properties/business_origin/pattern",keyword:"pattern",params:{pattern: "^https://[a-z0-9.-]{1,245}$(?![\\s\\S])"},message:"must match pattern \""+"^https://[a-z0-9.-]{1,245}$(?![\\s\\S])"+"\""}];
+validate12.errors = [{instancePath:instancePath+"/business_origin",schemaPath:"#/properties/business_origin/pattern",keyword:"pattern",params:{pattern: "^https?://[a-z0-9.\\[\\]:-]{1,253}$(?![\\s\\S])"},message:"must match pattern \""+"^https?://[a-z0-9.\\[\\]:-]{1,253}$(?![\\s\\S])"+"\""}];
 return false;
 }
 }
@@ -554,7 +554,7 @@ const _errs11 = errors;
 if(errors === _errs11){
 if(typeof data5 === "string"){
 if(!pattern6.test(data5)){
-validate12.errors = [{instancePath:instancePath+"/api_origin",schemaPath:"#/properties/api_origin/pattern",keyword:"pattern",params:{pattern: "^https://[a-z0-9.-]{1,245}$(?![\\s\\S])"},message:"must match pattern \""+"^https://[a-z0-9.-]{1,245}$(?![\\s\\S])"+"\""}];
+validate12.errors = [{instancePath:instancePath+"/api_origin",schemaPath:"#/properties/api_origin/pattern",keyword:"pattern",params:{pattern: "^https?://[a-z0-9.\\[\\]:-]{1,253}$(?![\\s\\S])"},message:"must match pattern \""+"^https?://[a-z0-9.\\[\\]:-]{1,253}$(?![\\s\\S])"+"\""}];
 return false;
 }
 }
@@ -613,7 +613,7 @@ const _errs17 = errors;
 if(errors === _errs17){
 if(typeof data8 === "string"){
 if(!pattern6.test(data8)){
-validate12.errors = [{instancePath:instancePath+"/webauthn_allowed_origins/" + i0,schemaPath:"#/properties/webauthn_allowed_origins/items/pattern",keyword:"pattern",params:{pattern: "^https://[a-z0-9.-]{1,245}$(?![\\s\\S])"},message:"must match pattern \""+"^https://[a-z0-9.-]{1,245}$(?![\\s\\S])"+"\""}];
+validate12.errors = [{instancePath:instancePath+"/webauthn_allowed_origins/" + i0,schemaPath:"#/properties/webauthn_allowed_origins/items/pattern",keyword:"pattern",params:{pattern: "^https?://[a-z0-9.\\[\\]:-]{1,253}$(?![\\s\\S])"},message:"must match pattern \""+"^https?://[a-z0-9.\\[\\]:-]{1,253}$(?![\\s\\S])"+"\""}];
 return false;
 }
 }

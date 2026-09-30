@@ -1,0 +1,29 @@
+{
+  "name": "@gatopago/test-fixtures",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    "./v3-creation-inspection": "./v3CreationInspection.ts",
+    "./v3-deployment-fixture": "./v3DeploymentFixture.ts",
+    "./v3-transfer": "./v3Transfer.ts",
+    "./v3-finality": "./v3Finality.ts",
+    "./v3-backup": "./v3Backup.ts",
+    "./v3-inspection": "./v3Inspection.ts",
+    "./v3-security-inspection": "./v3SecurityInspection.ts",
+    "./v3-creation-receipt": "./v3CreationReceipt.ts",
+    "./v3-initialization": "./v3Initialization.ts"
+  },
+  "dependencies": {
+    "@gatopago/shared": "workspace:*",
+    "viem": "^2.55.19"
+  },
+  "peerDependencies": {
+    "vitest": "^4.1.11"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.11"
+  }
+}

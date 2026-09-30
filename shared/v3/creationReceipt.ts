@@ -1,5 +1,5 @@
 import { decodeEventLog, encodeAbiParameters, encodeEventTopics, isAddress, isAddressEqual, keccak256, parseAbi, toHex,
-	zeroAddress, zeroHash, type Address, type Hex, type PublicClient } from 'viem';
+	zeroHash, type Address, type Hex, type PublicClient } from 'viem';
 import { hashSecurityManifest } from './authorizations';
 import type { authorizeCreationOperation } from './creationOperation';
 import { inspectCreationDeployment } from './creationInspection';
@@ -91,10 +91,10 @@ export function verifyCreationReceipt(signed: SignedCreation, transactionHash: H
 		const init = initialized.decoded.args, creation = created.decoded.args, deployment = deployed.decoded.args, outcome = operation.decoded.args;
 		const accountTopic = encodeAbiParameters([{ type: 'address' }], [account]);
 		if (init.manifestHash !== manifestHash || init.approvalDigest !== prepared.digest
-			|| created.topics[2] !== accountTopic || deployed.topics[2] !== accountTopic || operation.topics[2] !== accountTopic || operation.topics[3] !== zeroHash
+			|| created.topics[2] !== accountTopic || deployed.topics[2] !== accountTopic || operation.topics[2] !== accountTopic || operation.topics[3] !== encodeAbiParameters([{ type: 'address' }], [signed.plan.paymaster])
 			|| !isAddressEqual(creation.account, account) || creation.initialSecurityCommitment !== prepared.message.initialSecurityCommitment
-			|| !isAddressEqual(deployment.sender, account) || !isAddressEqual(deployment.factory, factory) || !isAddressEqual(deployment.paymaster, zeroAddress)
-			|| !isAddressEqual(outcome.sender, account) || !isAddressEqual(outcome.paymaster, zeroAddress) || outcome.nonce !== signed.operation.nonce
+			|| !isAddressEqual(deployment.sender, account) || !isAddressEqual(deployment.factory, factory) || !isAddressEqual(deployment.paymaster, signed.plan.paymaster)
+			|| !isAddressEqual(outcome.sender, account) || !isAddressEqual(outcome.paymaster, signed.plan.paymaster) || outcome.nonce !== signed.operation.nonce
 			|| outcome.actualGasCost > signed.maximumEntryPointCharge || outcome.actualGasUsed === 0n
 			|| initialized.index >= created.index || created.index >= deployed.index || deployed.index >= operation.index
 			|| outcome.success !== (completed !== null) || (completed && (completed.index <= deployed.index || completed.index >= operation.index))) throw new ReceiptError('CREATION_EVENT_MISMATCH');
@@ -102,7 +102,7 @@ export function verifyCreationReceipt(signed: SignedCreation, transactionHash: H
 		// data for the events that establish authority or an economic outcome.
 		if (initialized.data !== encodeAbiParameters([{ type: 'bytes32' }, { type: 'bytes32' }], [manifestHash, prepared.digest])
 			|| created.data !== prepared.message.initialSecurityCommitment
-			|| deployed.data !== encodeAbiParameters([{ type: 'address' }, { type: 'address' }], [factory, zeroAddress])
+			|| deployed.data !== encodeAbiParameters([{ type: 'address' }, { type: 'address' }], [factory, signed.plan.paymaster])
 			|| operation.data !== encodeAbiParameters([{ type: 'uint256' }, { type: 'bool' }, { type: 'uint256' }, { type: 'uint256' }],
 				[outcome.nonce, outcome.success, outcome.actualGasCost, outcome.actualGasUsed]) || (completed && completed.data !== '0x')) throw new ReceiptError('INVALID_CREATION_RECEIPT');
 		return Object.freeze({ schema_version: 1 as const, network_id: prepared.profile.deployment.network_id,

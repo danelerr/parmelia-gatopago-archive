@@ -3,7 +3,7 @@ import { parseAtomicAmount, parseResourceId } from './primitives';
 
 function object(value: unknown, keys: readonly string[]): Record<string, unknown> {
  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).length !== keys.length
-  || keys.some((key) => !Object.hasOwn(value, key))) throw new Error('Invalid activation status');
+  || keys.some((key) => !Object.hasOwn(value, key))) throw new Error('Invalid backup status');
  return value as Record<string, unknown>;
 }
 function integer(value: unknown, min = 1): number {
@@ -18,14 +18,14 @@ function choice<const T extends string>(value: unknown, allowed: readonly T[]): 
 
 /** Historical, owner-scoped progress. Never a spend permission or fresh proof that
  * the user possesses a key. Explicit expected IDs prevent cross-request mixups. */
-export function parseActivationStatus(value: unknown, expected: { activationId: string; operationId: string; kind: 'prepare' | 'commit'; proposalHash: string }) {
- const r = object(value, ['schema_version','activation_id','operation_id','kind','proposal_hash','consent_state',
+export function parseBackupStatus(value: unknown, expected: { backupId: string; operationId: string; kind: 'prepare' | 'commit'; proposalHash: string }) {
+ const r = object(value, ['schema_version','backup_id','operation_id','kind','proposal_hash','consent_state',
   'delivery_state','transaction_hash','job_state','reason','observation','policy_confirmation','account_readiness','snapshot_at']);
- const activationId = parseResourceId('operation', r.activation_id), operationId = parseResourceId('operation', r.operation_id);
+ const backupId = parseResourceId('operation', r.backup_id), operationId = parseResourceId('operation', r.operation_id);
  requireHash(r.proposal_hash);
- if (r.schema_version !== 1 || r.account_readiness !== 'not_assessed' || activationId !== expected.activationId
+ if (r.schema_version !== 1 || r.account_readiness !== 'not_assessed' || backupId !== expected.backupId
   || operationId !== expected.operationId || r.kind !== expected.kind || r.proposal_hash !== expected.proposalHash
-  || (r.kind === 'prepare' && activationId !== operationId) || (r.kind === 'commit' && activationId === operationId)) throw new Error('Mismatched activation status');
+  || (r.kind === 'prepare' && backupId !== operationId) || (r.kind === 'commit' && backupId === operationId)) throw new Error('Mismatched backup status');
  const consent = choice(r.consent_state, ['prepared','authorized','expired']);
  const delivery = choice(r.delivery_state, ['not_requested','pending','sending','uncertain','accepted','expired']);
  const job = choice(r.job_state, ['not_requested','ready','queued','running','observed','expired','review']);
@@ -37,19 +37,19 @@ export function parseActivationStatus(value: unknown, expected: { activationId: 
   || sent !== (transactionHash !== null) || (['observed','expired','review'].includes(job)) !== (reason !== null)
   || (job === 'observed' && reason !== (r.kind === 'commit' ? 'commit_finalized' : 'proposal_finalized'))
   || (job === 'expired' && reason !== 'consent_expired')
-  || (job === 'review' && ['proposal_finalized','commit_finalized','consent_expired'].includes(reason!))) throw new Error('Conflicting activation progress');
+  || (job === 'review' && ['proposal_finalized','commit_finalized','consent_expired'].includes(reason!))) throw new Error('Conflicting backup progress');
  const observation = r.observation === null ? null : (() => {
   const o = object(r.observation, ['epoch','observed_at','status','finality','outcome','block_number','block_hash','evidence_expires_at']);
   const epoch = integer(o.epoch), observed = integer(o.observed_at);
   const status = choice(o.status, ['observed','not_observed','unavailable','disagreement']);
   const finality = choice(o.finality, ['not_assessed','finalized','pending','stale','disagreement','reorg_detected','unavailable']);
-  const outcome = o.outcome === null ? null : choice(o.outcome, ['proposal_prepared','activation_committed','execution_reverted']);
+  const outcome = o.outcome === null ? null : choice(o.outcome, ['proposal_prepared','backup_committed','execution_reverted']);
   const number = o.block_number === null ? null : parseAtomicAmount(o.block_number);
   const blockHash = o.block_hash === null ? null : hash(o.block_hash);
   const expires = o.evidence_expires_at === null ? null : integer(o.evidence_expires_at);
   if (!sent || observed > snapshot || (status === 'observed' ? outcome === null || number === null || blockHash === null || expires === null || finality === 'not_assessed'
    : outcome !== null || number !== null || blockHash !== null || expires !== null || finality !== 'not_assessed')
-   || (outcome && outcome !== 'execution_reverted' && outcome !== (r.kind === 'commit' ? 'activation_committed' : 'proposal_prepared'))) throw new Error('Invalid activation observation');
+   || (outcome && outcome !== 'execution_reverted' && outcome !== (r.kind === 'commit' ? 'backup_committed' : 'proposal_prepared'))) throw new Error('Invalid backup observation');
   return Object.freeze({ epoch, observed_at: observed, status, finality, outcome, block_number: number, block_hash: blockHash, evidence_expires_at: expires });
  })();
  const confirmation = r.policy_confirmation === null ? null : (() => {
@@ -60,7 +60,7 @@ export function parseActivationStatus(value: unknown, expected: { activationId: 
  })();
  if ((job === 'observed' && (!observation || (r.kind === 'commit' && !confirmation)))
   || (job === 'expired' && delivery !== 'expired')) throw new Error('Unsupported completion claim');
- return Object.freeze({ schema_version: 1 as const, activation_id: activationId, operation_id: operationId, kind: expected.kind,
+ return Object.freeze({ schema_version: 1 as const, backup_id: backupId, operation_id: operationId, kind: expected.kind,
   proposal_hash: r.proposal_hash, consent_state: consent, delivery_state: delivery, transaction_hash: transactionHash, job_state: job, reason,
   observation, policy_confirmation: confirmation, account_readiness: 'not_assessed' as const, snapshot_at: snapshot });
 }

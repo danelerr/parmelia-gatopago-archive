@@ -1,3 +1,4 @@
+import { parsePaymasterTerms } from './paymaster';
 import { prepareCreationOperation, type CreationGasTerms } from './creationOperation';
 import { requireHash } from './deployment';
 import { parseInitializationPreparation, parseInitializationProof } from './initializationWire';
@@ -17,17 +18,20 @@ function decimal(value: unknown): bigint {
 }
 const gasFields = ['verificationGasLimit', 'callGasLimit', 'preVerificationGas', 'maxFeePerGas', 'maxPriorityFeePerGas', 'maximumGasCharge'] as const;
 export function parseCreationGas(value: unknown): CreationGasTerms {
-	const r = object(value, gasFields);
+	const sponsored = !!value && typeof value === 'object' && Object.hasOwn(value, 'sponsorship');
+	const r = object(value, sponsored ? [...gasFields, 'sponsorship'] : gasFields);
 	return Object.freeze({ verificationGasLimit: decimal(r.verificationGasLimit), callGasLimit: decimal(r.callGasLimit),
 		preVerificationGas: decimal(r.preVerificationGas), maxFeePerGas: decimal(r.maxFeePerGas),
-		maxPriorityFeePerGas: decimal(r.maxPriorityFeePerGas), maximumGasCharge: decimal(r.maximumGasCharge) });
+		maxPriorityFeePerGas: decimal(r.maxPriorityFeePerGas), maximumGasCharge: decimal(r.maximumGasCharge),
+		...(sponsored ? { sponsorship: parsePaymasterTerms(r.sponsorship) } : {}) });
 }
 export function creationGasWire(terms: CreationGasTerms) {
 	const value = Object.fromEntries(gasFields.map((field) => {
 		if (typeof terms[field] !== 'bigint') throw new Error('Invalid creation gas');
 		return [field, terms[field].toString()];
 	}));
-	parseCreationGas(value); return Object.freeze(value);
+	const wire = { ...value, ...(terms.sponsorship ? { sponsorship: parsePaymasterTerms(terms.sponsorship) } : {}) };
+	parseCreationGas(wire); return Object.freeze(wire);
 }
 /** Client approves a cap, not arbitrary gas values, calldata, a provider or a network. */
 export function parseCreationCapRequest(value: unknown): bigint {

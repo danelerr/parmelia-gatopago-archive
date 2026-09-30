@@ -1,3 +1,4 @@
+import { paymasterFields, maximumOperationGasCost, type PaymasterTerms } from './paymaster';
 import { encodeAbiParameters, encodeFunctionData, keccak256, stringToHex, zeroAddress, zeroHash } from 'viem';
 import { getUserOperationHash, toPackedUserOperation, type UserOperation } from 'viem/account-abstraction';
 import { authorizationDigest, type ExecutionPlan } from './authorizations';
@@ -14,10 +15,11 @@ export interface CreationGasTerms {
 	/** Explicit user-approved upper bound for EntryPoint charges, in native atomic units.
 	 * Not a fee quote, a commercial GatoPago fee, or a guarantee covering every L2 surcharge. */
 	readonly maximumGasCharge: bigint;
+	readonly sponsorship?: PaymasterTerms;
 }
 
-/** Internal, account-funded creation path for the pinned ERC4337/domain-version-1
- * EntryPoint profile. No bundler, gas estimation, sponsorship or network admission.
+/** Internal creation path for the pinned ERC4337/domain-version-1
+ * EntryPoint profile. Compiles admitted sponsorship terms; no provider I/O or funding decision.
  * The only call is completeCreation(); no asset transfer, approval or arbitrary calldata.
  * Recompute on BOTH client and server before the separate operation-signing gesture.
  */
@@ -33,14 +35,15 @@ export function prepareCreationOperation(input: InitializationInput, initialProo
 	}
 	if (gas.maxPriorityFeePerGas > gas.maxFeePerGas || typeof gas.maximumGasCharge !== 'bigint'
 		|| gas.maximumGasCharge <= 0n || gas.maximumGasCharge >= (1n << 256n)) throw new Error('Invalid creation gas cap');
-	const maximumEntryPointCharge = (gas.verificationGasLimit + gas.callGasLimit + gas.preVerificationGas) * gas.maxFeePerGas;
+	const sponsored = paymasterFields(gas.sponsorship, prepared.message);
+	const maximumEntryPointCharge = maximumOperationGasCost({ ...gas, ...sponsored });
 	if (maximumEntryPointCharge > gas.maximumGasCharge) throw new Error('Creation exceeds approved gas cap');
 	if (prepared.chainId > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('Unsupported creation chain identifier');
 	const operation: UserOperation<'0.9'> = Object.freeze({ sender: prepared.account, nonce: 0n,
 		factory: initial.factory, factoryData: initial.factoryData,
 		callData: encodeFunctionData({ abi: executionAbi, functionName: 'completeCreation' }),
 		verificationGasLimit: gas.verificationGasLimit, callGasLimit: gas.callGasLimit, preVerificationGas: gas.preVerificationGas,
-		maxFeePerGas: gas.maxFeePerGas, maxPriorityFeePerGas: gas.maxPriorityFeePerGas, signature: '0x' });
+		maxFeePerGas: gas.maxFeePerGas, maxPriorityFeePerGas: gas.maxPriorityFeePerGas, signature: '0x', ...sponsored });
 	const userOpHash = getUserOperationHash({ chainId: Number(prepared.chainId), entryPointAddress: prepared.message.entryPoint,
 		entryPointVersion: '0.9', userOperation: operation });
 	const feePolicyHash = keccak256(encodeAbiParameters([{ type: 'uint256' }, { type: 'uint256' }],
@@ -51,7 +54,7 @@ export function prepareCreationOperation(input: InitializationInput, initialProo
 		prepared.account, gas.maximumGasCharge]));
 	const plan: ExecutionPlan = Object.freeze({ accountId: prepared.message.accountId, generation: 3, securityVersion: 1n,
 		executionMode: 0, entryPoint: prepared.message.entryPoint, userOpHash, callsHash: keccak256(operation.callData),
-		assetLimitsHash: zeroHash, feePolicyHash, paymaster: zeroAddress, previewHash, nonce: 0n,
+		assetLimitsHash: zeroHash, feePolicyHash, paymaster: operation.paymaster ?? zeroAddress, previewHash, nonce: 0n,
 		validAfter: prepared.message.validAfter, validUntil: prepared.message.validUntil });
 	const digest = authorizationDigest('ExecutionPlan', prepared.chainId, prepared.account, plan);
 	return Object.freeze({ prepared, operation, userOpHash, plan, digest, maximumEntryPointCharge });

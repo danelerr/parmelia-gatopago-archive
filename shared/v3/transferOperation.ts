@@ -1,3 +1,4 @@
+import { paymasterFields, maximumOperationGasCost, type PaymasterTerms } from './paymaster';
 import { encodeAbiParameters, getAddress, isAddress, keccak256, stringToHex, zeroAddress, zeroHash, type Address, type Hex } from 'viem';
 import { getUserOperationHash, type UserOperation } from 'viem/account-abstraction';
 import { authorizationDigest, type ExecutionPlan } from './authorizations';
@@ -20,6 +21,7 @@ export function prepareTransferOperation(request: TransferRequest, context: Para
   entry_point: Address;
   nonce: bigint;
   gas: GasTerms;
+  sponsorship?: PaymasterTerms;
   checkpoint: { block_number: string; block_hash: Hex; observed_at: number; expires_at: number };
   valid_until: number;
 }, now: number) {
@@ -46,15 +48,15 @@ export function prepareTransferOperation(request: TransferRequest, context: Para
       || (key !== 'maxPriorityFeePerGas' && gas[key] === 0n)) throw new Error('Invalid transfer gas terms');
   }
   if (gas.maxPriorityFeePerGas > gas.maxFeePerGas) throw new Error('Invalid transfer priority fee');
-  const maximumEntryPointCharge = (gas.verificationGasLimit + gas.callGasLimit + gas.preVerificationGas) * gas.maxFeePerGas;
+  const sponsored = paymasterFields(context.sponsorship, { validAfter: now, validUntil: context.valid_until });
+  const maximumEntryPointCharge = maximumOperationGasCost({ ...gas, ...sponsored });
   const maximumAccountGas = BigInt(context.budget.maximum_native_gas_atomic);
-  if (maximumEntryPointCharge > maximumAccountGas) throw new Error('Transfer exceeds reserved gas budget');
-  // Explicit account-funded path. Sponsorship requires a separate verified
-  // paymaster context, not zeroing these terms or adding fields after signing.
+  if (context.sponsorship ? maximumAccountGas !== 0n : maximumEntryPointCharge > maximumAccountGas) throw new Error('Transfer exceeds reserved gas budget');
+  // Sponsorship is part of the exact operation before user consent.
   const operation: UserOperation<'0.9'> = Object.freeze({ sender: compiled.account, nonce: context.nonce,
     callData: compiled.calldata, verificationGasLimit: gas.verificationGasLimit,
     callGasLimit: gas.callGasLimit, preVerificationGas: gas.preVerificationGas,
-    maxFeePerGas: gas.maxFeePerGas, maxPriorityFeePerGas: gas.maxPriorityFeePerGas, signature: '0x' });
+    maxFeePerGas: gas.maxFeePerGas, maxPriorityFeePerGas: gas.maxPriorityFeePerGas, signature: '0x', ...sponsored });
   const userOpHash = getUserOperationHash({ chainId: Number(chainId), entryPointAddress: entryPoint,
     entryPointVersion: '0.9', userOperation: operation });
   const hash = (value: string) => keccak256(stringToHex(value));
@@ -77,7 +79,7 @@ export function prepareTransferOperation(request: TransferRequest, context: Para
     assetLimitsHash, feePolicyHash, context.policy_hash]));
   const plan: ExecutionPlan = Object.freeze({ accountId: context.account_id, generation: 3,
     securityVersion: context.security_version, executionMode: 0, entryPoint, userOpHash,
-    callsHash: compiled.calls_hash, assetLimitsHash, feePolicyHash, paymaster: zeroAddress, previewHash,
+    callsHash: compiled.calls_hash, assetLimitsHash, feePolicyHash, paymaster: operation.paymaster ?? zeroAddress, previewHash,
     nonce: context.nonce, validAfter: now, validUntil: context.valid_until });
   const digest = authorizationDigest('ExecutionPlan', chainId, compiled.account, plan);
   Object.freeze(compiled.request.amount); Object.freeze(compiled.request.destination); Object.freeze(compiled.request);

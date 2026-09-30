@@ -1,48 +1,33 @@
+import { parseResourceId } from './v3/primitives';
+
 /**
- * Versioned contracts crossing the App/Payments Worker boundary.
+ * Current contracts crossing the Wallet Core/Flow boundary.
  *
  * Keep this module data-only: no bindings, handlers, storage, clocks or secrets.
- * Version 2 is current; parsers deliberately accept N-1 during the Phase 2
- * migration so receiver-first deploys remain safe.
+ * Only the current wire formats are accepted. No conversion of retired messages.
  */
-export const PAYMENTS_CONTRACT_VERSION = 2 as const;
-export const PAYMENTS_PREVIOUS_CONTRACT_VERSION = 1 as const;
+export const PAYMENTS_CONTRACT_VERSION = 3 as const;
 export const PAYMENT_JOB_MESSAGE_VERSION = 2 as const;
-export const PAYMENT_JOB_PREVIOUS_MESSAGE_VERSION = 1 as const;
 
-export type AppServiceClaim = {
-	service: "gatopago-app-api";
+export type WalletServiceClaim = {
+	service: "gatopago-wallet-core";
 	requestId: string;
-	uid: string;
-};
-
-export type SettlementAccountCommandV1 = {
-	contractVersion: 1;
-	claim: AppServiceClaim;
-	accountVersion: number;
-	walletAddress: string;
+	userId: string;
 };
 
 export type SettlementAccountCommand = {
-	contractVersion: 2;
+	contractVersion: 3;
 	commandId: string;
-	claim: AppServiceClaim;
+	claim: WalletServiceClaim;
 	accountVersion: number;
 	walletAddress: string;
 	chainId: number;
 };
 
-export type ReserveAppPaymentAttemptCommandV1 = {
-	contractVersion: 1;
-	claim: AppServiceClaim;
-	linkId: string;
-	payerAddress: string;
-};
-
-export type ReserveAppPaymentAttemptCommand = {
-	contractVersion: 2;
+export type ReserveWalletPaymentAttemptCommand = {
+	contractVersion: 3;
 	commandId: string;
-	claim: AppServiceClaim;
+	claim: WalletServiceClaim;
 	linkId: string;
 	payerAddress: string;
 	sourceChainId: number;
@@ -51,17 +36,10 @@ export type ReserveAppPaymentAttemptCommand = {
 	amount?: string;
 };
 
-export type RegisterAppPaymentExecutionCommandV1 = {
-	contractVersion: 1;
-	claim: AppServiceClaim;
-	attemptId: string;
-	userOpHash: string;
-};
-
-export type RegisterAppPaymentExecutionCommand = {
-	contractVersion: 2;
+export type RegisterWalletPaymentExecutionCommand = {
+	contractVersion: 3;
 	commandId: string;
-	claim: AppServiceClaim;
+	claim: WalletServiceClaim;
 	attemptId: string;
 	userOpHash: string;
 	sourceChainId: number;
@@ -76,8 +54,8 @@ export type RpcErrorCode =
 	| "UNAVAILABLE";
 
 export type RpcResult<T> =
-	| { ok: true; contractVersion: 2; value: T }
-	| { ok: false; contractVersion: 2; error: RpcErrorCode; message: string };
+	| { ok: true; contractVersion: 3; value: T }
+	| { ok: false; contractVersion: 3; error: RpcErrorCode; message: string };
 
 export type SettlementAccountResult = {
 	merchantId: string;
@@ -97,7 +75,7 @@ export type SerializedPaymentAuthorization = {
 	metadataHash: `0x${string}`;
 };
 
-export type ReservedAppPaymentAttempt = {
+export type ReservedWalletPaymentAttempt = {
 	attemptId: string;
 	intentId: string;
 	linkId: string;
@@ -112,7 +90,7 @@ export type ReservedAppPaymentAttempt = {
 	expiresAt: string;
 };
 
-export type RegisteredAppPaymentExecution = {
+export type RegisteredWalletPaymentExecution = {
 	attemptId: string;
 	status: "submitted" | "processing" | "paid";
 	userOpHash: string;
@@ -120,22 +98,21 @@ export type RegisteredAppPaymentExecution = {
 };
 
 /**
- * Typed, versioned RPC surface exposed by the Payments Worker to the App
- * Worker. It deliberately contains methods and serializable values only, so
+ * Typed RPC surface exposed by Flow to Wallet Core. It deliberately contains methods and serializable values only, so
  * both Workers compile against one contract without importing either
  * implementation or any Cloudflare binding type.
  */
 export interface PaymentsRpcService {
 	contractVersion(): number | Promise<number>;
 	upsertSettlementAccount(
-		command: SettlementAccountCommand | SettlementAccountCommandV1,
+		command: SettlementAccountCommand,
 	): Promise<RpcResult<SettlementAccountResult>>;
-	reserveAppPaymentAttempt(
-		command: ReserveAppPaymentAttemptCommand | ReserveAppPaymentAttemptCommandV1,
-	): Promise<RpcResult<ReservedAppPaymentAttempt>>;
-	registerAppPaymentExecution(
-		command: RegisterAppPaymentExecutionCommand | RegisterAppPaymentExecutionCommandV1,
-	): Promise<RpcResult<RegisteredAppPaymentExecution>>;
+	reserveWalletPaymentAttempt(
+		command: ReserveWalletPaymentAttemptCommand,
+	): Promise<RpcResult<ReservedWalletPaymentAttempt>>;
+	registerWalletPaymentExecution(
+		command: RegisterWalletPaymentExecutionCommand,
+	): Promise<RpcResult<RegisteredWalletPaymentExecution>>;
 }
 
 export type PaymentJobName =
@@ -144,14 +121,6 @@ export type PaymentJobName =
 	| "cctp_mint"
 	| "router_watch"
 	| "webhook_delivery";
-
-export type PaymentJobMessageV1 = {
-	messageVersion: 1;
-	job: PaymentJobName;
-	jobId: string;
-	resourceId: string;
-	createdAt: string;
-};
 
 export type PaymentJobMessage = {
 	messageVersion: 2;
@@ -196,18 +165,6 @@ export function parsePaymentJobMessage(value: unknown): PaymentJobMessage | null
 	const createdAt = safeDate(value.createdAt);
 	if (!jobId || !resourceId || !createdAt) return null;
 
-	if (value.messageVersion === 1) {
-		return {
-			messageVersion: 2,
-			job: job as PaymentJobName,
-			jobId,
-			dedupeKey: jobId,
-			resourceId,
-			partition: "legacy",
-			attempt: 0,
-			createdAt,
-		};
-	}
 	if (value.messageVersion !== 2) return null;
 	const dedupeKey = safeText(value.dedupeKey, 200);
 	const partition = safeText(value.partition, 160);
@@ -230,13 +187,33 @@ export function parsePaymentJobMessage(value: unknown): PaymentJobMessage | null
 	};
 }
 
-export function isAppServiceClaim(value: unknown): value is AppServiceClaim {
-	if (!isRecord(value)) return false;
-	return value.service === "gatopago-app-api" &&
-		!!safeText(value.requestId, 160) &&
-		!!safeText(value.uid, 256);
+export function isWalletServiceClaim(value: unknown): value is WalletServiceClaim {
+	if (!isRecord(value) || Object.keys(value).sort().join(',') !== 'requestId,service,userId'
+		|| value.service !== "gatopago-wallet-core" || !safeText(value.requestId, 160)) return false;
+	try { parseResourceId('user', value.userId); return true; } catch { return false; }
 }
 
-export function isSupportedPaymentsContractVersion(value: unknown): value is 1 | 2 {
-	return value === PAYMENTS_CONTRACT_VERSION || value === PAYMENTS_PREVIOUS_CONTRACT_VERSION;
+export function isSupportedPaymentsContractVersion(value: unknown): value is 3 {
+	return value === PAYMENTS_CONTRACT_VERSION;
+}
+
+function currentCommand(value: unknown): value is Record<string, unknown> {
+	return isRecord(value) && isSupportedPaymentsContractVersion(value.contractVersion)
+		&& isWalletServiceClaim(value.claim) && !!safeText(value.commandId, 200);
+}
+function chainId(value: unknown): value is number {
+	return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
+}
+export function isSettlementAccountCommand(value: unknown): value is SettlementAccountCommand {
+	return currentCommand(value) && chainId(value.accountVersion) && chainId(value.chainId)
+		&& !!safeText(value.walletAddress, 42);
+}
+export function isReserveWalletPaymentAttemptCommand(value: unknown): value is ReserveWalletPaymentAttemptCommand {
+	return currentCommand(value) && chainId(value.sourceChainId) && value.requestedRoute === 'local'
+		&& !!safeText(value.linkId, 160) && !!safeText(value.payerAddress, 42)
+		&& (value.amount === undefined || !!safeText(value.amount, 80));
+}
+export function isRegisterWalletPaymentExecutionCommand(value: unknown): value is RegisterWalletPaymentExecutionCommand {
+	return currentCommand(value) && chainId(value.sourceChainId) && !!safeText(value.attemptId, 160)
+		&& typeof value.userOpHash === 'string' && /^0x[0-9a-fA-F]{64}$/u.test(value.userOpHash);
 }

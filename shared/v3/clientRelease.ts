@@ -23,7 +23,7 @@ export type ReleasePolicy = Readonly<{
 export const WALLET_RELEASE_POLICY: ReleasePolicy = Object.freeze({
   api_version: WALLET_API_VERSION,
   releases: Object.freeze([Object.freeze({ client_release_id: CLIENT_RELEASE_ID, accepted_until: null })]),
-  // No Account V3 deployment has passed its gate. Never invent a usable manifest.
+  // The Worker supplies account profiles from its enabled runtime catalog.
   account_profiles: Object.freeze([]),
 });
 

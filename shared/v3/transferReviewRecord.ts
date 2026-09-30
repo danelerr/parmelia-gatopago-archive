@@ -1,3 +1,4 @@
+import { parsePaymasterTerms } from './paymaster';
 import { getAddress, type Hex } from 'viem';
 import { deploymentDocumentDigest, requireHash } from './deployment';
 import { encodeExecutionSignature } from './execution';
@@ -38,6 +39,7 @@ export function writeTransferReview(review: Review) {
       platform_fee: { asset_id: c.budget.platform_fee.asset_id, amount_atomic: c.budget.platform_fee.amount_atomic } },
     gas: { verificationGasLimit: c.gas.verificationGasLimit.toString(), callGasLimit: c.gas.callGasLimit.toString(),
       preVerificationGas: c.gas.preVerificationGas.toString(), maxFeePerGas: c.gas.maxFeePerGas.toString(), maxPriorityFeePerGas: c.gas.maxPriorityFeePerGas.toString() },
+    ...(c.sponsorship ? { sponsorship: parsePaymasterTerms(c.sponsorship) } : {}),
     checkpoint: { block_number: c.checkpoint.block_number, block_hash: c.checkpoint.block_hash,
       observed_at: c.checkpoint.observed_at, expires_at: c.checkpoint.expires_at }, valid_until: c.valid_until };
   const proofs = review.proofs.map(p => p.kind === 'webauthn'
@@ -70,6 +72,7 @@ function decodeTransferReview(json: unknown, digest: unknown) {
     gas: { verificationGasLimit: BigInt(parseAtomicAmount(g.verificationGasLimit)), callGasLimit: BigInt(parseAtomicAmount(g.callGasLimit)),
       preVerificationGas: BigInt(parseAtomicAmount(g.preVerificationGas)), maxFeePerGas: BigInt(parseAtomicAmount(g.maxFeePerGas)),
       maxPriorityFeePerGas: BigInt(parseAtomicAmount(g.maxPriorityFeePerGas)) },
+    ...(Object.hasOwn(c, 'sponsorship') ? { sponsorship: parsePaymasterTerms(c.sponsorship) } : {}),
     checkpoint: { block_number: parseAtomicAmount(cp.block_number), block_hash: hash(cp.block_hash),
       observed_at: integer(cp.observed_at), expires_at: integer(cp.expires_at) }, valid_until: integer(c.valid_until) };
   if (!Array.isArray(root.proofs) || root.proofs.length > 16) throw new Error('TRANSFER_REVIEW_INVALID');
