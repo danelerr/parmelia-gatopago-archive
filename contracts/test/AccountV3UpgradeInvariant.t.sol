@@ -19,11 +19,12 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 contract AccountV3UpgradeInvariantTest is V3ExecutionFixture {
     V3ExecutionAccount private revision;
     uint256 private committed;
+    uint256 private proposed;
+    uint256 private cancelled;
     uint256 private transferred;
     uint256 private initialBalance;
     uint256 private readyAt;
     uint256 private expiresAt;
-    uint256 private memberVetoNonce;
     bool private frozen;
 
     function setUp() external {
@@ -88,6 +89,7 @@ contract AccountV3UpgradeInvariantTest is V3ExecutionFixture {
             _chains(),
             _votes(policy, T.digest(block.chainid, address(account), T.hashUpgrade(message)), P.ADMIN)
         );
+        ++proposed;
         readyAt = block.timestamp + 72 hours;
         expiresAt = block.timestamp + 10 days;
     }
@@ -123,7 +125,7 @@ contract AccountV3UpgradeInvariantTest is V3ExecutionFixture {
         account.cancel(
             message, _votes(policy, T.digest(block.chainid, address(account), T.hashCancel(message)), P.ADMIN)
         );
-        ++memberVetoNonce;
+        ++cancelled;
     }
 
     function expirePending() public {
@@ -153,7 +155,7 @@ contract AccountV3UpgradeInvariantTest is V3ExecutionFixture {
         ++transferred;
     }
 
-    function test_handlerCanUpgradeRepeatedlyVetoExpireFreezeAndStillExit() external {
+    function test_handlerCanUpgradeRepeatedlyCancelExpireFreezeAndStillExit() external {
         queue();
         advance(72 hours);
         commitPending();
@@ -170,6 +172,8 @@ contract AccountV3UpgradeInvariantTest is V3ExecutionFixture {
         freezePending();
         spend();
         assertEq(committed, 2);
+        assertEq(proposed, 5);
+        assertEq(cancelled, 1);
         assertEq(transferred, 2);
         invariant_upgradeNeverChangesIdentityPolicyOrThawsFreeze();
         invariant_upgradePreservesAssetsAndPurposeNonces();
@@ -193,9 +197,8 @@ contract AccountV3UpgradeInvariantTest is V3ExecutionFixture {
         assertEq(account.directNonce(), transferred);
         assertEq(address(account).balance + recipient.balance, initialBalance);
         assertEq(recipient.balance, transferred);
-        (, uint256 admin, uint256 recovery,) = account.securityState();
-        assertGe(admin, committed * 2);
-        assertEq(recovery, 0);
+        (, uint256 admin,,) = account.securityState();
+        assertEq(admin, proposed + committed + cancelled + (frozen ? 1 : 0));
     }
 
     function _implementation() private view returns (address) {

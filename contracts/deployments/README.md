@@ -1,5 +1,9 @@
 # GatoPago deployment manifests
 
+The current V3 account deployment is [Arbitrum Sepolia, 2026-09-26](421614/account-v3/README.md).
+Its evidence includes the two libraries, implementation, factory and WebAuthn
+verifier. It is not yet an admitted Wallet Core/Web creation profile.
+
 The existing Parmelia/V2 manifests are historical, not V3 admission. New V3
 source/CREATE2 salts must never be paired with those addresses. See the
 [V3 release runbook](../../docs/operations/v3-contract-regularization-2026-09-21.md).

@@ -23,7 +23,13 @@ execFileSync(
     "--report-file",
     reportPath,
     "--exclude-tests",
-    // Invariants run at their full depth in the later `forge test` gate. Unit
+    // This metric gate covers the four payment contracts listed above. Account V3
+    // requires the production optimizer: its 16-field upgrade checkpoint cannot
+    // compile under coverage's minimal IR optimizer (Solidity 0.8.34). Keep its
+    // full tests/invariants in test:v3:contracts; do not claim V3 LCOV coverage.
+    "--skip",
+    "V3",
+    // Invariants run at their full depth in the separate `forge test` gate. Unit
     // and fuzz tests already exercise every coverage branch, so instrumenting
     // the 128,000-call state-machine campaigns here only duplicates work.
     "--no-match-test",
@@ -106,7 +112,9 @@ for (const [file, minimum] of Object.entries(thresholds)) {
 }
 
 const summary = [
-  "## Contract coverage",
+  "## Payment contracts coverage",
+  "",
+  "Account V3 is tested separately; its LCOV instrumentation is not supported by this compiler profile.",
   "",
   "| Contract | Lines | Branches | Functions |",
   "|---|---:|---:|---:|",

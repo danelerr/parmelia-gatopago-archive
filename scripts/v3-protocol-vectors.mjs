@@ -1,8 +1,8 @@
 // Public synthetic consensus vectors only; this script cannot sign or broadcast.
 import { readFileSync, writeFileSync } from "node:fs";
-import { ACCOUNT_ID_TYPEHASH, accountDomain, authorizationDigest, authorizationStructHash, authorizationTypeHash, deriveAccountId, hashCalls, hashChainScope, hashSecurityManifest, predictAccountAddress } from "../shared/v3/authorizations.ts";
-import { hashSecurityPolicy, signerId } from "../shared/v3/securityPolicy.ts";
-import { ACCOUNT_SIGNATURE_TYPEHASH, accountSignatureStructHash, accountSignatureDigest, encodeAccountSignature } from "../shared/v3/contractSignature.ts";
+import { ACCOUNT_ID_TYPEHASH, accountDomain, authorizationDigest, authorizationStructHash, authorizationTypeHash, deriveAccountId, hashCalls, hashChainScope, hashSecurityManifest, predictAccountAddress } from "@gatopago/shared/v3/authorizations";
+import { hashSecurityPolicy, signerId } from "@gatopago/shared/v3/security-policy";
+import { ACCOUNT_SIGNATURE_TYPEHASH, accountSignatureStructHash, accountSignatureDigest, encodeAccountSignature } from "@gatopago/shared/v3/contract-signature";
 
 const bytes32 = (value) => `0x${value.repeat(32)}`;
 const address = (value) => `0x${value.repeat(20)}`;
@@ -57,7 +57,7 @@ const contractSignature = {
 };
 const vector = { schemaVersion: 5, initialPolicy, activePolicy, activePolicyHash: hashSecurityPolicy(activePolicy), identity, chains, chainScopeHash: hashChainScope(chains), calls, callsHash: hashCalls(calls), securityManifest, securityManifestHash: hashSecurityManifest(securityManifest), authorizations, contractSignature };
 const output = JSON.stringify(vector, (_, v) => typeof v === "bigint" ? v.toString() : v, 2) + "\n";
-const file = new URL("../shared/fixtures/v3-protocol.json", import.meta.url);
+const file = new URL(import.meta.resolve("@gatopago/shared/fixtures/v3-protocol.json"));
 if (process.argv.includes("--print")) {
 	process.stdout.write(output);
 } else if (process.argv.includes("--write")) {

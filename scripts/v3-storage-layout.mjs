@@ -106,7 +106,7 @@ tamperedEnum.proposalKinds.reverse();
 assert.notEqual(digest(tamperedEnum), storageLayoutHash);
 
 const output = JSON.stringify({ ...normalized, hashAlgorithm: "sha256-canonical-json-v1", storageLayoutHash }, null, 2) + "\n";
-const file = new URL("../shared/fixtures/v3-storage-layout.json", import.meta.url);
+const file = new URL(import.meta.resolve("@gatopago/shared/fixtures/v3-storage-layout.json"));
 if (process.argv.includes("--write")) {
 	writeFileSync(file, output);
 	console.log(`Generated E0 namespace layout: ${storageLayoutHash}`);

@@ -138,7 +138,7 @@ contract AccountV3EnrollmentTest is Test {
         );
     }
 
-    function test_assistanceFlagChangeRequiresPossessionWithoutChangingSignerId() public {
+    function test_roleChangeRequiresPossessionWithoutChangingSignerId() public {
         T.SecurityPolicy memory expanded = previous;
         expanded.signers = new T.SignerDescriptor[](3);
         expanded.signers[0] = _ecdsa(alice);

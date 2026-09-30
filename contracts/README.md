@@ -1,4 +1,4 @@
-# GatoPago Contracts — V3 candidate
+# GatoPago Contracts — V3 on Arbitrum Sepolia
 
 Active source is `src/v3/` plus four reusable payment/sponsorship rails in `src/`.
 Historical V2 source and ABI snapshots are in [legacy](legacy/README.md), outside
@@ -49,5 +49,9 @@ Use [the V3 release runbook](../docs/operations/v3-contract-regularization-2026-
 `script/Deploy.s.sol` contains the renamed auxiliary rails, not a V2 account
 deployment. CLI keystores sign; scripts never accept plaintext private keys.
 
-No V3 deployment is recorded by these source changes. Mainnet remains excluded.
+The V3 account stack was deployed on Arbitrum Sepolia on 2026-09-26. See the
+[deployment record](deployments/421614/account-v3/README.md) for the five addresses,
+successful transactions, bytecode checks and exact Sourcify verification.
+Wallet Core/Web admission and the browser/bundler smoke remain pending; this
+deployment does not include a paymaster or payment routers. Mainnet remains excluded.
 A third-party audit and real user/testnet evidence are still required.

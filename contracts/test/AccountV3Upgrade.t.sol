@@ -301,7 +301,43 @@ contract AccountV3UpgradeTest is V3ExecutionFixture {
     }
 
     function testFuzz_targetCodeLayoutEntryPointAndUupsAreValidated(uint8 variant) external {
-        variant = uint8(bound(variant, 0, 3));
+        _assertInvalidTarget(uint8(bound(variant, 0, 7)));
+    }
+
+    function test_targetRejectsZeroAddress() external {
+        _assertInvalidTarget(0);
+    }
+
+    function test_targetRejectsAddressWithoutCode() external {
+        _assertInvalidTarget(1);
+    }
+
+    function test_targetRejectsAccountProxy() external {
+        _assertInvalidTarget(2);
+    }
+
+    function test_targetRejectsCurrentImplementation() external {
+        _assertInvalidTarget(3);
+    }
+
+    function test_targetRejectsWrongRuntimeCodeHash() external {
+        _assertInvalidTarget(4);
+    }
+
+    function test_targetRejectsWrongStorageLayoutHash() external {
+        _assertInvalidTarget(5);
+    }
+
+    function test_targetRejectsWrongEntryPoint() external {
+        _assertInvalidTarget(6);
+    }
+
+    function test_targetRejectsNonUupsContract() external {
+        _assertInvalidTarget(7);
+    }
+
+    function _assertInvalidTarget(uint8 variant) internal {
+        assertLe(variant, 7);
         T.UpgradeManifest memory message = _message(address(next), "");
         if (variant == 0) {
             message.implementation = address(0);
@@ -323,8 +359,10 @@ contract AccountV3UpgradeTest is V3ExecutionFixture {
             message.runtimeCodeHash = message.implementation.codehash;
         }
         S.Signature[] memory votes = _upgradeVotes(message);
+        bytes32 snapshot = _snapshot();
         vm.expectRevert(Upgrade.AccountV3Upgrade__InvalidTarget.selector);
         account.proposeUpgrade(message, _chains(), votes);
+        assertEq(_snapshot(), snapshot);
     }
 
     function testFuzz_metadataCallRejectsRevertsShortLongAndGasBombs(uint8 mode) external {
@@ -409,7 +447,43 @@ contract AccountV3UpgradeTest is V3ExecutionFixture {
     }
 
     function testFuzz_corruptingOrRevertingMigrationRollsBackImplementationAndCore(uint8 variant) external {
-        variant = uint8(bound(variant, 0, 3));
+        _assertMigrationRollback(uint8(bound(variant, 0, 7)));
+    }
+
+    function test_migrationCannotChangeInitialSecurityCommitment() external {
+        _assertMigrationRollback(0);
+    }
+
+    function test_migrationCannotChangeSecurityVersion() external {
+        _assertMigrationRollback(1);
+    }
+
+    function test_migrationCannotChangeAdminNonce() external {
+        _assertMigrationRollback(2);
+    }
+
+    function test_migrationCannotClearExecutionLock() external {
+        _assertMigrationRollback(3);
+    }
+
+    function test_migrationCannotChangeAdminThreshold() external {
+        _assertMigrationRollback(4);
+    }
+
+    function test_migrationCannotChangeUpgradeFreeze() external {
+        _assertMigrationRollback(5);
+    }
+
+    function test_migrationCannotChangeImplementationSlot() external {
+        _assertMigrationRollback(6);
+    }
+
+    function test_revertingMigrationRollsBackImplementationAndCore() external {
+        _assertMigrationRollback(7);
+    }
+
+    function _assertMigrationRollback(uint8 variant) internal {
+        assertLe(variant, 7);
         V3CorruptingUpgrade revision = new V3CorruptingUpgrade(address(ep));
         bytes memory migration = abi.encodeCall(revision.corrupt, (variant));
         _queue(_message(address(revision), migration));
@@ -417,7 +491,11 @@ contract AccountV3UpgradeTest is V3ExecutionFixture {
         T.CommitProposal memory commit = _executionCommit();
         S.Signature[] memory votes = _commitVotes(commit);
         bytes32 snapshot = _snapshot();
-        vm.expectRevert();
+        vm.expectRevert(
+            variant == 7
+                ? V3CorruptingUpgrade.MigrationFailed.selector
+                : Upgrade.AccountV3Upgrade__MigrationCorruptedCore.selector
+        );
         account.commitUpgrade(commit, migration, votes);
         assertEq(_snapshot(), snapshot);
     }
@@ -448,8 +526,12 @@ contract AccountV3UpgradeTest is V3ExecutionFixture {
 
     function test_adminCancelsAndOldProposalCannotReplay() external {
         bytes32 proposal = _queue(_message(address(next), ""));
-        T.CancelProposal memory veto = T.CancelProposal(initial.accountId, 3, 1, proposal, 1, START, START + 5 minutes);
-        account.cancel(veto, _votes(policy, T.digest(block.chainid, address(account), T.hashCancel(veto)), P.ADMIN));
+        T.CancelProposal memory cancellation =
+            T.CancelProposal(initial.accountId, 3, 1, proposal, 1, START, START + 5 minutes);
+        account.cancel(
+            cancellation,
+            _votes(policy, T.digest(block.chainid, address(account), T.hashCancel(cancellation)), P.ADMIN)
+        );
         (, uint8 kind) = account.proposal();
         assertEq(kind, uint8(D.ProposalKind.None));
         T.UpgradeManifest memory message = _message(address(next), "");
@@ -571,7 +653,7 @@ contract AccountV3UpgradeTest is V3ExecutionFixture {
     }
 
     function _snapshot() internal view returns (bytes32) {
-        (bytes32 manifest, uint256 admin, uint256 recovery, bool frozen) = account.securityState();
+        (bytes32 manifest, uint256 admin,, bool frozen) = account.securityState();
         (bytes32 proposal, uint8 kind) = account.proposal();
         (uint32 generation, bytes32 id, bytes32 initialCommitment, bytes32 salt) = account.creationIdentity();
         return keccak256(
@@ -579,7 +661,6 @@ contract AccountV3UpgradeTest is V3ExecutionFixture {
                 _implementation(),
                 manifest,
                 admin,
-                recovery,
                 frozen,
                 proposal,
                 kind,

@@ -72,7 +72,7 @@ function component(name, artifact) {
 
 const artifacts = new Map(names.map((name) => [name, JSON.parse(read(`../contracts/out/${name}.sol/${name}.json`))]));
 const components = names.map((name) => component(name, artifacts.get(name)));
-const layout = JSON.parse(read("../shared/fixtures/v3-storage-layout.json"));
+const layout = JSON.parse(readFileSync(new URL(import.meta.resolve("@gatopago/shared/fixtures/v3-storage-layout.json")), "utf8"));
 const manifest = {
     schema_version: 2, purpose: "gatopago_v3_contract_build_inventory", chain_scope: [421614], admitted: false,
     optional_rails: ["GatoPagoCctpPaymentRouter", "GatoPagoCrosschainRouter"],

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
-const fixture = JSON.parse(readFileSync(new URL('../shared/fixtures/v3-webauthn-chromium.json', import.meta.url), 'utf8'));
+const fixture = JSON.parse(readFileSync(new URL(import.meta.resolve('@gatopago/shared/fixtures/v3-webauthn-chromium.json')), 'utf8'));
 const hex = (value) => Buffer.from(value.replace(/^0x/, ''), 'hex');
 const sha = (value) => createHash('sha256').update(value).digest();
 const spki = hex(fixture.spki);

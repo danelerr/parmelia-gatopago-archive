@@ -10,7 +10,7 @@ function walk(path) {
     return entry.isDirectory() ? walk(name) : [name];
   });
 }
-const paths = ['contracts/src', 'contracts/script', 'shared/v3', 'server/src/v3', 'apps/web/src']
+const paths = ['contracts/src', 'contracts/script', 'shared/v3', 'gatopago-wallet-core/src', 'apps/web/src']
   .flatMap(walk).filter((path) => /\.(sol|[cm]?[jt]sx?)$/.test(path));
 for (const path of paths) {
   const source = readFileSync(root + path, 'utf8');
