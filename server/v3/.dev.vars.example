@@ -1,5 +1,0 @@
-# TYPE GENERATION ONLY: empty placeholders, never credentials.
-# Do not copy legacy secrets into this candidate. See README.md.
-FIREBASE_WEB_API_KEY=""
-TURNSTILE_SECRET_KEY=""
-AUTH_RATE_LIMIT_PEPPER=""
