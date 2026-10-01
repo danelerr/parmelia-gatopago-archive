@@ -5,6 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
+  '@gatopago/shared@3.1.0': file:apps/web/vendor/gatopago-shared-3.1.0.tgz
   typescript: 6.0.3
   browserslist@<4.28.7: 4.28.8
   baseline-browser-mapping@<2.11.0: 2.11.20
@@ -33,9 +34,6 @@ importers:
 
   .:
     devDependencies:
-      '@gatopago/entrypoint-source':
-        specifier: https://codeload.github.com/eth-infinitism/account-abstraction/tar.gz/b36a1ed52ae00da6f8a4c8d50181e2877e4fa410
-        version: accountabstraction@https://codeload.github.com/eth-infinitism/account-abstraction/tar.gz/b36a1ed52ae00da6f8a4c8d50181e2877e4fa410
       '@gatopago/shared':
         specifier: workspace:*
         version: link:shared
@@ -52,13 +50,13 @@ importers:
         specifier: 5.3.0
         version: 5.3.0
       '@gatopago/brand':
-        specifier: workspace:*
+        specifier: file:vendor/gatopago-brand-3.1.0.tgz
         version: link:../../packages/brand
       '@gatopago/environment':
-        specifier: workspace:*
+        specifier: file:vendor/gatopago-environment-3.1.0.tgz
         version: link:../../packages/environment
       '@gatopago/shared':
-        specifier: workspace:*
+        specifier: file:vendor/gatopago-shared-3.1.0.tgz
         version: link:../../shared
       firebase:
         specifier: 12.18.0
@@ -80,8 +78,11 @@ importers:
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.9.0(jiti@2.7.0)(supports-color@10.2.2))
       '@gatopago/test-fixtures':
-        specifier: workspace:*
-        version: link:../../packages/test-fixtures
+        specifier: file:vendor/gatopago-test-fixtures-3.1.0.tgz
+        version: file:apps/web/vendor/gatopago-test-fixtures-3.1.0.tgz(typescript@6.0.3)(vitest@4.1.11(@types/node@24.13.3)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)))(zod@4.4.3)
+      '@simplewebauthn/server':
+        specifier: 13.3.2
+        version: 13.3.2
       '@tailwindcss/postcss':
         specifier: 4.3.3
         version: 4.3.3
@@ -103,9 +104,6 @@ importers:
       eslint-plugin-react-hooks:
         specifier: ^7.1.1
         version: 7.1.1(eslint@10.9.0(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)
-      gatopago-wallet-core:
-        specifier: workspace:*
-        version: link:../../gatopago-wallet-core
       globals:
         specifier: ^17.11.0
         version: 17.11.0
@@ -128,10 +126,16 @@ importers:
         specifier: 4.1.11
         version: 4.1.11(@types/node@24.13.3)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
 
+  contracts:
+    devDependencies:
+      '@gatopago/entrypoint-source':
+        specifier: https://codeload.github.com/eth-infinitism/account-abstraction/tar.gz/b36a1ed52ae00da6f8a4c8d50181e2877e4fa410
+        version: accountabstraction@https://codeload.github.com/eth-infinitism/account-abstraction/tar.gz/b36a1ed52ae00da6f8a4c8d50181e2877e4fa410
+
   gatopago-flow:
     dependencies:
       '@gatopago/shared':
-        specifier: workspace:*
+        specifier: file:vendor/gatopago-shared-3.1.0.tgz
         version: link:../shared
       hono:
         specifier: 4.13.5
@@ -147,8 +151,8 @@ importers:
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.9.0(jiti@2.7.0)(supports-color@10.2.2))
       '@gatopago/environment':
-        specifier: workspace:*
-        version: link:../packages/environment
+        specifier: file:vendor/gatopago-environment-3.1.0.tgz
+        version: file:gatopago-flow/vendor/gatopago-environment-3.1.0.tgz(typescript@6.0.3)(zod@4.4.3)
       '@types/node':
         specifier: ^24.13.3
         version: 24.13.3
@@ -174,10 +178,10 @@ importers:
   gatopago-wallet-core:
     dependencies:
       '@gatopago/environment':
-        specifier: workspace:*
+        specifier: file:vendor/gatopago-environment-3.1.0.tgz
         version: link:../packages/environment
       '@gatopago/shared':
-        specifier: workspace:*
+        specifier: file:vendor/gatopago-shared-3.1.0.tgz
         version: link:../shared
       '@simplewebauthn/server':
         specifier: 13.3.2
@@ -195,9 +199,12 @@ importers:
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.9.0(jiti@2.7.0)(supports-color@10.2.2))
+      '@gatopago/contract-artifacts':
+        specifier: file:vendor/gatopago-contract-artifacts-3.1.0.tgz
+        version: file:gatopago-wallet-core/vendor/gatopago-contract-artifacts-3.1.0.tgz
       '@gatopago/test-fixtures':
-        specifier: workspace:*
-        version: link:../packages/test-fixtures
+        specifier: file:vendor/gatopago-test-fixtures-3.1.0.tgz
+        version: file:gatopago-wallet-core/vendor/gatopago-test-fixtures-3.1.0.tgz(typescript@6.0.3)(vitest@4.1.11(@types/node@24.13.3)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)))(zod@4.4.3)
       '@types/node':
         specifier: ^24.13.3
         version: 24.13.3
@@ -225,13 +232,13 @@ importers:
   packages/environment:
     dependencies:
       '@gatopago/shared':
-        specifier: workspace:*
+        specifier: file:../../apps/web/vendor/gatopago-shared-3.1.0.tgz
         version: link:../../shared
 
   packages/test-fixtures:
     dependencies:
       '@gatopago/shared':
-        specifier: workspace:*
+        specifier: file:../../apps/web/vendor/gatopago-shared-3.1.0.tgz
         version: link:../../shared
       viem:
         specifier: ^2.55.19
@@ -890,6 +897,30 @@ packages:
 
   '@fontsource-variable/recursive@5.3.0':
     resolution: {integrity: sha512-4B4/lWCVeZgdbpJdIIU1sOVO/ECjjM673ohuxvyQ6uCK41TPlGzKRNokKY84noUgGYnpwc//MW4k2KrOMY19jQ==}
+
+  '@gatopago/contract-artifacts@file:gatopago-wallet-core/vendor/gatopago-contract-artifacts-3.1.0.tgz':
+    resolution: {integrity: sha512-yY0NEPPKDwxfyOlx0HipYuC3X+7+tBnln7Dxmafhnlu2B6vTaMLrX9yacYYikkRdUEzPa39dj4QQcqG/CWSJfw==, tarball: file:gatopago-wallet-core/vendor/gatopago-contract-artifacts-3.1.0.tgz}
+    version: 3.1.0
+
+  '@gatopago/environment@file:gatopago-flow/vendor/gatopago-environment-3.1.0.tgz':
+    resolution: {integrity: sha512-NRU7evDOZNL/dxgeS3vb0+7Je8MBr7haunDh0MwzmQBHANWdvmCFAtf2Sdyx+aLDNyecskhrRx4sKZJhV5Jm5w==, tarball: file:gatopago-flow/vendor/gatopago-environment-3.1.0.tgz}
+    version: 3.1.0
+
+  '@gatopago/shared@file:apps/web/vendor/gatopago-shared-3.1.0.tgz':
+    resolution: {integrity: sha512-g2/mX8MxPe5WJOe5h01IqvlPUZgFoe4Jw/6T/c+yqMHXoZyxTlMvhUAqsJuj9xi6OHHWii29AQBPh4mlQJiCEA==, tarball: file:apps/web/vendor/gatopago-shared-3.1.0.tgz}
+    version: 3.1.0
+
+  '@gatopago/test-fixtures@file:apps/web/vendor/gatopago-test-fixtures-3.1.0.tgz':
+    resolution: {integrity: sha512-+QUl3PhqGGbBJiXjeeYS0FX7tFVX8m+MtZ6WYLnMxI/nTntiBVi4kj5t/7aGSmOMU6Db5K4en8KPDmbQ+X6AgA==, tarball: file:apps/web/vendor/gatopago-test-fixtures-3.1.0.tgz}
+    version: 3.1.0
+    peerDependencies:
+      vitest: ^4.1.11
+
+  '@gatopago/test-fixtures@file:gatopago-wallet-core/vendor/gatopago-test-fixtures-3.1.0.tgz':
+    resolution: {integrity: sha512-+QUl3PhqGGbBJiXjeeYS0FX7tFVX8m+MtZ6WYLnMxI/nTntiBVi4kj5t/7aGSmOMU6Db5K4en8KPDmbQ+X6AgA==, tarball: file:gatopago-wallet-core/vendor/gatopago-test-fixtures-3.1.0.tgz}
+    version: 3.1.0
+    peerDependencies:
+      vitest: ^4.1.11
 
   '@grpc/grpc-js@1.14.4':
     resolution: {integrity: sha512-k9Dj3DV/itK9D06Y8f190Qgop7/Ui+D0njFV3LHMPwPT75DpXLQohE9Wmz0QElrJnzsjB7KPWiKJbOl7IPDArQ==}
@@ -3734,6 +3765,49 @@ snapshots:
   '@firebase/webchannel-wrapper@1.0.7': {}
 
   '@fontsource-variable/recursive@5.3.0': {}
+
+  '@gatopago/contract-artifacts@file:gatopago-wallet-core/vendor/gatopago-contract-artifacts-3.1.0.tgz': {}
+
+  '@gatopago/environment@file:gatopago-flow/vendor/gatopago-environment-3.1.0.tgz(typescript@6.0.3)(zod@4.4.3)':
+    dependencies:
+      '@gatopago/shared': file:apps/web/vendor/gatopago-shared-3.1.0.tgz(typescript@6.0.3)(zod@4.4.3)
+    transitivePeerDependencies:
+      - bufferutil
+      - typescript
+      - utf-8-validate
+      - zod
+
+  '@gatopago/shared@file:apps/web/vendor/gatopago-shared-3.1.0.tgz(typescript@6.0.3)(zod@4.4.3)':
+    dependencies:
+      '@noble/curves': 1.9.7
+      viem: 2.55.19(typescript@6.0.3)(zod@4.4.3)
+    transitivePeerDependencies:
+      - bufferutil
+      - typescript
+      - utf-8-validate
+      - zod
+
+  '@gatopago/test-fixtures@file:apps/web/vendor/gatopago-test-fixtures-3.1.0.tgz(typescript@6.0.3)(vitest@4.1.11(@types/node@24.13.3)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)))(zod@4.4.3)':
+    dependencies:
+      '@gatopago/shared': file:apps/web/vendor/gatopago-shared-3.1.0.tgz(typescript@6.0.3)(zod@4.4.3)
+      viem: 2.55.19(typescript@6.0.3)(zod@4.4.3)
+      vitest: 4.1.11(@types/node@24.13.3)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
+    transitivePeerDependencies:
+      - bufferutil
+      - typescript
+      - utf-8-validate
+      - zod
+
+  '@gatopago/test-fixtures@file:gatopago-wallet-core/vendor/gatopago-test-fixtures-3.1.0.tgz(typescript@6.0.3)(vitest@4.1.11(@types/node@24.13.3)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0)))(zod@4.4.3)':
+    dependencies:
+      '@gatopago/shared': file:apps/web/vendor/gatopago-shared-3.1.0.tgz(typescript@6.0.3)(zod@4.4.3)
+      viem: 2.55.19(typescript@6.0.3)(zod@4.4.3)
+      vitest: 4.1.11(@types/node@24.13.3)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
+    transitivePeerDependencies:
+      - bufferutil
+      - typescript
+      - utf-8-validate
+      - zod
 
   '@grpc/grpc-js@1.14.4':
     dependencies:

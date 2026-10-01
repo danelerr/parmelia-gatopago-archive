@@ -41,7 +41,7 @@ describe("Account V3 contract signature transport", () => {
 		expect(size(encodeAccountSignature(message, maximum))).toBe(MAX_ACCOUNT_SIGNATURE_BYTES);
 	});
 	it("uses the standard deployed-contract verification interface without exposing signature internals to consumers", () => {
-		const artifact = JSON.parse(readFileSync(new URL("../../contracts/out/AccountV3Interop.sol/AccountV3Interop.json", import.meta.url), "utf8")) as { abi: Abi };
+		const artifact = JSON.parse(readFileSync(new URL(import.meta.resolve('@gatopago/contract-artifacts/AccountV3Interop.json')), "utf8")) as { abi: Abi };
 		const signature = encodeAccountSignature(message, votes);
 		expect(encodeFunctionData({ abi: accountInteropAbi, functionName: "isValidSignature", args: [message.applicationHash, signature] }))
 			.toBe(encodeFunctionData({ abi: artifact.abi, functionName: "isValidSignature", args: [message.applicationHash, signature] }));

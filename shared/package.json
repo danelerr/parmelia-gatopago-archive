@@ -1,7 +1,8 @@
 {
   "name": "@gatopago/shared",
   "private": true,
-  "version": "0.0.0",
+  "version": "3.1.0",
+  "files": ["*.ts", "v3/*.ts", "v3/*.json", "v3/constants.mjs", "v3/constants.d.mts", "v3/wire-validators.mjs", "v3/wire-validators.d.mts", "fixtures/*.json", "abis/*.json"],
   "type": "module",
   "exports": {
     "./payment-contracts": "./paymentContracts.ts",

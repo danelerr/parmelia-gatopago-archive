@@ -25,7 +25,7 @@ Los límites de gas son techos revisados, no estimaciones de una operación sin 
 1. Obtener el manifiesto real de contratos y verificar sus hashes, EntryPoint y capacidades del transporte elegido.
 2. Configurar los orígenes, Firebase y `GATOPAGO_WALLET_NETWORKS` en los bindings del Worker. `wallet_enabled` debe coincidir con las redes del catálogo; sólo se permite una entrada por red.
 3. Configurar los bindings privados en ese mismo entorno y revisar los presupuestos de `src/runtime/catalog.ts`. Los nombres de endpoints no permiten alterar las direcciones contractuales fijadas.
-4. Regenerar el descriptor Web cuando cambien sus inputs y ejecutar `pnpm verify:ci`. La admisión de creación del frontend debe usar el mismo perfil real.
+4. Ejecutar `pnpm verify` desde Wallet Core. No requiere descriptor ni build de Web. La creación del cliente debe usar un perfil contractual admitido por el protocolo/API, sin depender de que ambos proyectos tengan la misma build.
 5. Hacer el smoke en testnet: creación con passkey, transferencia, recibo finalizado y primer respaldo si su sponsor está habilitado.
 
 La elección del checkpoint consulta `finalized` en ambos RPC y verifica red, genesis, antigüedad, hash y ascendencia. La creación vuelve a comprobar la composición contractual en ese checkpoint. El desacuerdo, un perfil vencido o configuración inválida impiden operar. No se sustituye `finalized` por `latest` para conseguir un resultado exitoso.
@@ -121,15 +121,61 @@ transacción antes del primer broadcast. Una restricción única por red/operado
 arbitra invocaciones concurrentes; no se depende de memoria del Worker. Las claves
 privadas nunca se escriben en D1. Este registro es interno y no se expone por HTTP.
 
-Después de un timeout, los jobs pueden reenviar exactamente los mismos bytes
-mientras el consentimiento esté vigente. No generan otra transacción, no suben
-comisiones ni cambian de proveedor. La observación continúa con el transporte
+Después de un timeout, los jobs pueden reenviar exactamente los mismos bytes,
+incluso después de vencer el consentimiento. La caducidad de la UserOperation no
+elimina el nonce pendiente de la transacción externa de la EOA. EntryPoint mantiene
+la validación del plazo firmado: si ya venció, la transacción puede revertir y
+consumir gas del operador, pero consumir ese nonce permite avanzar a las posteriores.
+No se extiende el consentimiento, no se vuelve a firmar, no se genera otra
+transacción, no se suben comisiones ni se cambia el endpoint registrado.
+La observación continúa con el transporte
 registrado aunque el catálogo ya seleccione otro; el resultado económico y la
 finalidad siguen verificándose con los dos RPC independientes. Una simulación de
 `handleOps` no garantiza que la ejecución interna termine correctamente.
 
-No se reciclan nonces ni se borran estas filas por antigüedad. Si una transacción
-queda sin incluir hasta caducar la operación, hace falta resolver ese nonce de
-la EOA antes de que avancen los posteriores. Esta versión no incorpora sustitución
-automática de comisiones ni cancelación de transacciones; se debe mantener financiada
-la EOA dedicada y revisar los jobs que requieren atención.
+El Cron recupera el journal de transporte aunque el job económico haya terminado
+en revisión. Consulta el nonce `latest` de los dos RPC del operador admitido y
+usa el menor como filtro conservador; reenvía como máximo 20 envelopes por red,
+en orden de nonce, con un deadline de 30 segundos. Esta recuperación no utiliza
+claves privadas, no modifica el journal, no libera reservas y no certifica pagos,
+saldos ni finalidad. Las lecturas HTTP de estado no reenvían nada.
+
+No se reciclan nonces ni se borran estas filas por antigüedad. Esta versión no
+incorpora sustitución automática de comisiones ni cancelación de transacciones.
+Si la EOA no tiene ETH, el endpoint falla permanentemente o las comisiones fijas
+quedan bajo el mínimo de la red, el reenvío no garantiza inclusión: el Cron informa
+atención pendiente y se necesita intervención operativa. No se declara resuelta
+una reserva económica sólo porque haya avanzado el nonce externo.
+
+## Validación local de las correcciones P1/P2 — 30/09/2026
+
+- La identidad privada de Flow evalúa `catalog(config)`; una prueba cubre la
+  renovación de evidencia vencida y el rechazo posterior de una llave retirada.
+- La recuperación de nonces cubre caducidad, bytes idénticos, ausencia de jobs,
+  concurrencia, nonces consumidos, discrepancia entre RPC y límite de 20 envelopes.
+- El perfil contractual admite LF/CRLF sin relajar hashes ni cambios de contenido.
+- El onboarding explica una passkey autorizada y respaldo opcional, en ambos idiomas.
+
+Ejecutados localmente: 762 pruebas unitarias de Wallet Core (una optativa omitida),
+1.308 pruebas Workers de Wallet Core, 891 de Web y ocho de autenticación Workers
+de Flow. Tipos, lint, Knip/ciclos, protocolo V3, seis pruebas de scripts de staging/
+perfil y empaquetado Wrangler `--dry-run` pasaron. Los imports del candidato
+mantienen las fronteras Wallet/Flow; también pasaron ocho pruebas de ese guard.
+
+El guard global `check-backend-boundaries.mjs` inicialmente se detuvo por las
+carpetas locales antiguas `server/` y `payments-worker/`, sin archivos versionados.
+El 30/09 se retiraron esas carpetas y `client/` del repo, de forma recuperable,
+a `C:\Users\danie\AppData\Local\GatoPago\retired-local-2026-09-30`. Se preservaron
+caches y configuración; las tres variables locales conservan sus hashes SHA-256.
+`pnpm check:backend-boundaries` pasó después: ocho pruebas, 143 archivos Wallet
+Core y 57 Flow, más el guard global, sin debilitarlo. No se ejecutó ni se declara
+aprobado `verify:ci` completo.
+Esto no acredita despliegue, pagos públicos reales ni aceptación visual/humana.
+No hubo cambios de Solidity, migraciones remotas ni secretos.
+
+Una comprobación onchain independiente de esas correcciones,
+`V3_LIVE_RPC=1 pnpm exec vitest run --config vitest.config.ts test/live-deployment.test.ts`
+desde Wallet Core, pasó el 30/09 (una prueba). Offchain Labs y Tenderly verificaron
+la composición de Account V3 de Arbitrum Sepolia en un checkpoint finalizado.
+Es confirmación de un despliegue existente, no un despliegue realizado en esta
+sesión ni evidencia de un recorrido completo de creación/envío desde la app.

@@ -23,8 +23,8 @@ export function createWalletWorker(configuration?: unknown, environment = config
     async scheduled(_controller: ScheduledController, env: WalletCoreV3Bindings): Promise<void> {
       await Promise.all([pruneAuthChallenges(env.WALLET_DB), pruneLimits(env.WALLET_DB, Math.floor(Date.now() / 1000))]);
       const config = environment(env);
-      const { jobs } = createWalletRuntime(env, config, configuration ?? catalog(config));
-      const results = await Promise.allSettled([jobs.creation.wake(env), jobs.backup.wake(env), jobs.transfer.wake(env)]);
+      const { jobs, recoverRelay } = createWalletRuntime(env, config, configuration ?? catalog(config));
+      const results = await Promise.allSettled([recoverRelay(env.WALLET_DB), jobs.creation.wake(env), jobs.backup.wake(env), jobs.transfer.wake(env)]);
       if (results.some((result) => result.status === 'rejected')) throw new Error('WALLET_SCHEDULER_FAILED');
     },
     async queue(batch: MessageBatch<unknown>, env: WalletCoreV3Bindings): Promise<void> {

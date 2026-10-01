@@ -8,51 +8,34 @@ on:
 
 permissions:
   contents: read
-
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  CI: "true"
-  GATOPAGO_ENVIRONMENT: staging
-  GATOPAGO_WEB_ORIGIN: https://web.example.test
-  GATOPAGO_API_ORIGIN: https://api.example.test
-  GATOPAGO_BUSINESS_ORIGIN: https://business.example.test
-  GATOPAGO_WALLET_NETWORKS: eip155:421614
-  FIREBASE_PROJECT_ID: v3-build-test
-  GATOPAGO_FIREBASE_WEB_API_KEY: ${{ vars.GATOPAGO_FIREBASE_WEB_API_KEY }}
-  GATOPAGO_FIREBASE_WEB_APP_ID: ${{ vars.GATOPAGO_FIREBASE_WEB_APP_ID }}
-  GATOPAGO_TURNSTILE_SITE_KEY: ${{ vars.GATOPAGO_TURNSTILE_SITE_KEY }}
-
 jobs:
-  verify:
-    name: Quality, tests and builds
+  standalone:
+    name: Independent ${{ matrix.project }}
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [apps/web, gatopago-wallet-core, gatopago-flow, contracts]
     steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Install pnpm from packageManager
-        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
-
-      - name: Install Node 24
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: 24
-          cache: pnpm
-
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+      - uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09
+        if: matrix.project == 'gatopago-wallet-core' || matrix.project == 'contracts'
         with:
           version: v1.7.1
-
-      - name: Install JavaScript dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Install pinned Solidity dependencies
-        run: pnpm install:solidity
-
-      - name: Run deterministic release verification
-        run: pnpm verify:ci
+      # No root dependency install or other project's build, migration, source,
+      # contracts output or environment file enters this isolated verification.
+      - name: Verify only this project outside the checkout
+        run: pnpm --config.verify-deps-before-run=false check:standalone --project ${{ matrix.project }}
+      - name: Check repository boundaries (read only, no root dependencies)
+        run: node --test scripts/project-independence.test.mjs
+      - name: Reject generated changes to the checkout
+        run: git diff --exit-code

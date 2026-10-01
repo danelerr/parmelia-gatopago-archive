@@ -80,9 +80,11 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     assert.notEqual(manifests.staging.firebase_project_id, manifests.production.firebase_project_id);
     const path = resolve(secretsFile);
     validateStagingSecrets(backend, JSON.parse(readFileSync(path, 'utf8')));
-    assertReproducibleDeploySource(['gatopago-wallet-core', `gatopago-${backend}`]);
+    assertReproducibleDeploySource([`gatopago-${backend}`]);
     args.push('--secrets-file', path);
   }
-  execFileSync('node', [resolve(root, 'scripts/v3-web-release.mjs')], { cwd: root, stdio: 'inherit' });
-  execFileSync('pnpm', args, { cwd: directory, stdio: 'inherit' });
+  // Optional monorepo admission check above; project-owned deployment below.
+  // No Web descriptor/build is involved in either backend release.
+  const projectArgs = ['--staging', ...(dryRun ? ['--dry-run'] : ['--secrets-file', resolve(secretsFile)])];
+  execFileSync(process.execPath, [resolve(directory, 'scripts/deploy.mjs'), ...projectArgs], { cwd: directory, stdio: 'inherit' });
 }

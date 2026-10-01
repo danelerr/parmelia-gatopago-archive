@@ -35,7 +35,7 @@ contract AccountV3WebAuthnVerifierTest is Test {
     }
 
     function test_acceptsExactTypeScriptEncoderBytes() public view {
-        string memory vector = vm.readFile("../shared/fixtures/v3-webauthn-encoding.json");
+        string memory vector = vm.readFile("test/fixtures/v3-webauthn-encoding.json");
         bytes memory key = vector.readBytes(".key");
         bytes memory signature = vector.readBytes(".signature");
         bytes32 challenge = vector.readBytes32(".challenge");
@@ -45,7 +45,7 @@ contract AccountV3WebAuthnVerifierTest is Test {
     }
 
     function test_realChromiumAssertionWithHighSNormalization() public view {
-        string memory fixture = vm.readFile("../shared/fixtures/v3-webauthn-chromium.json");
+        string memory fixture = vm.readFile("test/fixtures/v3-webauthn-chromium.json");
         bytes memory spki = fixture.readBytes(".spki");
         assertEq(spki.length, 91);
         assertEq(Bytes.slice(spki, 0, 27), hex"3059301306072a8648ce3d020106082a8648ce3d03010703420004");

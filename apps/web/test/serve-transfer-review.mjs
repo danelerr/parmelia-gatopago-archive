@@ -5,8 +5,8 @@ import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createServer } from 'node:http';
-const root = resolve(dirname(fileURLToPath(import.meta.url)),'../../..'), web = resolve(root,'apps/web');
-const fixtureFile = resolve(root,'output/playwright/v3-transfer-review-fixture.mjs');
+const web = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const fixtureFile = resolve(web,'output/playwright/v3-transfer-review-fixture.mjs');
 await build({ outfile:fixtureFile,bundle:true,platform:'node',format:'esm',stdin:{ resolveDir:web,
   contents:"export { transferFixture } from '@gatopago/test-fixtures/v3-transfer';" } });
 const { transferFixture } = await import(pathToFileURL(fixtureFile).href), f = transferFixture();

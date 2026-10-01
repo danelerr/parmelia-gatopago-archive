@@ -16,7 +16,7 @@ function pending(test: ReturnType<typeof securityInspectionScenario>, kind = 1) 
 describe('Current Account V3 security inspection', () => {
 	it('matches compiled production getter ABIs, preserves large nonces and grants no spend authority', async () => {
 		const test = securityInspectionScenario(); test.security.spendNonce = 2n ** 255n;
-		const artifact = JSON.parse(readFileSync(new URL('../../contracts/out/AccountV3.sol/AccountV3.json', import.meta.url), 'utf8')) as { abi: Abi };
+		const artifact = JSON.parse(readFileSync(new URL(import.meta.resolve('@gatopago/contract-artifacts/AccountV3.json')), 'utf8')) as { abi: Abi };
 		const result = await inspectAccountSecurity(test.client, test.input);
 		expect(result).toMatchObject({ status: 'recognized', spend_readiness: 'not_assessed', checkpoint,
 			security: { phase: 'active_policy', policy: test.policy, pending: null, nonces: { spend: (2n ** 255n).toString() } } });

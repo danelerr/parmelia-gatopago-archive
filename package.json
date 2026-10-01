@@ -20,7 +20,7 @@
     "dev:flow": "pnpm --filter gatopago-flow dev",
     "docs:architecture:render": "node scripts/render-architecture-diagrams.mjs",
     "docs:architecture:check": "node scripts/render-architecture-diagrams.mjs --check",
-    "build:contracts": "pnpm check:solidity-dependencies && cd contracts && forge build",
+    "build:contracts": "pnpm --filter @gatopago/contracts build",
     "deployment:manifest": "node scripts/write-contract-deployment-manifest.mjs",
     "build": "pnpm build:web",
     "typecheck:wallet-core": "pnpm --filter gatopago-wallet-core cf-typegen:check && pnpm --filter gatopago-wallet-core typecheck",
@@ -45,16 +45,18 @@
     "test": "pnpm --filter gatopago-wallet-core test && pnpm --filter gatopago-flow test && cd contracts && forge test",
     "install:all": "pnpm install --frozen-lockfile && pnpm install:solidity",
     "check:backends": "pnpm check:wallet-invites && pnpm check:backend-boundaries && pnpm typecheck:wallet-core && pnpm typecheck:flow && pnpm --filter gatopago-wallet-core lint && pnpm --filter gatopago-flow lint && pnpm test:wallet-core && pnpm test:flow && pnpm check:wallet-query-plans && pnpm check:flow-query-plans && pnpm check:flow-deploy-guard && pnpm check:deploy-source-guard && pnpm --filter gatopago-wallet-core build && pnpm --filter gatopago-flow build",
-    "check:v3:protocol": "pnpm check:solidity-dependencies && node scripts/v3-deployment-profile.mjs && node shared/v3/compile-schemas.mjs --check && node scripts/v3-protocol-vectors.mjs && node scripts/v3-storage-layout.mjs && node scripts/v3-webauthn-encoding.mjs",
+    "check:v3:protocol": "pnpm check:solidity-dependencies && node --test scripts/deployment-profile-text.test.mjs && node scripts/v3-deployment-profile.mjs && node shared/v3/compile-schemas.mjs --check && node scripts/v3-protocol-vectors.mjs && node scripts/v3-storage-layout.mjs && node scripts/v3-webauthn-encoding.mjs",
     "check:payment-abis": "node scripts/payment-abis.mjs",
     "inspect:v3:p256": "node scripts/v3-p256-capability.mjs",
-    "install:solidity": "cd contracts && forge install --no-git --shallow forge-std=foundry-rs/forge-std@rev=bf647bd6046f2f7da30d0c2bf435e5c76a780c1b openzeppelin-contracts=OpenZeppelin/openzeppelin-contracts@rev=cab19933c33c2ad1d4c7a84864a3601dddfd16f3"
+    "install:solidity": "pnpm --filter @gatopago/contracts install:solidity",
+    "release:vendor": "node scripts/vendor-releases.mjs",
+    "check:standalone": "node scripts/check-standalone.mjs",
+    "check:project-independence": "node --test scripts/project-independence.test.mjs"
   },
   "engines": {
     "node": ">=24.0.0 <25"
   },
   "devDependencies": {
-    "@gatopago/entrypoint-source": "https://codeload.github.com/eth-infinitism/account-abstraction/tar.gz/b36a1ed52ae00da6f8a4c8d50181e2877e4fa410",
     "@gatopago/shared": "workspace:*",
     "knip": "^6.32.2",
     "wrangler": "^4.136.0"

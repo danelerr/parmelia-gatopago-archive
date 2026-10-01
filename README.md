@@ -2,6 +2,11 @@
 
 El producto actual tiene tres aplicaciones y una única generación de cuenta: Account V3.
 
+Web, Wallet Core, Flow y contratos poseen lockfiles, CI y comandos propios.
+Pueden extraerse a repos separados sin checkouts de carpetas hermanas. Los
+comandos de esta raíz son una comodidad de integración, no una dependencia de
+los proyectos. Ver [independencia y evidencia local](docs/operations/REPO-INDEPENDENCE-2026-09-30.md).
+
 | Directorio | Responsabilidad |
 |---|---|
 | `apps/web` | Web Consumer V3 |

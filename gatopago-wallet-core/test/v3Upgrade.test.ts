@@ -27,7 +27,7 @@ const votes = [{ signerIndex: 0, signature: "0x1234" as Hex }, { signerIndex: 1,
 
 describe("Account V3 typed upgrade transport", () => {
 	it("matches the actual composed Account ABI and never encodes the unrestricted UUPS selector", () => {
-		const artifact = JSON.parse(readFileSync(new URL("../../contracts/out/AccountV3.sol/AccountV3.json", import.meta.url), "utf8")) as { abi: Abi };
+		const artifact = JSON.parse(readFileSync(new URL(import.meta.resolve('@gatopago/contract-artifacts/AccountV3.json')), "utf8")) as { abi: Abi };
 		expect(encodeUpgradeProposal(account, chainId, proposal, chains, votes)).toBe(encodeFunctionData({ abi: artifact.abi, functionName: "proposeUpgrade", args: [proposal, chains, votes] }));
 		expect(encodeUpgradeCommit(account, chainId, proposal, commit, migration, votes)).toBe(encodeFunctionData({ abi: artifact.abi, functionName: "commitUpgrade", args: [commit, migration, votes] }));
 		expect(accountUpgradeAbi.some((item) => item.type === "function" && item.name as string === "upgradeToAndCall")).toBe(false);

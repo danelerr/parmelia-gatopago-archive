@@ -24,7 +24,7 @@ export async function identityService(request: Request, env: WalletCoreV3Binding
       return reply({ error_code: 'IDENTITY_UNAVAILABLE' }, 503);
     }
     const identity = await verifyAppSession(request, env, { rpId: config.webauthn_rp_id, origin: config.web_origin },
-      profiles ?? ((owned, signal) => createWalletRuntime(env, config, catalog).receivingProfiles(owned, signal)));
+      profiles ?? ((owned, signal) => createWalletRuntime(env, config, catalog(config)).receivingProfiles(owned, signal)));
     return reply({ user_id: identity.userId, environment: config.environment, expires_at: identity.expiresAt });
   } catch (error) {
     if ((error instanceof IdentityError && error.code === 'UNAUTHENTICATED') ||

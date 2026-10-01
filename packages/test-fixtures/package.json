@@ -1,7 +1,8 @@
 {
   "name": "@gatopago/test-fixtures",
   "private": true,
-  "version": "0.0.0",
+  "version": "3.1.0",
+  "files": ["*.ts"],
   "type": "module",
   "exports": {
     "./v3-creation-inspection": "./v3CreationInspection.ts",
@@ -15,7 +16,7 @@
     "./v3-initialization": "./v3Initialization.ts"
   },
   "dependencies": {
-    "@gatopago/shared": "workspace:*",
+    "@gatopago/shared": "3.1.0",
     "viem": "^2.55.19"
   },
   "peerDependencies": {

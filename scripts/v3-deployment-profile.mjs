@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
+import { assertDeploymentProfileText } from './deployment-profile-text.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const { getContractAddress, keccak256, concatHex, encodeAbiParameters } = createRequire(resolve(root, 'shared/package.json'))('viem');
@@ -65,5 +66,5 @@ const profile = {
 };
 const output = resolve(root, 'shared/v3/arbitrum-sepolia-creation.json'), expected = `${JSON.stringify(profile, null, 2)}\n`;
 if (process.argv.length === 3 && process.argv[2] === '--write') writeFileSync(output, expected);
-else { assert.equal(process.argv.length, 2, 'Only --write is supported'); assert.equal(readFileSync(output, 'utf8'), expected, 'Deployment profile differs from verified release evidence'); }
+else { assert.equal(process.argv.length, 2, 'Only --write is supported'); assertDeploymentProfileText(readFileSync(output, 'utf8'), expected); }
 console.log('Arbitrum Sepolia creation profile matches the five deployed artifacts and CREATE2 recipes.');

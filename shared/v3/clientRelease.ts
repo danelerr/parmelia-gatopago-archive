@@ -1,8 +1,8 @@
-import webRelease from './web-release.json';
-
 /** Public compatibility metadata, NOT authentication, attestation or financial authority. */
 export const CLIENT_COMPATIBILITY_PATH = '/app/v1/client-compatibility';
-export const CLIENT_RELEASE_ID = webRelease.client_release_id;
+// Wire/consent protocol revision, NOT a frontend build. UI-only changes retain
+// this ID; changes to financial semantics require a reviewed new revision.
+export const CLIENT_RELEASE_ID = 'wallet-client-v3.1';
 export const WALLET_API_VERSION = 'wallet-core-v3.1';
 export const CLIENT_RELEASE_HEADERS = Object.freeze({
   release: 'X-GatoPago-Client-Release', api: 'X-GatoPago-Api-Version',
@@ -15,7 +15,7 @@ type DeploymentEnvironment = 'staging' | 'production';
 export type AccountReleaseContext = Readonly<{ generation: string; contract_manifest_version: string }>;
 export type ReleasePolicy = Readonly<{
   api_version: string;
-  // Oldest to newest. Compatibility is an explicit allowlist, not lexical/semver ordering.
+  // Oldest to newest protocol revisions, not frontend builds. Explicit allowlist.
   releases: readonly Readonly<{ client_release_id: string; accepted_until: number | null }>[];
   account_profiles: readonly AccountReleaseContext[];
 }>;

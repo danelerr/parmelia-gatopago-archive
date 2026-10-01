@@ -12,7 +12,7 @@ export function validateFlowDeployConfig(config) {
   if (databaseId === PAYMENTS_DB_SENTINEL) throw new Error('Flow PAYMENTS_DB is a local-only sentinel; provision its fresh schema before deployment.');
   return databaseId;
 }
-export function assertFlowDeployConfig(configPath = defaultConfigPath) {
+function assertFlowDeployConfig(configPath = defaultConfigPath) {
   return validateFlowDeployConfig(readFileSync(configPath, 'utf8'));
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) assertFlowDeployConfig();

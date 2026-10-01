@@ -4,7 +4,7 @@ import { entryPoint09Abi, formatUserOperationRequest, getUserOperationHash, toPa
 import { discardResponseBody, readJsonBounded } from '@gatopago/shared/http';
 import { requireHash } from '@gatopago/shared/v3/deployment';
 import { evmChainId, type NetworkId } from '@gatopago/shared/v3/primitives';
-import { rpcEndpoint, type RpcProvider } from '../chainProviders';
+import { rpcEndpoint, validateRpcProviders, type RpcProvider } from '../chainProviders';
 import { quoteBackupTransaction } from '../security/backupRpc';
 import { prepareBackupTransaction, verifyBackupTransaction, type BackupSponsorPolicy } from '../security/backupTransaction';
 
@@ -146,13 +146,53 @@ async function broadcast(stored: Submission, signal: AbortSignal) {
   if (hash !== stored.transaction_hash) throw new Error('TRANSPORT_HASH');
 }
 /** Private job recovery only, after checking the domain's dispatch grant/lease.
- * Never signs or allocates a nonce. Public receipt reads do not call this function. */
+ * An expired UserOperation still leaves an outer EOA nonce outstanding. Replaying
+ * the exact envelope may revert in EntryPoint, consuming that nonce, but cannot
+ * extend the signed authorization. Never signs, reprices or allocates a nonce.
+ * Public receipt reads do not call this function. */
 export async function resumeSubmission(database: D1Database, hash: Hex, signal: AbortSignal) {
   requireHash(hash);
   const stored = await read(database, hash);
-  if (stored?.kind === 'self' && stored.valid_until > Math.floor(Date.now() / 1000)) {
-    try { await broadcast(stored, signal); } catch { signal.throwIfAborted(); }
+  if (stored?.kind === 'self') {
+    try {
+      const consumed = transportQuantity(await rpc(stored.endpoint, 'eth_getTransactionCount', [stored.operator, 'latest'], signal));
+      if (stored.nonce === null || !Number.isSafeInteger(stored.nonce)) throw new Error('RELAYER_NONCE');
+      if (BigInt(stored.nonce) >= consumed) await broadcast(stored, signal);
+    } catch { signal.throwIfAborted(); }
   }
+}
+
+/** Private Cron transport recovery, independent of a domain job's timeout/review.
+ * Only admitted operators are scanned, at most 20 envelopes per invocation in
+ * nonce order. A confirmed nonce is a retry filter, NEVER financial evidence:
+ * no balance, reservation, receipt or success state is changed here. Inconsistent
+ * peers cause extra identical replays rather than skipping an unconsumed nonce. */
+export async function recoverSelfSubmissions(database: D1Database,
+  config: Extract<OperationTransport, { kind: 'self' }>, signal: AbortSignal) {
+  signal.throwIfAborted();
+  const operator = config.policy.operator.toLowerCase(), network = config.policy.networkId;
+  const db = database.withSession('first-primary');
+  const exists = await db.prepare(`SELECT 1 FROM user_operation_submissions
+    WHERE kind = 'self' AND network_id = ? AND operator = ? LIMIT 1`).bind(network, operator).first();
+  if (!exists) return;
+  const peers = validateRpcProviders(config.providers);
+  const counts = await Promise.all(peers.map(async peer => {
+    if (transportQuantity(await rpc(peer.url, 'eth_chainId', [], signal)) !== evmChainId(network)) throw new Error('TRANSPORT_CHAIN');
+    return transportQuantity(await rpc(peer.url, 'eth_getTransactionCount', [operator, 'latest'], signal));
+  }));
+  const consumed = counts[0] < counts[1] ? counts[0] : counts[1];
+  if (consumed > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('RELAYER_NONCE');
+  const rows = await db.prepare(`SELECT * FROM user_operation_submissions
+    WHERE kind = 'self' AND network_id = ? AND operator = ? AND nonce >= ?
+    ORDER BY nonce LIMIT 20`).bind(network, operator, Number(consumed)).all<Submission>();
+  if (!rows.success) throw new Error('TRANSPORT_STORAGE');
+  let failed = 0;
+  for (const stored of rows.results) {
+    signal.throwIfAborted();
+    try { await broadcast(stored, signal); }
+    catch { signal.throwIfAborted(); failed++; }
+  }
+  if (failed) console.warn({ event: 'v3_relayer_recovery_pending', count: failed });
 }
 /** Read-only transaction locator; callers still verify receipt and finality
  * through two independent execution RPCs. Uses the persisted transport even after

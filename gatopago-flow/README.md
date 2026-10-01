@@ -48,16 +48,16 @@ en su revisión 2: su payload no cambió y no representa Account V2. Los comando
 `migrations/0001_initial.sql` crea una base nueva completa. Flow no exige un checksum ni una tabla de importación de Parmelia. Los controles de signer, rutas, tarifas, cuotas e integridad siguen vigentes.
 
 ```sh
-pnpm --filter gatopago-flow dev
-pnpm --filter gatopago-flow cf-typegen:check
-pnpm --filter gatopago-flow exec tsc --noEmit
-pnpm --filter gatopago-flow typecheck:worker-runtime
-pnpm --filter gatopago-flow lint
-pnpm --filter gatopago-flow test
-pnpm check:flow-query-plans
+pnpm install --frozen-lockfile
+pnpm dev
+pnpm verify
 ```
 
-Las ABIs se consumen mediante `@gatopago/shared/payment-abis`; construir o probar Flow no necesita artefactos de Foundry. `pnpm check:payment-abis` verifica los snapshots contra los contratos compilados.
+Los comandos anteriores se ejecutan desde esta carpeta. Las ABIs se consumen
+mediante un snapshot de `@gatopago/shared/payment-abis` fijado en `vendor/`;
+construir o probar Flow no necesita Foundry ni el checkout de contratos. El
+productor verifica las ABIs antes de promover una nueva versión; el consumidor
+no las regenera. `check:query-plans` comprueba únicamente las migraciones propias.
 
 `wrangler.jsonc` es el perfil local. `deploy` utiliza `wrangler.remote.jsonc`
 para actualizar el Worker existente `gatopago-flow` (antes
@@ -66,6 +66,8 @@ El perfil remoto apunta a la base limpia V3, las colas V3 y el entrypoint
 `WalletIdentity` de `gatopago-wallet-core`. No importa datos de la base anterior.
 Los secretos se suministran según `.dev.vars.example`; el deploy conserva los
 ya cargados en el Worker. `deploy:dry-run` comprueba la compilación sin publicar.
-Véase [despliegue](../DEPLOY.md).
+Desde esta carpeta: `pnpm deploy:dry-run`, o
+`pnpm deploy:dry-run --staging` para inspeccionar staging sin publicar.
+Publicar requiere una autorización aparte y el árbol de este proyecto limpio.
 
 El modelo comercial actual mantiene un owner por merchant. Organization/Membership/Project/Customer son trabajo de producto futuro, no capas vacías añadidas a esta renovación.

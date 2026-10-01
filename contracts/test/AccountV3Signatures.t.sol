@@ -444,7 +444,7 @@ contract AccountV3SignaturesTest is Test {
         view
         returns (T.SignerDescriptor memory signer, bytes32 digest, bytes memory signature)
     {
-        string memory vector = vm.readFile("../shared/fixtures/v3-webauthn-encoding.json");
+        string memory vector = vm.readFile("test/fixtures/v3-webauthn-encoding.json");
         signer = T.SignerDescriptor(
             P.WEBAUTHN, address(passkeyVerifier), address(passkeyVerifier).codehash, vector.readBytes(".key"), 3
         );

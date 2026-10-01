@@ -16,7 +16,7 @@ const plan: ExecutionPlan = {
 describe("V3 executable CALL encoding", () => {
 	it("matches the compiled Solidity executor ABI, including the signature envelope shape", () => {
 		// check:v3 builds the storage probe (and Solidity artifacts) before its TypeScript tests.
-		const artifact = JSON.parse(readFileSync(new URL("../../contracts/out/AccountV3Execution.sol/AccountV3Execution.json", import.meta.url), "utf8")) as { abi: Abi };
+		const artifact = JSON.parse(readFileSync(new URL(import.meta.resolve('@gatopago/contract-artifacts/AccountV3Execution.json')), "utf8")) as { abi: Abi };
 		const data = encodeAccountExecution(account, calls, 1n);
 		expect(data).toBe(encodeFunctionData({ abi: artifact.abi, functionName: "execute", args: [calls, 1n] }));
 		expect(encodeDirectExecution(account, calls, plan, signatures)).toBe(encodeFunctionData({ abi: artifact.abi, functionName: "executeSigned", args: [calls, plan, signatures] }));

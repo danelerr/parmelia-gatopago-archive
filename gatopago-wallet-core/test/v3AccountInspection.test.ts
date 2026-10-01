@@ -8,7 +8,7 @@ import { checkpoint, fixtureAddress, fixtureHash, inspectionScenario } from '@ga
 describe('Account V3 pinned read-only inspection', () => {
 	it('matches the compiled factory ABI and checks the exact expected composition', async () => {
 		const test = inspectionScenario();
-		const artifact = JSON.parse(readFileSync(new URL('../../contracts/out/AccountFactoryV3.sol/AccountFactoryV3.json', import.meta.url), 'utf8')) as { abi: Abi };
+		const artifact = JSON.parse(readFileSync(new URL(import.meta.resolve('@gatopago/contract-artifacts/AccountFactoryV3.json')), 'utf8')) as { abi: Abi };
 		const result = await inspectAccountDeployment(test.client, test.input);
 		expect(result).toMatchObject({ account: test.account, status: 'recognized', security_version: '2', spend_readiness: 'not_assessed', checkpoint });
 		const contractCalls = test.request.mock.calls.filter(([req]) => req.method === 'eth_call');

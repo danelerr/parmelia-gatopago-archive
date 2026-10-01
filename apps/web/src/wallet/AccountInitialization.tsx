@@ -68,10 +68,11 @@ export default function AccountInitialization({ runtime, uid, inventory, english
     {state.review ? <details className="initialization-review" open={state.consent ? undefined : true}>
       <summary>{en ? 'Configuration in this request' : 'Configuración de esta solicitud'}</summary>
       <ul>
-        <li>{en ? 'Account V3 in initial mode, with the selected key.' : 'Cuenta V3 en modo inicial, con la llave seleccionada.'}</li>
+        <li>{en ? 'Account V3 with the selected key. Once deployment is verified, that key can authorize payments.' : 'Cuenta V3 con la llave seleccionada. Tras verificar el despliegue, esa llave podrá autorizar pagos.'}</li>
         <li>{en ? 'Initial network' : 'Red inicial'}: {state.review.network}.</li>
-        <li>{en ? 'No payments, withdrawals, spending permissions or recovery are activated by this consent.' : 'Este consentimiento no activa pagos, retiros, permisos para gastar ni recuperación.'}</li>
-        <li>{en ? 'Using the account requires verified deployment and a separate independent-factor backup; this screen does not check those steps.' : 'Usar la cuenta requiere despliegue verificado y activación separada con factor independiente; esta pantalla no comprueba esos pasos.'}</li>
+        <li>{en ? 'This consent does not send funds, approve a specific payment or configure recovery.' : 'Este consentimiento no envía fondos, no aprueba un pago concreto ni configura recuperación.'}</li>
+        <li>{en ? 'You do not need a second passkey to use the account. Adding a backup is optional and requires a separate authorization.' : 'No necesitas una segunda passkey para usar la cuenta. Añadir un respaldo es opcional y requiere una autorización aparte.'}</li>
+        <li>{en ? 'If you lose all authorized keys, GatoPago cannot restore access to your funds.' : 'Si pierdes todas las llaves autorizadas, GatoPago no puede restablecer el acceso a tus fondos.'}</li>
       </ul>
       <p>{en ? 'Authorization expires' : 'La autorización vence'}: <time dateTime={new Date(state.review.validUntil * 1000).toISOString()}>
         {new Date(state.review.validUntil * 1000).toLocaleString(en ? 'en-US' : 'es-BO')}</time>.</p>

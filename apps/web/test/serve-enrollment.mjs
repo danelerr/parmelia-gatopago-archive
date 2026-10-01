@@ -7,9 +7,8 @@ import { readFile } from 'node:fs/promises';
 import { createHash, randomBytes } from 'node:crypto';
 import { createServer } from 'node:http';
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
-const webRoot = resolve(root, 'apps/web');
-const verifierFile = resolve(root, 'output/playwright/v3-enrollment-verifier.mjs');
+const webRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const verifierFile = resolve(webRoot, 'output/playwright/v3-enrollment-verifier.mjs');
 await build({ outfile: verifierFile, bundle: true, platform: 'node', format: 'esm', entryPoints: [resolve(webRoot, 'test/enrollment-verifier.ts')] });
 const { verifyEnrollment, initializationFixture, prepareInitialization, authorizeInitialization, parseInitializationProof,
   prepareCreationOperation, authorizeCreationOperation, creationGasWire } = await import(pathToFileURL(verifierFile).href);

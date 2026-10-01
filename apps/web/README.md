@@ -8,21 +8,22 @@ completa requiere configuración de proveedores, una passkey y gas de prueba.
 
 ## Desarrollo local
 
-Copiar `.env.example` a `.env.local`, completar los identificadores públicos de
-Firebase y ejecutar `pnpm dev:web` desde la raíz. Abrir `http://localhost:3000`.
-Wallet Core se configura y arranca por separado; ver el [inicio local](../../README.md).
+Desde esta carpeta: `pnpm install --frozen-lockfile`. Copiar `.env.example` a
+`.env.local`, completar los identificadores públicos de Firebase y ejecutar
+`pnpm dev`. Abrir `http://localhost:3000`. Wallet Core se configura y arranca
+por separado; sólo se necesita su URL, no su código fuente.
 No poner claves privadas, cuentas de servicio ni secretos Turnstile en Web.
 
 ## Comprobaciones
 
-Desde la raíz del monorepo:
+Desde esta carpeta, sin instalar ni construir otros proyectos:
 
 ```powershell
-pnpm check:v3:web
+pnpm verify
 ```
 
-Incluye inventario de procedencia, hash de los iconos PWA, pruebas de auth/PWA,
-compatibilidad de cliente, lint, tipos y build con descriptor de fuentes. No
+Incluye pruebas de auth/PWA, compatibilidad de protocolo, lint, tipos y build
+con descriptor local `release.json` y snapshots verificados en `vendor/`. No
 sustituye el smoke de Firebase/Turnstile provisionados ni las pruebas monetarias.
 
 ## Acceso con passkey
@@ -45,7 +46,7 @@ sin Wallet Core. No constituye un entorno de aceptación completo de passkeys.
 
 ## Configuración
 
-`packages/environment` valida las variables de `.env.local`. No se seleccionan
+El paquete versionado `@gatopago/environment` valida `.env.local`. No se seleccionan
 hosts desde un JSON global. Las variables públicas compartidas con Wallet Core
 son `GATOPAGO_ENVIRONMENT`, `GATOPAGO_WEB_ORIGIN`, `GATOPAGO_API_ORIGIN`,
 `GATOPAGO_BUSINESS_ORIGIN`, `GATOPAGO_WALLET_NETWORKS` y `FIREBASE_PROJECT_ID`.
@@ -133,18 +134,21 @@ Gate W integral, CSP/auth de proveedores reales y compatibilidad monetaria de re
 
 ## Compatibilidad con Wallet Core
 
-Las solicitudes de registro y login llevan el ID inmutable de fuentes, versión
+Las solicitudes de registro y login llevan la revisión del protocolo, versión
 de API, ambiente y contexto de contrato explícitamente `none`. El Worker decide
 si son compatibles. Un `409 CLIENT_UPDATE_REQUIRED` bloquea nuevas solicitudes
 del mismo runtime y muestra actualización/reapertura de ventanas. No se omite la verificación de Wallet Core ni se recarga a la fuerza.
 Cerrar sesión sigue siendo posible. El botón Recargar usa el guard de operaciones.
 
-El ID se fija al compilar desde `shared/v3/web-release.json`; no se toma de la
-respuesta del servidor para fingir que una PWA antigua es nueva. `build` verifica
-el descriptor con `scripts/v3-web-release.mjs`; el procedimiento y el contrato
-HTTP están en [Wallet Core](../../gatopago-wallet-core/README.md#compatibilidad-de-web-y-worker).
-Cambiar las fuentes exige revisar/regenerar el descriptor y reconstruir ambos
-artefactos. No constituye una firma de código ni una prueba de despliegue.
+La revisión `wallet-client-v3.1` viene del paquete de protocolo fijado en `vendor/`;
+no se toma de la respuesta del servidor para fingir compatibilidad. Cambios de
+UI que conservan el protocolo no requieren reconstruir Wallet Core.
+
+`release.json` registra por separado la procedencia del build de Web. `build`
+lo verifica con `scripts/check-release.mjs`. Después de cambiar sus fuentes,
+revisar `node scripts/check-release.mjs --describe`, actualizar el descriptor y
+reconstruir únicamente Web. El descriptor no autoriza pagos, no constituye una
+firma de código ni prueba que ese build esté desplegado.
 
 Los tests cubren transporte/código de rechazo, bloqueo de reintentos y guard.
 El aviso completo con autenticación remota aún necesita prueba de navegador

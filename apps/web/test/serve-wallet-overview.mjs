@@ -6,8 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
-const webRoot = resolve(root, 'apps/web');
+const webRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const css = await readFile(resolve(webRoot, 'src/app/base.css'), 'utf8') + await readFile(resolve(webRoot, 'src/auth/auth.css'), 'utf8');
 const result = await build({ bundle: true, write: false, platform: 'browser', format: 'iife', jsx: 'automatic',
   define: { 'process.env.NODE_ENV': '"development"' },

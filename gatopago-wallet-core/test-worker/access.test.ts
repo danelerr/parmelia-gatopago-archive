@@ -19,6 +19,8 @@ import { identityService } from '../src/auth/service';
 import { testIdentitySigner, seedIdentityKeys } from './identity.fixture';
 import { parseEnvironment } from '@gatopago/environment';
 import manifests from '@gatopago/environment/environments.json';
+import * as runtimeModule from '../src/runtime';
+import catalog from '../src/runtime/catalog';
 
 const signal = () => new AbortController().signal;
 const now = () => Math.floor(Date.now() / 1000);
@@ -162,6 +164,28 @@ describe('onchain application-access reconciliation', { timeout: 20_000 }, () =>
     f.replace(initializationFixture().input.publicKey);
     expect((await identityService(await request(), env, () => config, f.profiles)).status).toBe(401);
     expect((await identityService(await request(), env, () => config, f.profiles)).status).toBe(401);
+  });
+  it('composes the default Flow identity resolver with evaluated catalog data after access evidence expires', async () => {
+    const f = await setup(); await f.sync(); f.advance();
+    const signer = await testIdentitySigner(); await seedIdentityKeys(signer.keys, now());
+    const config = parseEnvironment({ ...manifests.staging, firebase_project_id: 'v3-runtime-test' });
+    const bindings = { ...env, PRIVATE_KEY: `0x${'12'.repeat(32)}`,
+      WALLET_RPC_ENDPOINTS: JSON.stringify({ arbitrum_sepolia_offchain: 'https://observer-a.invalid/',
+        arbitrum_sepolia_tenderly: 'https://observer-b.invalid/' }) };
+    const create = runtimeModule.createWalletRuntime;
+    const composed = vi.spyOn(runtimeModule, 'createWalletRuntime').mockImplementation((env, environment, value) => {
+      expect(value).toEqual(catalog(environment));
+      // Real configuration parsing/composition, with synthetic chain observations.
+      return { ...create(env, environment, value), receivingProfiles: f.profiles };
+    });
+    const request = async () => new Request('https://wallet-identity.internal/session', { method: 'POST', headers: {
+      Authorization: `Bearer ${await signer.token({ sub: f.session.user_id, credential_ref: f.credentialRef })}`,
+      'X-GatoPago-Environment': 'staging' } });
+    const first = await identityService(await request(), bindings, () => config);
+    expect(first.status).toBe(200); expect(composed).toHaveBeenCalledOnce();
+    expect(await first.json()).toMatchObject({ user_id: f.session.user_id, expires_at: now() + 30 });
+    f.replace(initializationFixture().input.publicKey);
+    expect((await identityService(await request(), bindings, () => config)).status).toBe(401);
   });
   it('does not renew expired evidence or revoke credentials when providers fail', async () => {
     const f = await setup(); await f.sync(); const before = await saved(f.session.user_id);

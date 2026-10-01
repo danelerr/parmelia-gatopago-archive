@@ -37,7 +37,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       assertReproducibleDeploySource(['gatopago-wallet-core']);
       if (secretsFile) wrangler.push('--secrets-file', resolve(secretsFile));
     }
-    execFileSync('node', [resolve(import.meta.dirname, 'v3-web-release.mjs')], { stdio: 'inherit' });
-    execFileSync('pnpm', wrangler, { cwd: directory, stdio: 'inherit' });
+    execFileSync(process.execPath, [resolve(directory, 'scripts/deploy.mjs'), ...args], { cwd: directory, stdio: 'inherit' });
   }
 }

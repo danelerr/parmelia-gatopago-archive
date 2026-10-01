@@ -35,7 +35,7 @@ describe('Account V3 optional backup consent compiler', () => {
 		const f = backupFixture(), p = prepareBackupEnrollment(f.input, f.input.validAfter);
 		const result = await authorizeBackupEnrollment(f.input, f.assertion(p.digest), await f.proofs(), f.input.validAfter);
 		const decoded = decodeFunctionData({ abi: accountBackupAbi, data: result.data }); expect(decoded.functionName).toBe('prepare');
-		const compiled = JSON.parse(readFileSync(new URL('../../contracts/out/AccountV3.sol/AccountV3.json', import.meta.url), 'utf8')) as { abi: Abi };
+		const compiled = JSON.parse(readFileSync(new URL(import.meta.resolve('@gatopago/contract-artifacts/AccountV3.json')), 'utf8')) as { abi: Abi };
 		expect(encodeFunctionData({ abi: compiled.abi, functionName: decoded.functionName, args: decoded.args })).toBe(result.data);
 		expect(decoded.args[0]).toBe(0); expect(decoded.args[3]).toEqual(f.initial.chains);
 		expect(result.value).toBe(0n); expect(result.account).toBe(f.initial.account);
@@ -131,7 +131,7 @@ describe('Account V3 distinct backup commit', () => {
 		expect(c.message).toMatchObject({ nonce: 1n, proposalHash: prepareBackupEnrollment(f.input, now).digest });
 		expect(c.message.acknowledgementsHash).not.toBe(zeroHash); expect(c.digest).not.toBe(c.message.proposalHash);
 		const decoded = decodeFunctionData({ abi: accountBackupAbi, data: signed.data }); expect(decoded.functionName).toBe('commit');
-		const compiled = JSON.parse(readFileSync(new URL('../../contracts/out/AccountV3.sol/AccountV3.json', import.meta.url), 'utf8')) as { abi: Abi };
+		const compiled = JSON.parse(readFileSync(new URL(import.meta.resolve('@gatopago/contract-artifacts/AccountV3.json')), 'utf8')) as { abi: Abi };
 		expect(encodeFunctionData({ abi: compiled.abi, functionName: decoded.functionName, args: decoded.args })).toBe(signed.data);
 		expect(signed.account_readiness).toBe('not_assessed');
 	});

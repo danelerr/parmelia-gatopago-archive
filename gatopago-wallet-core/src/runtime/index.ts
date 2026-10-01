@@ -17,6 +17,7 @@ import type { WalletRepository } from '../accounts/repository';
 import type { CreationProfilePin } from '../creation/initialization';
 import { configureWalletNetworks, maximumGasCharge } from './config';
 import { networkFinality, requireFreshCreationDeployment } from './finality';
+import { recoverSelfSubmissions } from '../execution/operationTransport';
 
 type Owned = Awaited<ReturnType<WalletRepository['ownedAccount']>>;
 
@@ -68,6 +69,14 @@ export function createWalletRuntime(env: WalletCoreV3Bindings, environment: Envi
     capabilities: { creation: networks.length > 0, transfers: networks.length > 0,
       backup: networks.length > 0 && networks.every(n => !!n.backup) },
     jobs: { creation, backup, transfer },
+    async recoverRelay(database: D1Database) {
+      const results = await Promise.allSettled(networks.map(async network => {
+        if (network.transport.kind === 'self') {
+          await recoverSelfSubmissions(database, network.transport, AbortSignal.timeout(30_000));
+        }
+      }));
+      if (results.some(result => result.status === 'rejected')) throw new Error('RELAYER_RECOVERY_UNAVAILABLE');
+    },
     initialization: createInitializationRoute({ accessProfiles: receivingProfiles, profiles: networks, releasePolicy, requireFreshDeployment }),
     creationOperation: createCreationOperationRoute({ accessProfiles: receivingProfiles, profiles: networks, releasePolicy, requireFreshDeployment,
       sponsor: (pin, database, identity, signal) => sponsor(byPin(pin), database, identity, signal),

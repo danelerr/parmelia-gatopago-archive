@@ -5,18 +5,12 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(import.meta.dirname, "..");
-const sharedPaths = [
-	"package.json",
-	"pnpm-lock.yaml",
-	"pnpm-workspace.yaml",
-	"scripts",
-	"shared",
-	"packages",
-	"contracts",
-];
 
 function deploymentPaths(scopes) {
-	const values = new Set(sharedPaths);
+	// Each project pins its own vendored protocol/artifacts and owns its lockfile.
+	// Changes in a sibling or optional monorepo tooling do not block this release.
+	const values = new Set();
+	if (!scopes.length) throw new Error("Choose a deployment scope.");
 	for (const scope of scopes) {
 		if (!/^(?:gatopago-wallet-core|gatopago-flow|apps\/web)$/u.test(scope)) {
 			throw new Error(`Unknown deployment scope: ${scope}`);

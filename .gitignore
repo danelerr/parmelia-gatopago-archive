@@ -16,10 +16,8 @@ node_modules
 *.DS_Store
 Thumbs.db
 
-# One lockfile for the pnpm workspace.
+# Each extractable project owns its lockfile.
 package-lock.json
-gatopago-wallet-core/pnpm-lock.yaml
-gatopago-flow/pnpm-lock.yaml
 shared/pnpm-lock.yaml
 
 # Playwright runtime artifacts.

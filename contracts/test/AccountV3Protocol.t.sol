@@ -12,7 +12,7 @@ contract AccountV3ProtocolTest is Test {
     string internal vectors;
 
     function setUp() public {
-        vectors = vm.readFile("../shared/fixtures/v3-protocol.json");
+        vectors = vm.readFile("test/fixtures/v3-protocol.json");
     }
 
     function test_identityAndCreate2Vector() public view {

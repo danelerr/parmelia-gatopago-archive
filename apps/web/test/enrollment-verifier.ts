@@ -1,4 +1,4 @@
-export { verifyEnrollment } from 'gatopago-wallet-core/testing/enrollment';
+export { verifyEnrollment } from './fixture-enrollment';
 export { initializationFixture } from '@gatopago/test-fixtures/v3-initialization';
 export { prepareInitialization, authorizeInitialization } from '@gatopago/shared/v3/initialization';
 export { parseInitializationProof } from '@gatopago/shared/v3/initialization-wire';

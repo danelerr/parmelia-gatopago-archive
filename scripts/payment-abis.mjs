@@ -10,6 +10,6 @@ for (const name of ['GatoPagoPaymentRouter', 'GatoPagoCctpPaymentRouter', 'GatoP
   assert(Array.isArray(abi) && abi.length, `Missing compiled ABI: ${name}`);
   const path = resolve(root, `shared/abis/${name}.json`), expected = JSON.stringify(abi, null, 2) + '\n';
   if (write) { mkdirSync(resolve(root, 'shared/abis'), { recursive: true }); writeFileSync(path, expected); }
-  else assert.equal(readFileSync(path, 'utf8'), expected, `Stale payment ABI: ${name}. Run pnpm build:contracts and node scripts/payment-abis.mjs --write.`);
+  else assert.equal(readFileSync(path, 'utf8').replaceAll('\r\n', '\n'), expected, `Stale payment ABI: ${name}. Run pnpm build:contracts and node scripts/payment-abis.mjs --write.`);
 }
 console.log(`Payment ABIs ${write ? 'generated' : 'verified'} from compiled contracts.`);

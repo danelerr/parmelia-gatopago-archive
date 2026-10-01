@@ -6,8 +6,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
-const webRoot = resolve(root, 'apps/web'), fixtureFile = resolve(root, 'output/playwright/v3-policy-fixture.mjs');
+const webRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const fixtureFile = resolve(webRoot, 'output/playwright/v3-policy-fixture.mjs');
 await build({ outfile: fixtureFile, bundle: true, platform: 'node', format: 'esm', stdin: { resolveDir: webRoot,
   contents: "export { policyReviewFixture } from './test/backup-policy.fixture';" } });
 const { policyReviewFixture } = await import(pathToFileURL(fixtureFile).href);

@@ -29,7 +29,7 @@ import { signerId } from '@gatopago/shared/v3/security-policy';
 
 type Artifact = { abi: Abi; bytecode: { object: Hex; linkReferences: Record<string, Record<string, { start: number; length: number }[]>> };
 	deployedBytecode: { object: Hex } };
-const artifact = (name: string): Artifact => JSON.parse(readFileSync(fileURLToPath(new URL(`../../contracts/out/${name}.sol/${name}.json`, import.meta.url)), 'utf8'));
+const artifact = (name: string): Artifact => JSON.parse(readFileSync(fileURLToPath(new URL(import.meta.resolve(`@gatopago/contract-artifacts/${name}.json`))), 'utf8'));
 let node: ChildProcessWithoutNullStreams | undefined;
 
 /** Fresh loopback-only Anvil, no fork, remote RPC, signing key, existing node or persisted

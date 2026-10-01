@@ -48,8 +48,5 @@
         "src/wallet/BackupCommitPanel.tsx"
       ]
     }
-  },
-  "ignore": [
-    "contracts/lib/**"
-  ]
+  }
 }

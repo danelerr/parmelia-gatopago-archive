@@ -23,7 +23,7 @@ contract PaymentAuthorizationFixturesTest is Test {
 
     bytes32 internal constant EIP712_DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
-    string internal constant FIXTURE_PATH = "../shared/fixtures/payment-authorizations.json";
+    string internal constant FIXTURE_PATH = "test/fixtures/payment-authorizations.json";
 
     FixtureUSDC internal usdc;
     FixtureTokenMessengerV2 internal messenger;

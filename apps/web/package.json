@@ -2,6 +2,7 @@
   "name": "@gatopago/web",
   "version": "0.0.0",
   "private": true,
+  "packageManager": "pnpm@11.23.0",
   "type": "module",
   "engines": {
     "node": "24.x"
@@ -15,17 +16,18 @@
     "dev:balances-harness": "node test/serve-balances.mjs",
     "dev:transfers-harness": "node test/serve-transfers.mjs",
     "dev:transfer-review-harness": "node test/serve-transfer-review.mjs",
-    "build": "node ../../scripts/v3-web-release.mjs && next build",
+    "build": "node scripts/check-release.mjs && node scripts/check-vendor.mjs && next build",
     "start": "next start --hostname 127.0.0.1 --port 3000",
     "lint": "eslint . --max-warnings 0",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
     "@fontsource-variable/recursive": "5.3.0",
-    "@gatopago/brand": "workspace:*",
-    "@gatopago/environment": "workspace:*",
-    "@gatopago/shared": "workspace:*",
+    "@gatopago/brand": "file:vendor/gatopago-brand-3.1.0.tgz",
+    "@gatopago/environment": "file:vendor/gatopago-environment-3.1.0.tgz",
+    "@gatopago/shared": "file:vendor/gatopago-shared-3.1.0.tgz",
     "firebase": "12.18.0",
     "jsqr": "1.4.0",
     "next": "16.3.4",
@@ -48,7 +50,7 @@
     "typescript-eslint": "^8.67.0",
     "viem": "2.55.19",
     "vitest": "4.1.11",
-    "@gatopago/test-fixtures": "workspace:*",
-    "gatopago-wallet-core": "workspace:*"
+    "@gatopago/test-fixtures": "file:vendor/gatopago-test-fixtures-3.1.0.tgz",
+    "@simplewebauthn/server": "13.3.2"
   }
 }
