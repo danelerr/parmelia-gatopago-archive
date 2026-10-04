@@ -1,5 +1,0 @@
-*.puml text eol=lf
-*.svg text eol=lf
-contracts/src/v3/** text eol=lf
-contracts/test/AccountV3*.sol text eol=lf
-contracts/dependency-integrity.json text eol=lf

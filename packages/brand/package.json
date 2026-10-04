@@ -1,7 +1,0 @@
-{
-  "name": "@gatopago/brand",
-  "version": "3.1.0",
-  "files": ["meli/*.webp"],
-  "private": true,
-  "exports": { "./meli/*": "./meli/*" }
-}

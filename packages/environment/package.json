@@ -1,9 +1,0 @@
-{
-  "name": "@gatopago/environment",
-  "private": true,
-  "version": "3.1.0",
-  "files": ["index.ts", "environments.json"],
-  "type": "module",
-  "exports": { ".": "./index.ts", "./environments.json": "./environments.json" },
-  "dependencies": { "@gatopago/shared": "3.1.0" }
-}
